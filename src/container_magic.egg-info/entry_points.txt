@@ -1,0 +1,3 @@
+[console_scripts]
+cm = container_magic.cli.main:main
+run = container_magic.cli.main:run_main
