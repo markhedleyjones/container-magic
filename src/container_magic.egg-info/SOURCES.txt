@@ -19,3 +19,4 @@ src/container_magic/generators/dockerfile.py
 src/container_magic/generators/justfile.py
 src/container_magic/templates/Dockerfile.j2
 src/container_magic/templates/Justfile.j2
+src/container_magic/templates/custom_command.j2

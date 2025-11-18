@@ -1,0 +1,81 @@
+{% if description %}# {{ description }}
+{% endif %}{{ command_name }}{% for arg_name in args.keys() %} {{ arg_name }}{% endfor %}:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    {% if args %}
+    # Validate input arguments (readonly=true)
+    {% for arg_name, arg_spec in args.items() %}
+    {% if arg_spec.type in ["file", "directory"] and arg_spec.readonly %}
+    if [[ ! -e "{{ '{{' }}{{ arg_name }}{{ '}}' }}" ]]; then
+        echo "Error: {{ arg_name }} does not exist: {{ '{{' }}{{ arg_name }}{{ '}}' }}"
+        exit 1
+    fi
+    {% if arg_spec.type == "file" %}
+    if [[ ! -f "{{ '{{' }}{{ arg_name }}{{ '}}' }}" ]]; then
+        echo "Error: {{ arg_name }} is not a file: {{ '{{' }}{{ arg_name }}{{ '}}' }}"
+        exit 1
+    fi
+    {% elif arg_spec.type == "directory" %}
+    if [[ ! -d "{{ '{{' }}{{ arg_name }}{{ '}}' }}" ]]; then
+        echo "Error: {{ arg_name }} is not a directory: {{ '{{' }}{{ arg_name }}{{ '}}' }}"
+        exit 1
+    fi
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+
+    {% endif %}
+    # Build container arguments
+    RUN_ARGS=()
+    RUN_ARGS+=("{{ runtime }}" "run")
+    RUN_ARGS+=("--rm")
+
+    # Interactive mode detection
+    if [[ -t 0 ]]; then
+        RUN_ARGS+=("--interactive" "--tty")
+    fi
+
+    {% if runtime == "podman" %}
+    RUN_ARGS+=("--userns=keep-id")
+    {% endif %}
+
+    {% for arg_name, arg_spec in args.items() %}
+    {% if arg_spec.type in ["file", "directory"] and arg_spec.mount_as %}
+    # Mount {{ arg_name }}
+    {% if arg_spec.readonly %}
+    RUN_ARGS+=("-v" "{{ '{{' }}{{ arg_name }}{{ '}}' }}:{{ arg_spec.mount_as }}:ro,z")
+    {% else %}
+    # Ensure parent directory exists for output
+    mkdir -p "$(dirname "{{ '{{' }}{{ arg_name }}{{ '}}' }}")"
+    RUN_ARGS+=("-v" "{{ '{{' }}{{ arg_name }}{{ '}}' }}:{{ arg_spec.mount_as }}:rw,z")
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+
+    {% if env %}
+    # Environment variables
+    {% for key, value in env.items() %}
+    RUN_ARGS+=("-e" "{{ key }}={{ value }}")
+    {% endfor %}
+    {% endif %}
+
+    # Image
+    RUN_ARGS+=("{{ image_name }}:{{ image_tag }}")
+
+    # Command with substituted arguments
+    RUN_ARGS+=("{{ shell }}" "-c")
+    COMMAND="{{ command }}"
+    {% for arg_name, arg_spec in args.items() %}
+    {% if arg_spec.mount_as %}
+    # Substitute {{ arg_name }} with container path
+    COMMAND="${COMMAND//{{ '{' }}{{ arg_name }}{{ '}' }}/{{ arg_spec.mount_as }}}"
+    {% else %}
+    # Substitute {{ arg_name }} with actual value
+    COMMAND="${COMMAND//{{ '{' }}{{ arg_name }}{{ '}' }}/{{ '{{' }}{{ arg_name }}{{ '}}' }}}"
+    {% endif %}
+    {% endfor %}
+    RUN_ARGS+=("${COMMAND}")
+
+    # Execute
+    "${RUN_ARGS[@]}"

@@ -1,7 +1,7 @@
 """Configuration schema and validation for container-magic."""
 
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -69,6 +69,35 @@ class ProductionConfig(BaseModel):
     entrypoint: Optional[str] = Field(default=None, description="Container entrypoint")
 
 
+class CommandArgument(BaseModel):
+    """Command argument definition."""
+
+    type: Literal["file", "directory", "string", "int", "float"] = Field(
+        description="Argument type"
+    )
+    mount_as: Optional[str] = Field(
+        default=None, description="Container path to mount file/directory arguments"
+    )
+    readonly: bool = Field(
+        default=True, description="Mount as read-only (for file/directory types)"
+    )
+    default: Optional[Any] = Field(default=None, description="Default value")
+    description: Optional[str] = Field(default=None, description="Argument description")
+
+
+class CustomCommand(BaseModel):
+    """Custom command definition."""
+
+    command: str = Field(description="Command template with {arg_name} placeholders")
+    args: dict[str, CommandArgument] = Field(
+        default_factory=dict, description="Command arguments"
+    )
+    description: Optional[str] = Field(default=None, description="Command description")
+    env: dict[str, str] = Field(
+        default_factory=dict, description="Environment variables"
+    )
+
+
 class ContainerMagicConfig(BaseModel):
     """Complete container-magic configuration."""
 
@@ -77,6 +106,9 @@ class ContainerMagicConfig(BaseModel):
     template: TemplateConfig
     development: DevelopmentConfig = Field(default_factory=DevelopmentConfig)
     production: ProductionConfig = Field(default_factory=ProductionConfig)
+    commands: dict[str, CustomCommand] = Field(
+        default_factory=dict, description="Custom command definitions"
+    )
 
     @classmethod
     def from_yaml(cls, path: Path) -> "ContainerMagicConfig":

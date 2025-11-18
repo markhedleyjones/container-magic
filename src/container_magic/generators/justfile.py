@@ -64,5 +64,25 @@ def generate_justfile(
         features=features,
     )
 
+    # Generate custom commands if defined
+    custom_commands_content = ""
+    if config.commands:
+        command_template = env.get_template("custom_command.j2")
+        for command_name, command_spec in config.commands.items():
+            custom_commands_content += "\n" + command_template.render(
+                command_name=command_name,
+                description=command_spec.description,
+                command=command_spec.command,
+                args=command_spec.args,
+                env=command_spec.env,
+                runtime=runtime.value,
+                image_name=config.project.name,
+                image_tag="development",
+                shell=shell,
+            )
+
     with open(output_path, "w") as f:
         f.write(justfile_content)
+        if custom_commands_content:
+            f.write("\n# Custom Commands\n")
+            f.write(custom_commands_content)
