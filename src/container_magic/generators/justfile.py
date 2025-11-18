@@ -75,6 +75,7 @@ def generate_justfile(
                 command=command_spec.command,
                 args=command_spec.args,
                 env=command_spec.env,
+                allow_extra_args=command_spec.allow_extra_args,
                 runtime=runtime.value,
                 image_name=config.project.name,
                 image_tag="development",

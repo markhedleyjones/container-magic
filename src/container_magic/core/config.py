@@ -96,6 +96,10 @@ class CustomCommand(BaseModel):
     env: dict[str, str] = Field(
         default_factory=dict, description="Environment variables"
     )
+    allow_extra_args: bool = Field(
+        default=False,
+        description="Allow passing extra arguments after defined args (appended to command)",
+    )
 
 
 class ContainerMagicConfig(BaseModel):

@@ -1,5 +1,5 @@
 {% if description %}# {{ description }}
-{% endif %}{{ command_name }}{% for arg_name in args.keys() %} {{ arg_name }}{% endfor %}:
+{% endif %}{{ command_name }}{% for arg_name in args.keys() %} {{ arg_name }}{% endfor %}{% if allow_extra_args %} *args{% endif %}:
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -75,6 +75,13 @@
     COMMAND="${COMMAND//{{ '{' }}{{ arg_name }}{{ '}' }}/{{ '{{' }}{{ arg_name }}{{ '}}' }}}"
     {% endif %}
     {% endfor %}
+    {% if allow_extra_args %}
+    # Append extra arguments
+    EXTRA_ARGS="{{ '{{args}}' }}"
+    if [[ -n "${EXTRA_ARGS}" ]]; then
+        COMMAND="${COMMAND} ${EXTRA_ARGS}"
+    fi
+    {% endif %}
     RUN_ARGS+=("${COMMAND}")
 
     # Execute
