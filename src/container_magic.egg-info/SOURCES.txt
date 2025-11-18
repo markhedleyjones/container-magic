@@ -13,6 +13,7 @@ src/container_magic/cli/main.py
 src/container_magic/core/__init__.py
 src/container_magic/core/config.py
 src/container_magic/core/runtime.py
+src/container_magic/core/templates.py
 src/container_magic/generators/__init__.py
 src/container_magic/generators/dockerfile.py
 src/container_magic/generators/justfile.py

@@ -7,6 +7,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.core.runtime import get_runtime
+from container_magic.core.templates import detect_shell
 
 
 def calculate_config_hash(config_path: Path) -> str:
@@ -41,6 +42,9 @@ def generate_justfile(
     # Determine runtime
     runtime = get_runtime(config.runtime.backend)
 
+    # Auto-detect shell if not specified in development config
+    shell = config.development.shell or detect_shell(config.template.base)
+
     # Build feature flags for run command
     features = {
         "display": "display" in config.development.features,
@@ -56,7 +60,7 @@ def generate_justfile(
         runtime=runtime.value,
         privileged=config.runtime.privileged,
         mount_workspace=config.development.mount_workspace,
-        shell=config.development.shell,
+        shell=shell,
         features=features,
     )
 

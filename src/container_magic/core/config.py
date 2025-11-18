@@ -39,6 +39,12 @@ class TemplateConfig(BaseModel):
 
     base: str = Field(description="Base Docker image")
     packages: PackagesConfig = Field(default_factory=PackagesConfig)
+    package_manager: Optional[Literal["apt", "apk", "dnf"]] = Field(
+        default=None, description="Package manager (auto-detected if not specified)"
+    )
+    shell: Optional[str] = Field(
+        default=None, description="Default shell (auto-detected if not specified)"
+    )
 
 
 class DevelopmentConfig(BaseModel):
@@ -47,7 +53,10 @@ class DevelopmentConfig(BaseModel):
     mount_workspace: bool = Field(
         default=True, description="Mount workspace directory into container"
     )
-    shell: str = Field(default="/bin/bash", description="Shell to use in container")
+    shell: Optional[str] = Field(
+        default=None,
+        description="Shell to use in container (auto-detected if not specified)",
+    )
     features: list[Literal["display", "gpu", "audio", "aws_credentials"]] = Field(
         default_factory=list, description="Features to enable"
     )

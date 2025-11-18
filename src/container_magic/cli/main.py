@@ -49,7 +49,7 @@ def init(template: str, name: str, path: Path | None):
         project={"name": name, "workspace": "workspace"},
         template={
             "base": f"{template}:latest"
-            if template in ["python", "ubuntu", "debian"]
+            if template in ["python", "ubuntu", "debian", "alpine"]
             else template
         },
     )
