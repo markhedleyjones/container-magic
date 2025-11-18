@@ -51,6 +51,14 @@ run *args: _check-config
     CONTAINER_NAME="{{ project_name }}-development"
     IMAGE="{{ project_name }}:development"
 
+    # Check if image exists
+    if ! {{ runtime }} image inspect "${IMAGE}" >/dev/null 2>&1; then
+        echo "Error: Image ${IMAGE} not found"
+        echo "Build it first with: just build"
+        echo "                 or: cm build"
+        exit 1
+    fi
+
     # Build run arguments
     RUN_ARGS=()
     RUN_ARGS+=("{{ runtime }}" "run")
