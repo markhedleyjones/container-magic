@@ -40,6 +40,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
         base_image=config.template.base,
         apt_packages=config.template.packages.apt,
         pip_packages=config.template.packages.pip,
+        build_steps=config.template.build_steps,
         workspace_name=config.project.workspace,
         production_user=config.production.user,
         production_entrypoint=config.production.entrypoint,

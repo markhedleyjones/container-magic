@@ -107,6 +107,12 @@ template:
   packages:
     apt: [git, curl, build-essential]
     pip: [numpy, pandas, matplotlib]
+  build_steps:
+    # Custom RUN commands executed after package installation
+    - mkdir -p /app/models
+    - |
+      curl -o /app/models/data.tar.gz https://example.com/models.tar.gz && \
+      tar -xzf /app/models/data.tar.gz -C /app/models
 
 development:
   mount_workspace: true

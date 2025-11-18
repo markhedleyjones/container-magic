@@ -29,6 +29,11 @@ RUN pip install --no-cache-dir{% for package in pip_packages %} \
         {{ package }}{% endfor %}
 {% endif %}
 
+# Custom build steps
+{% for step in build_steps %}
+RUN {{ step }}
+{% endfor %}
+
 # Create user account
 ARG USER_GID=1000
 ARG USER_UID=1000

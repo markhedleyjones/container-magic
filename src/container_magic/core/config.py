@@ -45,6 +45,10 @@ class TemplateConfig(BaseModel):
     shell: Optional[str] = Field(
         default=None, description="Default shell (auto-detected if not specified)"
     )
+    build_steps: list[str] = Field(
+        default_factory=list,
+        description="Custom RUN commands to execute after package installation",
+    )
 
 
 class DevelopmentConfig(BaseModel):
