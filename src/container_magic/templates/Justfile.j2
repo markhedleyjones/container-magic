@@ -141,9 +141,10 @@ run *args: _check-config
     RUN_ARGS+=("${IMAGE}")
 
     # Execute command or shell
-    # Note: Just passes args as: $1, $2, etc. We check if $1 is set
-    if [[ -n "${1:-}" ]]; then
-        RUN_ARGS+=("{{ shell }}" "-c" "$*")
+    # Note: Just passes args via {{ '{{args}}' }}, we check if it's non-empty
+    COMMAND="{{ '{{args}}' }}"
+    if [[ -n "${COMMAND}" ]]; then
+        RUN_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
     else
         RUN_ARGS+=("{{ shell }}")
     fi
@@ -158,8 +159,8 @@ run *args: _check-config
             EXEC_ARGS+=("--interactive" "--tty")
         fi
         EXEC_ARGS+=("${CONTAINER_NAME}")
-        if [[ -n "${1:-}" ]]; then
-            EXEC_ARGS+=("{{ shell }}" "-c" "$*")
+        if [[ -n "${COMMAND}" ]]; then
+            EXEC_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
         else
             EXEC_ARGS+=("{{ shell }}")
         fi
