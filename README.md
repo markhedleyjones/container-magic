@@ -1,2 +1,236 @@
 # container-magic
-Container development tools
+
+A tool for rapidly creating containerised development environments with a focus on simplicity and portability. Configure once in YAML, use anywhere with Docker or Podman.
+
+This tool might be useful if you:
+1. Want consistent, reproducible development environments across projects
+2. Are tired of manually writing Dockerfiles and docker run commands
+3. Work across multiple container-based repositories and want a unified workflow
+4. Need smart handling of display (X11/Wayland), GPU, and workspace mounting
+
+## Features
+
+* **YAML-driven configuration** - Single source of truth for your entire container setup
+* **Smart `run` command** - Seamlessly execute code in containers with automatic workspace mounting, GPU, and display support
+* **Generated artifacts** - Produces Dockerfile and Justfile that work without container-magic installed
+* **Template system** - Start new projects instantly with proven templates (Python, Ubuntu, Debian, ROS, etc.)
+* **Docker and Podman support** - Automatically detects and works with either container runtime
+* **Development/Production builds** - Separate targets optimised for each use case
+
+## Quick Start
+
+### Installation
+
+```bash
+pip install container-magic
+```
+
+This installs two commands:
+- `cm` - Main container-magic CLI
+- `run` - Quick command execution (docker-bbq style)
+
+### Create a New Project
+
+```bash
+# Initialize from template
+cm init python my-analytics-project
+cd my-analytics-project
+
+# Edit configuration
+vim container-magic.yaml
+
+# Build and run
+cm build
+cm run python analyze.py
+
+# Or use the quick 'run' command
+run python analyze.py
+```
+
+### Clone an Existing Project
+
+Projects using container-magic work without installing it:
+
+```bash
+git clone https://github.com/user/awesome-project
+cd awesome-project
+
+# Just works (Dockerfile and Justfile are committed)
+just build
+just run python main.py
+```
+
+## How It Works
+
+Container-magic uses YAML as the single source of truth and generates two files:
+
+1. **Dockerfile** - Multi-stage build with all your dependencies
+2. **Justfile** - Task definitions for building and running containers
+
+These generated files are **committed to git**, making your project usable by anyone with `just` and `docker`/`podman` installed, even without container-magic.
+
+### Basic Workflow
+
+```
+container-magic.yaml  ──┐
+  (source of truth)     │
+                        ├─> cm init/update ──> Dockerfile (generated)
+                        │                  ──> Justfile (generated)
+                        │                       │
+                        │                       ├─> just build
+                        │                       ├─> just run
+                        │                       └─> just shell
+                        │
+                        └─> cm build/run/shell (uses just internally)
+```
+
+## Configuration
+
+Example `container-magic.yaml`:
+
+```yaml
+project:
+  name: my-project
+  workspace: workspace
+
+runtime:
+  backend: auto  # docker, podman, or auto
+  privileged: false
+
+template:
+  base: python:3-slim
+  packages:
+    apt: [git, curl, build-essential]
+    pip: [numpy, pandas, matplotlib]
+
+development:
+  mount_workspace: true
+  shell: /bin/bash
+  features:
+    - display    # X11/Wayland support
+    - gpu        # NVIDIA GPU access
+    - audio      # PulseAudio/PipeWire
+
+production:
+  user: nonroot
+  entrypoint: /workspace/main.py
+```
+
+When you run `cm build` or `cm update`, this generates a Dockerfile and Justfile tailored to your configuration.
+
+## Commands
+
+### Project Management
+
+```bash
+cm init <template> <name>    # Create new project from template
+cm update                    # Regenerate Dockerfile and Justfile from YAML
+cm build                     # Build container image (auto-updates if YAML changed)
+```
+
+### Running Code
+
+```bash
+cm run <command> [args]      # Run command in container
+cm shell                     # Interactive shell in container
+
+# Or use the quick 'run' command (works from anywhere)
+run python script.py
+run ~/repos/my-project/workspace/analyze.py
+```
+
+### Using Just Directly
+
+After `cm init` or `cm update`, you can use `just` commands:
+
+```bash
+just build                   # Build development image
+just run python script.py    # Run command in container
+just shell                   # Interactive shell
+```
+
+## Templates
+
+Available templates (MVP):
+
+- **python** - Python 3 with pip support
+- **ubuntu** - Ubuntu base with apt packages
+- **debian** - Debian slim base
+
+Future templates:
+- **ros** - ROS Noetic
+- **ros2** - ROS 2 Humble/Jazzy
+- **alpine** - Minimal Alpine Linux
+
+## Development vs Production
+
+Container-magic generates multi-stage Dockerfiles with two targets:
+
+**Development mode** (default):
+- Mounts workspace from host (live code editing)
+- Runs as your user (correct file permissions)
+- Includes development tools
+
+**Production mode**:
+- Workspace baked into image
+- Minimal image size
+- Runs as non-root user
+
+```bash
+# Build development image
+cm build
+
+# Build production image
+just build-production
+# or
+docker build --target production-image -t my-project:latest .
+```
+
+## Repository Structure
+
+```
+my-project/
+├── container-magic.yaml      # Configuration (edit this)
+├── Dockerfile                # Generated from YAML (committed)
+├── Justfile                  # Generated from YAML (committed)
+├── workspace/                # Your code goes here
+│   └── main.py
+└── .gitignore
+```
+
+## Architecture
+
+Container-magic is built with:
+- **Python** - Core CLI tool
+- **YAML** - Configuration format
+- **Jinja2** - Template engine for generating Dockerfiles and Justfiles
+- **Just** - Task runner for daily workflow
+- **Docker/Podman** - Container runtimes (auto-detected)
+
+The tool acts as a "compiler" that transforms declarative YAML configuration into executable artifacts (Dockerfile + Justfile). Once generated, projects are self-contained and don't require container-magic for daily use.
+
+## Design Philosophy
+
+1. **YAML as source of truth** - All configuration in one place
+2. **Generate, don't abstract** - Produce readable Dockerfiles and Justfiles you can inspect and modify
+3. **Standalone after generation** - Projects work without container-magic installed
+4. **Auto-sync** - Regenerate when configuration changes, warn if out of sync
+5. **Familiar workflow** - `run` command works like docker-bbq for quick execution
+
+## Comparison with Docker-BBQ
+
+Container-magic is the successor to [docker-bbq](https://github.com/markhedleyjones/docker-bbq) with these improvements:
+
+- **YAML configuration** instead of scattered Makefile variables and .docker-bbq files
+- **Python-based** instead of shell scripts (better error handling, testing, extensibility)
+- **Just integration** instead of Make (more powerful, cross-platform)
+- **Generated artifacts** are committed (reviewable in PRs, works without cm installed)
+- **Validation** of configuration with helpful error messages
+
+## Contributing
+
+Container-magic is in early development. Contributions, ideas, and feedback welcome!
+
+## License
+
+MIT License
