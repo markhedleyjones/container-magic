@@ -56,7 +56,6 @@ run *args: _check-config
     RUN_ARGS+=("{{ runtime }}" "run")
     RUN_ARGS+=("--name" "${CONTAINER_NAME}")
     RUN_ARGS+=("--rm")
-    RUN_ARGS+=("--pull=never")
     RUN_ARGS+=("--net" "host")
 
     {% if runtime == "podman" %}
@@ -142,7 +141,8 @@ run *args: _check-config
     RUN_ARGS+=("${IMAGE}")
 
     # Execute command or shell
-    if [[ $# -gt 0 ]]; then
+    # Note: Just passes args as: $1, $2, etc. We check if $1 is set
+    if [[ -n "${1:-}" ]]; then
         RUN_ARGS+=("{{ shell }}" "-c" "$*")
     else
         RUN_ARGS+=("{{ shell }}")
@@ -158,7 +158,7 @@ run *args: _check-config
             EXEC_ARGS+=("--interactive" "--tty")
         fi
         EXEC_ARGS+=("${CONTAINER_NAME}")
-        if [[ $# -gt 0 ]]; then
+        if [[ -n "${1:-}" ]]; then
             EXEC_ARGS+=("{{ shell }}" "-c" "$*")
         else
             EXEC_ARGS+=("{{ shell }}")
