@@ -10,31 +10,23 @@ FROM ${BASE_IMAGE} AS base
 {% if apt_packages %}
 {% if package_manager == "apt" %}
 RUN apt-get update && \
-    apt-get install --yes --no-install-recommends \
-{%- for package in apt_packages %}
-        {{ package }}{{ " \\" if not loop.last else "" }}
-{%- endfor %} && \
+    apt-get install --yes --no-install-recommends{% for package in apt_packages %} \
+        {{ package }}{% endfor %} && \
     rm -rf /var/lib/apt/lists/*
 {% elif package_manager == "apk" %}
-RUN apk add --no-cache \
-{%- for package in apt_packages %}
-        {{ package }}{{ " \\" if not loop.last else "" }}
-{%- endfor %}
+RUN apk add --no-cache{% for package in apt_packages %} \
+        {{ package }}{% endfor %}
 {% elif package_manager == "dnf" %}
-RUN dnf install -y \
-{%- for package in apt_packages %}
-        {{ package }}{{ " \\" if not loop.last else "" }}
-{%- endfor %} && \
+RUN dnf install -y{% for package in apt_packages %} \
+        {{ package }}{% endfor %} && \
     dnf clean all
 {% endif %}
 {% endif %}
 
 # Install Python pip packages
 {% if pip_packages %}
-RUN pip install --no-cache-dir \
-{%- for package in pip_packages %}
-        {{ package }}{{ " \\" if not loop.last else "" }}
-{%- endfor %}
+RUN pip install --no-cache-dir{% for package in pip_packages %} \
+        {{ package }}{% endfor %}
 {% endif %}
 
 # Create user account
