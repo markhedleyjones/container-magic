@@ -8,8 +8,10 @@ import click
 
 from container_magic import __version__
 from container_magic.core.config import ContainerMagicConfig
+from container_magic.generators.build_script import generate_build_script
 from container_magic.generators.dockerfile import generate_dockerfile
 from container_magic.generators.justfile import generate_justfile
+from container_magic.generators.run_script import generate_run_script
 
 
 @click.group()
@@ -60,9 +62,11 @@ def init(template: str, name: str, path: Path | None):
     # Create workspace directory
     (path / "workspace").mkdir()
 
-    # Generate Dockerfile and Justfile
+    # Generate Dockerfile, Justfile, and standalone scripts
     generate_dockerfile(config, path / "Dockerfile")
     generate_justfile(config, config_path, path / "Justfile")
+    generate_build_script(config, path)
+    generate_run_script(config, path)
 
     # Create .gitignore
     gitignore_content = """# Container-magic generated files are committed
@@ -81,7 +85,7 @@ def init(template: str, name: str, path: Path | None):
     "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
 )
 def update(path: Path):
-    """Regenerate Dockerfile and Justfile from container-magic.yaml."""
+    """Regenerate all files from container-magic.yaml."""
     config_path = path / "container-magic.yaml"
 
     if not config_path.exists():
@@ -90,16 +94,27 @@ def update(path: Path):
         )
         sys.exit(1)
 
-    click.echo("Regenerating Dockerfile and Justfile...")
+    click.echo("Regenerating files from configuration...")
 
     # Load config
     config = ContainerMagicConfig.from_yaml(config_path)
 
-    # Generate Dockerfile and Justfile
+    # Generate all files
     generate_dockerfile(config, path / "Dockerfile")
     generate_justfile(config, config_path, path / "Justfile")
+    generate_build_script(config, path)
+    generate_run_script(config, path)
 
     click.echo("✓ Regenerated successfully")
+
+
+@cli.command()
+@click.option(
+    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
+)
+def generate(path: Path):
+    """Regenerate all files from container-magic.yaml (alias for update)."""
+    update.callback(path)
 
 
 @cli.command()

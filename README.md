@@ -12,10 +12,11 @@ This tool might be useful if you:
 
 * **YAML-driven configuration** - Single source of truth for your entire container setup
 * **Smart `run` command** - Seamlessly execute code in containers with automatic workspace mounting, GPU, and display support
-* **Generated artifacts** - Produces Dockerfile and Justfile that work without container-magic installed
+* **Generated artifacts** - Produces Dockerfile, Justfile, and standalone scripts that work without container-magic installed
 * **Template system** - Start new projects instantly with proven templates (Python, Ubuntu, Debian, ROS, etc.)
 * **Docker and Podman support** - Automatically detects and works with either container runtime
-* **Development/Production builds** - Separate targets optimised for each use case
+* **Development/Production builds** - Separate workflows optimised for each use case
+* **Standalone production scripts** - Generated `build.sh` and `run.sh` work with no dependencies
 
 ## Quick Start
 
@@ -62,26 +63,30 @@ just run python main.py
 
 ## How It Works
 
-Container-magic uses YAML as the single source of truth and generates two files:
+Container-magic uses YAML as the single source of truth and generates four files:
 
 1. **Dockerfile** - Multi-stage build with all your dependencies
-2. **Justfile** - Task definitions for building and running containers
+2. **Justfile** - Task definitions for development workflow
+3. **build.sh** - Standalone production build script
+4. **run.sh** - Standalone production run script
 
-These generated files are **committed to git**, making your project usable by anyone with `just` and `docker`/`podman` installed, even without container-magic.
+These generated files are **committed to git**, making your project usable by anyone with `docker`/`podman` installed, even without container-magic.
 
 ### Basic Workflow
 
 ```
 container-magic.yaml  ──┐
   (source of truth)     │
-                        ├─> cm init/update ──> Dockerfile (generated)
-                        │                  ──> Justfile (generated)
-                        │                       │
-                        │                       ├─> just build
-                        │                       ├─> just run
-                        │                       └─> just shell
+                        ├─> cm init/update/generate
                         │
-                        └─> cm build/run/shell (uses just internally)
+                        ├─> Dockerfile (generated)
+                        ├─> Justfile (generated, for development)
+                        │   ├─> just build
+                        │   ├─> just run
+                        │   └─> just shell
+                        │
+                        ├─> build.sh (generated, for production)
+                        └─> run.sh (generated, for production)
 ```
 
 ## Configuration
@@ -116,7 +121,7 @@ production:
   entrypoint: /workspace/main.py
 ```
 
-When you run `cm build` or `cm update`, this generates a Dockerfile and Justfile tailored to your configuration.
+When you run `cm build` or `cm update`, this generates a Dockerfile, Justfile, and standalone scripts tailored to your configuration.
 
 ## Commands
 
@@ -124,7 +129,8 @@ When you run `cm build` or `cm update`, this generates a Dockerfile and Justfile
 
 ```bash
 cm init <template> <name>    # Create new project from template
-cm update                    # Regenerate Dockerfile and Justfile from YAML
+cm update                    # Regenerate all files from YAML
+cm generate                  # Alias for cm update
 cm build                     # Build container image (auto-updates if YAML changed)
 ```
 
@@ -164,27 +170,54 @@ Future templates:
 
 ## Development vs Production
 
-Container-magic generates multi-stage Dockerfiles with two targets:
+Container-magic supports two distinct workflows:
 
-**Development mode** (default):
+### Development Workflow
+
+Uses **Just** for rapid iteration with workspace mounting:
+
+```bash
+# Build development image
+just build
+# or
+cm build
+
+# Run commands with live code mounting
+just run python script.py
+cm run python script.py
+
+# Interactive shell
+just shell
+cm shell
+```
+
+**Development mode**:
 - Mounts workspace from host (live code editing)
 - Runs as your user (correct file permissions)
 - Includes development tools
+- Requires `just` installed
+
+### Production Workflow
+
+Uses **standalone scripts** that work without any dependencies:
+
+```bash
+# Build production image (no cm or just needed)
+./build.sh
+
+# Run production container (no cm or just needed)
+./run.sh python script.py
+./run.sh                    # Interactive shell
+```
 
 **Production mode**:
 - Workspace baked into image
 - Minimal image size
 - Runs as non-root user
+- Only requires `docker` or `podman`
+- Scripts can be committed and used anywhere
 
-```bash
-# Build development image
-cm build
-
-# Build production image
-just build-production
-# or
-docker build --target production-image -t my-project:latest .
-```
+The standalone scripts (`build.sh` and `run.sh`) are generated by container-magic but have zero dependencies once created. This means you can distribute your project and users can build and run it without installing container-magic or just.
 
 ## Repository Structure
 
@@ -192,7 +225,9 @@ docker build --target production-image -t my-project:latest .
 my-project/
 ├── container-magic.yaml      # Configuration (edit this)
 ├── Dockerfile                # Generated from YAML (committed)
-├── Justfile                  # Generated from YAML (committed)
+├── Justfile                  # Generated from YAML (committed, for dev)
+├── build.sh                  # Generated from YAML (committed, for prod)
+├── run.sh                    # Generated from YAML (committed, for prod)
 ├── workspace/                # Your code goes here
 │   └── main.py
 └── .gitignore
@@ -207,15 +242,15 @@ Container-magic is built with:
 - **Just** - Task runner for daily workflow
 - **Docker/Podman** - Container runtimes (auto-detected)
 
-The tool acts as a "compiler" that transforms declarative YAML configuration into executable artifacts (Dockerfile + Justfile). Once generated, projects are self-contained and don't require container-magic for daily use.
+The tool acts as a "compiler" that transforms declarative YAML configuration into executable artifacts (Dockerfile, Justfile, build.sh, run.sh). Once generated, projects are self-contained and don't require container-magic for daily use.
 
 ## Design Philosophy
 
 1. **YAML as source of truth** - All configuration in one place
-2. **Generate, don't abstract** - Produce readable Dockerfiles and Justfiles you can inspect and modify
-3. **Standalone after generation** - Projects work without container-magic installed
+2. **Generate, don't abstract** - Produce readable files you can inspect and modify
+3. **Standalone after generation** - Development uses just, production uses zero dependencies
 4. **Auto-sync** - Regenerate when configuration changes, warn if out of sync
-5. **Familiar workflow** - `run` command works like docker-bbq for quick execution
+5. **Clear dev/prod separation** - Different tools for different workflows
 
 ## Comparison with Docker-BBQ
 
