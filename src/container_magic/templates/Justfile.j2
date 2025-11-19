@@ -27,7 +27,7 @@ _check-config:
 # Build development image
 build: _check-config
     {{runtime}} build \
-        --target development-image \
+        --target {{ dev_stage }} \
         --build-arg USER_GID=$(id --group) \
         --build-arg USER_UID=$(id --user) \
         --build-arg USER_NAME=$(id --user --name) \
@@ -35,10 +35,10 @@ build: _check-config
         --tag {{ project_name }}:development \
         .
 
-# Build production image
+# Build production image (if production stage exists)
 build-production: _check-config
     {{runtime}} build \
-        --target production-image \
+        --target production \
         --tag {{ project_name }}:latest \
         .
 

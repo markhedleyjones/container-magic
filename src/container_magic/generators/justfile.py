@@ -42,8 +42,17 @@ def generate_justfile(
     # Determine runtime
     runtime = get_runtime(config.runtime.backend)
 
-    # Auto-detect shell if not specified in development config
-    shell = config.development.shell or detect_shell(config.template.base)
+    # Determine which stage to use for development
+    # Prefer "development" stage if it exists, otherwise use "base"
+    dev_stage = "development" if "development" in config.stages else "base"
+    dev_stage_config = config.stages[dev_stage]
+
+    # Auto-detect shell if not specified in development config or stage
+    shell = (
+        config.development.shell
+        or dev_stage_config.shell
+        or detect_shell(dev_stage_config.frm)
+    )
 
     # Build feature flags for run command
     features = {
@@ -62,6 +71,7 @@ def generate_justfile(
         mount_workspace=config.development.mount_workspace,
         shell=shell,
         features=features,
+        dev_stage=dev_stage,
     )
 
     # Generate custom commands if defined
