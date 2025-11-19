@@ -6,11 +6,8 @@
 ARG BASE_IMAGE={{ base_image }}
 FROM ${BASE_IMAGE} AS base
 
-# Custom build steps (before packages)
-{% for step in build_steps_before_packages %}
-RUN {{ step }}
-{% endfor %}
-
+{% for step in ordered_steps %}
+{% if step.type == "system_packages" %}
 # Install system packages
 {% if apt_packages %}
 {% if package_manager == "apt" %}
@@ -28,17 +25,14 @@ RUN dnf install -y{% for package in apt_packages %} \
 {% endif %}
 {% endif %}
 
+{% elif step.type == "pip_packages" %}
 # Install Python pip packages
 {% if pip_packages %}
 RUN pip install --no-cache-dir{% for package in pip_packages %} \
         {{ package }}{% endfor %}
 {% endif %}
 
-# Custom build steps (after packages)
-{% for step in build_steps_after_packages %}
-RUN {{ step }}
-{% endfor %}
-
+{% elif step.type == "user" %}
 # Create user account
 ARG USER_GID=1000
 ARG USER_UID=1000
@@ -55,9 +49,9 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
     fi
 {% endif %}
 
-# Custom build steps (after user creation)
-{% for step in build_steps_after_user %}
-RUN {{ step }}
+{% elif step.type == "custom" %}
+RUN {{ step.command }}
+{% endif %}
 {% endfor %}
 
 # Setup workspace

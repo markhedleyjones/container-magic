@@ -34,23 +34,6 @@ class PackagesConfig(BaseModel):
     )
 
 
-class BuildStepsConfig(BaseModel):
-    """Custom build steps configuration."""
-
-    before_packages: list[str] = Field(
-        default_factory=list,
-        description="RUN commands executed before package installation",
-    )
-    after_packages: list[str] = Field(
-        default_factory=list,
-        description="RUN commands executed after package installation",
-    )
-    after_user: list[str] = Field(
-        default_factory=list,
-        description="RUN commands executed after user account creation",
-    )
-
-
 class TemplateConfig(BaseModel):
     """Template configuration."""
 
@@ -62,9 +45,9 @@ class TemplateConfig(BaseModel):
     shell: Optional[str] = Field(
         default=None, description="Default shell (auto-detected if not specified)"
     )
-    build_steps: Optional[BuildStepsConfig | list[str]] = Field(
+    build_steps: Optional[list[str]] = Field(
         default=None,
-        description="Custom build steps (dict with phases or list for after_packages)",
+        description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user",
     )
 
 
