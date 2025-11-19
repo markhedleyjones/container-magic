@@ -46,14 +46,15 @@ def init(template: str, name: str, path: Path | None):
     click.echo(f"Creating project at {path}")
     path.mkdir(parents=True)
 
-    # Create default config
+    # Create default config with base stage
+    base_image = (
+        f"{template}:latest"
+        if template in ["python", "ubuntu", "debian", "alpine"]
+        else template
+    )
     config = ContainerMagicConfig(
         project={"name": name, "workspace": "workspace"},
-        template={
-            "base": f"{template}:latest"
-            if template in ["python", "ubuntu", "debian", "alpine"]
-            else template
-        },
+        stages={"base": {"from": base_image}},
     )
 
     config_path = path / "container-magic.yaml"
@@ -137,19 +138,28 @@ def build(path: Path):
     # Load config to check for cached assets
     config = ContainerMagicConfig.from_yaml(config_path)
 
-    # Download cached assets if any are defined
-    if config.template.cached_assets:
-        from container_magic.core.cache import cache_asset
+    # Download cached assets from all stages
+    from container_magic.core.cache import cache_asset
 
-        click.echo("Downloading cached assets...")
-        for asset in config.template.cached_assets:
-            try:
-                asset_dir, asset_file = cache_asset(path, asset.url, asset.dest)
-                if asset_file.exists():
-                    click.echo(f"  ✓ {asset.url} → {asset_file.relative_to(path)}")
-            except Exception as e:
-                click.echo(f"  ✗ Failed to download {asset.url}: {e}", err=True)
-                sys.exit(1)
+    has_assets = False
+    for stage_name, stage_config in config.stages.items():
+        if stage_config.cached_assets:
+            if not has_assets:
+                click.echo("Downloading cached assets...")
+                has_assets = True
+            for asset in stage_config.cached_assets:
+                try:
+                    asset_dir, asset_file = cache_asset(path, asset.url, asset.dest)
+                    if asset_file.exists():
+                        click.echo(
+                            f"  ✓ [{stage_name}] {asset.url} → {asset_file.relative_to(path)}"
+                        )
+                except Exception as e:
+                    click.echo(
+                        f"  ✗ [{stage_name}] Failed to download {asset.url}: {e}",
+                        err=True,
+                    )
+                    sys.exit(1)
 
     # Check if just is available
     if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
