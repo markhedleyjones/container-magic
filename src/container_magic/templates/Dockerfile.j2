@@ -66,7 +66,11 @@ COPY {{ asset.source }} {{ asset.dest }}
 {% endfor %}
 
 {% elif step.type == "custom" %}
+{% if step.command.startswith('COPY ') or step.command.startswith('ADD ') or step.command.startswith('ENV ') or step.command.startswith('WORKDIR ') or step.command.startswith('USER ') or step.command.startswith('LABEL ') or step.command.startswith('EXPOSE ') or step.command.startswith('VOLUME ') %}
+{{ step.command }}
+{% else %}
 RUN {{ step.command }}
+{% endif %}
 {% endif %}
 {% endfor %}
 
