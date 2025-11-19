@@ -41,10 +41,10 @@ class CachedAsset(BaseModel):
     dest: str = Field(description="Destination path in container")
 
 
-class TemplateConfig(BaseModel):
-    """Template configuration."""
+class StageConfig(BaseModel):
+    """Build stage configuration."""
 
-    base: str = Field(description="Base Docker image")
+    frm: str = Field(description="Base image or stage name to build from", alias="from")
     packages: PackagesConfig = Field(default_factory=PackagesConfig)
     package_manager: Optional[Literal["apt", "apk", "dnf"]] = Field(
         default=None, description="Package manager (auto-detected if not specified)"
@@ -63,6 +63,9 @@ class TemplateConfig(BaseModel):
         default=None,
         description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user, copy_cached_assets",
     )
+
+    class Config:
+        populate_by_name = True
 
 
 class DevelopmentConfig(BaseModel):
@@ -125,7 +128,7 @@ class ContainerMagicConfig(BaseModel):
 
     project: ProjectConfig
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
-    template: TemplateConfig
+    stages: dict[str, StageConfig]
     development: DevelopmentConfig = Field(default_factory=DevelopmentConfig)
     production: ProductionConfig = Field(default_factory=ProductionConfig)
     commands: dict[str, CustomCommand] = Field(
