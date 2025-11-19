@@ -108,11 +108,17 @@ template:
     apt: [git, curl, build-essential]
     pip: [numpy, pandas, matplotlib]
   build_steps:
-    # Custom RUN commands executed after package installation
-    - mkdir -p /app/models
-    - |
-      curl -o /app/models/data.tar.gz https://example.com/models.tar.gz && \
-      tar -xzf /app/models/data.tar.gz -C /app/models
+    # Control where custom RUN commands appear in the Dockerfile
+    before_packages:
+      - echo "deb http://custom-repo.example.com/apt stable main" > /etc/apt/sources.list.d/custom.list
+    after_packages:
+      - mkdir -p /app/models
+      - |
+        curl -o /app/models/data.tar.gz https://example.com/models.tar.gz && \
+        tar -xzf /app/models/data.tar.gz -C /app/models
+    after_user:
+      - mkdir -p /home/${USER_NAME}/.config
+      - chown ${USER_UID}:${USER_GID} /home/${USER_NAME}/.config
 
 development:
   mount_workspace: true

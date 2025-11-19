@@ -6,6 +6,11 @@
 ARG BASE_IMAGE={{ base_image }}
 FROM ${BASE_IMAGE} AS base
 
+# Custom build steps (before packages)
+{% for step in build_steps_before_packages %}
+RUN {{ step }}
+{% endfor %}
+
 # Install system packages
 {% if apt_packages %}
 {% if package_manager == "apt" %}
@@ -29,8 +34,8 @@ RUN pip install --no-cache-dir{% for package in pip_packages %} \
         {{ package }}{% endfor %}
 {% endif %}
 
-# Custom build steps
-{% for step in build_steps %}
+# Custom build steps (after packages)
+{% for step in build_steps_after_packages %}
 RUN {{ step }}
 {% endfor %}
 
@@ -49,6 +54,11 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
         useradd --uid ${USER_UID} --gid ${USER_GID} --create-home ${USER_NAME}; \
     fi
 {% endif %}
+
+# Custom build steps (after user creation)
+{% for step in build_steps_after_user %}
+RUN {{ step }}
+{% endfor %}
 
 # Setup workspace
 ARG WORKDIR=/home/${USER_NAME}

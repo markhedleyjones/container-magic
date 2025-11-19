@@ -36,11 +36,24 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
     shell = config.template.shell or detect_shell(config.template.base)
     user_creation_style = detect_user_creation_style(config.template.base)
 
+    # Handle build_steps: can be a list (backward compat) or BuildStepsConfig object
+    from container_magic.core.config import BuildStepsConfig
+
+    if config.template.build_steps is None:
+        build_steps = BuildStepsConfig()
+    elif isinstance(config.template.build_steps, list):
+        # Backward compatibility: treat list as after_packages
+        build_steps = BuildStepsConfig(after_packages=config.template.build_steps)
+    else:
+        build_steps = config.template.build_steps
+
     dockerfile_content = template.render(
         base_image=config.template.base,
         apt_packages=config.template.packages.apt,
         pip_packages=config.template.packages.pip,
-        build_steps=config.template.build_steps,
+        build_steps_before_packages=build_steps.before_packages,
+        build_steps_after_packages=build_steps.after_packages,
+        build_steps_after_user=build_steps.after_user,
         workspace_name=config.project.workspace,
         production_user=config.production.user,
         production_entrypoint=config.production.entrypoint,
