@@ -110,17 +110,17 @@ template:
   env:
     MY_VAR: /path/to/something
     ANOTHER_VAR: value
+  cached_assets:
+    - url: https://example.com/large-model.tar.gz
+      dest: /resources/model.tar.gz
+    - url: https://example.com/data.bin
+      dest: /resources/data.bin
   build_steps:
     # Control the exact order of Dockerfile build steps
-    - echo "deb http://custom-repo.example.com/apt stable main" > /etc/apt/sources.list.d/custom.list
     - install_system_packages
     - install_pip_packages
-    - mkdir -p /opt/models
-    - |
-      curl -o /opt/models/data.tar.gz https://example.com/models.tar.gz && \
-      tar -xzf /opt/models/data.tar.gz -C /opt/models
+    - copy_cached_assets  # Copy assets downloaded to .cm-cache/
     - create_user
-    - mkdir -p /home/${USER_NAME}/.config
 
 development:
   mount_workspace: true

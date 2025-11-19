@@ -56,6 +56,12 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
     fi
 {% endif %}
 
+{% elif step.type == "cached_assets" %}
+# Copy cached assets
+{% for asset in cached_assets %}
+COPY {{ asset.source }} {{ asset.dest }}
+{% endfor %}
+
 {% elif step.type == "custom" %}
 RUN {{ step.command }}
 {% endif %}

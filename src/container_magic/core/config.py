@@ -34,6 +34,13 @@ class PackagesConfig(BaseModel):
     )
 
 
+class CachedAsset(BaseModel):
+    """Cached asset configuration."""
+
+    url: str = Field(description="URL to download asset from")
+    dest: str = Field(description="Destination path in container")
+
+
 class TemplateConfig(BaseModel):
     """Template configuration."""
 
@@ -48,9 +55,13 @@ class TemplateConfig(BaseModel):
     env: dict[str, str] = Field(
         default_factory=dict, description="Environment variables to set in Dockerfile"
     )
+    cached_assets: list[CachedAsset] = Field(
+        default_factory=list,
+        description="Assets to download and cache on host, then copy into image",
+    )
     build_steps: Optional[list[str]] = Field(
         default=None,
-        description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user",
+        description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user, copy_cached_assets",
     )
 
 

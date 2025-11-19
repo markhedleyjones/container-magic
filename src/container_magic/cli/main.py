@@ -71,6 +71,9 @@ def init(template: str, name: str, path: Path | None):
     # Create .gitignore
     gitignore_content = """# Container-magic generated files are committed
 # Add your project-specific ignores below
+
+# Container-magic cache
+.cm-cache/
 """
     (path / ".gitignore").write_text(gitignore_content)
 
@@ -131,6 +134,23 @@ def build(path: Path):
         )
         sys.exit(1)
 
+    # Load config to check for cached assets
+    config = ContainerMagicConfig.from_yaml(config_path)
+
+    # Download cached assets if any are defined
+    if config.template.cached_assets:
+        from container_magic.core.cache import cache_asset
+
+        click.echo("Downloading cached assets...")
+        for asset in config.template.cached_assets:
+            try:
+                asset_dir, asset_file = cache_asset(path, asset.url, asset.dest)
+                if asset_file.exists():
+                    click.echo(f"  ✓ {asset.url} → {asset_file.relative_to(path)}")
+            except Exception as e:
+                click.echo(f"  ✗ Failed to download {asset.url}: {e}", err=True)
+                sys.exit(1)
+
     # Check if just is available
     if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
         click.echo("Error: 'just' command not found. Please install just.", err=True)
@@ -167,6 +187,62 @@ def run(command: tuple[str, ...], path: Path):
         just_args.extend(command)
     result = subprocess.run(just_args, cwd=path)
     sys.exit(result.returncode)
+
+
+@cli.group()
+def cache():
+    """Manage cached assets."""
+    pass
+
+
+@cache.command("clear")
+@click.option(
+    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
+)
+def cache_clear(path: Path):
+    """Clear all cached assets."""
+    from container_magic.core.cache import clear_cache, get_cache_dir
+
+    cache_dir = get_cache_dir(path)
+    if cache_dir.exists():
+        clear_cache(path)
+        click.echo(f"✓ Cleared cache at {cache_dir}")
+    else:
+        click.echo("No cache found")
+
+
+@cache.command("list")
+@click.option(
+    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
+)
+def cache_list(path: Path):
+    """List all cached assets."""
+    from container_magic.core.cache import list_cached_assets
+
+    assets = list_cached_assets(path)
+    if not assets:
+        click.echo("No cached assets found")
+        return
+
+    click.echo(f"Cached assets ({len(assets)}):")
+    for asset in assets:
+        size_mb = asset["size"] / (1024 * 1024)
+        click.echo(f"  • {asset['filename']} ({size_mb:.2f} MB)")
+        click.echo(f"    URL: {asset['url']}")
+        click.echo(f"    Dest: {asset['dest']}")
+        click.echo(f"    Hash: {asset['hash'][:16]}...")
+
+
+@cache.command("path")
+@click.option(
+    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
+)
+def cache_path(path: Path):
+    """Show cache directory path."""
+    from container_magic.core.cache import get_cache_dir
+
+    cache_dir = get_cache_dir(path)
+    click.echo(str(cache_dir))
 
 
 @cli.command()

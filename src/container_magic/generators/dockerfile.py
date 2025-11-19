@@ -48,6 +48,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
 
     # Process build_steps into ordered sections
     ordered_steps = []
+    has_copy_cached_assets = False
     for step in build_steps:
         if step == "install_system_packages":
             ordered_steps.append({"type": "system_packages"})
@@ -55,15 +56,48 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
             ordered_steps.append({"type": "pip_packages"})
         elif step == "create_user":
             ordered_steps.append({"type": "user"})
+        elif step == "copy_cached_assets":
+            ordered_steps.append({"type": "cached_assets"})
+            has_copy_cached_assets = True
         else:
             # Custom RUN command
             ordered_steps.append({"type": "custom", "command": step})
+
+    # Warn if cached_assets defined but copy_cached_assets not in build_steps
+    if config.template.cached_assets and not has_copy_cached_assets:
+        import sys
+
+        print(
+            "⚠️  Warning: cached_assets defined but 'copy_cached_assets' not found in build_steps",
+            file=sys.stderr,
+        )
+        print(
+            "   Assets will be downloaded but not copied into the image.",
+            file=sys.stderr,
+        )
+        print(
+            "   Add 'copy_cached_assets' to your build_steps to use them.",
+            file=sys.stderr,
+        )
+
+    # Prepare cached assets data for template
+    from container_magic.core.cache import get_asset_cache_path
+
+    cached_assets_data = []
+    for asset in config.template.cached_assets:
+        asset_dir, asset_file = get_asset_cache_path(output_path.parent, asset.url)
+        # Store relative path from Dockerfile location to cache
+        rel_path = asset_file.relative_to(output_path.parent)
+        cached_assets_data.append(
+            {"source": str(rel_path), "dest": asset.dest, "url": asset.url}
+        )
 
     dockerfile_content = template.render(
         base_image=config.template.base,
         apt_packages=config.template.packages.apt,
         pip_packages=config.template.packages.pip,
         env_vars=config.template.env,
+        cached_assets=cached_assets_data,
         workspace_name=config.project.workspace,
         production_user=config.production.user,
         production_entrypoint=config.production.entrypoint,
