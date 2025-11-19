@@ -107,6 +107,9 @@ template:
   packages:
     apt: [git, curl, build-essential]
     pip: [numpy, pandas, matplotlib]
+  env:
+    MY_VAR: /path/to/something
+    ANOTHER_VAR: value
   build_steps:
     # Control the exact order of Dockerfile build steps
     - echo "deb http://custom-repo.example.com/apt stable main" > /etc/apt/sources.list.d/custom.list

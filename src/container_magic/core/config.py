@@ -45,6 +45,9 @@ class TemplateConfig(BaseModel):
     shell: Optional[str] = Field(
         default=None, description="Default shell (auto-detected if not specified)"
     )
+    env: dict[str, str] = Field(
+        default_factory=dict, description="Environment variables to set in Dockerfile"
+    )
     build_steps: Optional[list[str]] = Field(
         default=None,
         description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user",

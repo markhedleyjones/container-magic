@@ -6,6 +6,13 @@
 ARG BASE_IMAGE={{ base_image }}
 FROM ${BASE_IMAGE} AS base
 
+{% if env_vars %}
+# Environment variables
+{% for key, value in env_vars.items() %}
+ENV {{ key }}={{ value }}
+{% endfor %}
+
+{% endif %}
 {% for step in ordered_steps %}
 {% if step.type == "system_packages" %}
 # Install system packages
