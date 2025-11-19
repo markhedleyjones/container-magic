@@ -3,30 +3,33 @@
 # You can edit this file, but changes will be lost on next 'cm update'
 # To make permanent changes, edit container-magic.yaml instead
 
-ARG BASE_IMAGE={{ base_image }}
-FROM ${BASE_IMAGE} AS base
+{% for stage in stages %}
+################################################################################
+# Stage: {{ stage.name }}
+################################################################################
+FROM {{ stage.from }} AS {{ stage.name }}
 
-{% if env_vars %}
+{% if stage.env_vars %}
 # Environment variables
-{% for key, value in env_vars.items() %}
+{% for key, value in stage.env_vars.items() %}
 ENV {{ key }}={{ value }}
 {% endfor %}
 
 {% endif %}
-{% for step in ordered_steps %}
+{% for step in stage.ordered_steps %}
 {% if step.type == "system_packages" %}
 # Install system packages
-{% if apt_packages %}
-{% if package_manager == "apt" %}
+{% if stage.apt_packages %}
+{% if stage.package_manager == "apt" %}
 RUN apt-get update && \
-    apt-get install --yes --no-install-recommends{% for package in apt_packages %} \
+    apt-get install --yes --no-install-recommends{% for package in stage.apt_packages %} \
         {{ package }}{% endfor %} && \
     rm -rf /var/lib/apt/lists/*
-{% elif package_manager == "apk" %}
-RUN apk add --no-cache{% for package in apt_packages %} \
+{% elif stage.package_manager == "apk" %}
+RUN apk add --no-cache{% for package in stage.apt_packages %} \
         {{ package }}{% endfor %}
-{% elif package_manager == "dnf" %}
-RUN dnf install -y{% for package in apt_packages %} \
+{% elif stage.package_manager == "dnf" %}
+RUN dnf install -y{% for package in stage.apt_packages %} \
         {{ package }}{% endfor %} && \
     dnf clean all
 {% endif %}
@@ -34,8 +37,8 @@ RUN dnf install -y{% for package in apt_packages %} \
 
 {% elif step.type == "pip_packages" %}
 # Install Python pip packages
-{% if pip_packages %}
-RUN pip install --no-cache-dir{% for package in pip_packages %} \
+{% if stage.pip_packages %}
+RUN pip install --no-cache-dir{% for package in stage.pip_packages %} \
         {{ package }}{% endfor %}
 {% endif %}
 
@@ -44,7 +47,7 @@ RUN pip install --no-cache-dir{% for package in pip_packages %} \
 ARG USER_GID=1000
 ARG USER_UID=1000
 ARG USER_NAME={{ production_user }}
-{% if user_creation_style == "alpine" %}
+{% if stage.user_creation_style == "alpine" %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
         addgroup -g ${USER_GID} ${USER_NAME} && \
         adduser -D -u ${USER_UID} -G ${USER_NAME} ${USER_NAME}; \
@@ -58,7 +61,7 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
 
 {% elif step.type == "cached_assets" %}
 # Copy cached assets
-{% for asset in cached_assets %}
+{% for asset in stage.cached_assets %}
 COPY {{ asset.source }} {{ asset.dest }}
 {% endfor %}
 
@@ -73,28 +76,4 @@ ARG WORKSPACE_NAME={{ workspace_name }}
 ENV WORKSPACE=${WORKDIR}/${WORKSPACE_NAME}
 WORKDIR ${WORKDIR}
 
-################################################################################
-# DEVELOPMENT TARGET - development-friendly image with workspace mounting
-################################################################################
-FROM base AS development-image
-ARG USER_NAME
-USER ${USER_NAME}
-
-################################################################################
-# PRE-PRODUCTION STAGE - transform workspace into production-ready state
-################################################################################
-FROM base AS pre-production
-ARG USER_NAME
-ARG WORKSPACE_NAME
-COPY --chown=${USER_NAME} ${WORKSPACE_NAME} ${WORKSPACE}
-
-################################################################################
-# PRODUCTION TARGET - final self-contained image
-################################################################################
-FROM base AS production-image
-ARG USER_NAME
-COPY --from=pre-production --chown=${USER_NAME} ${WORKSPACE} ${WORKSPACE}
-USER ${USER_NAME}
-{% if production_entrypoint %}
-ENTRYPOINT ["{{ production_entrypoint }}"]
-{% endif %}
+{% endfor %}
