@@ -31,8 +31,10 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     else:
         workdir = f"/home/{production_user}"
 
-    # Determine shell from template or default to bash
-    shell = getattr(config.template, "shell", None) or "bash"
+    # Determine shell from production or base stage
+    prod_stage = "production" if "production" in config.stages else "base"
+    stage_config = config.stages[prod_stage]
+    shell = stage_config.shell or "bash"
 
     content = template.render(
         project_name=config.project.name,

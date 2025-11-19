@@ -18,10 +18,13 @@ def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> No
     env = Environment(loader=PackageLoader("container_magic", "templates"))
     template = env.get_template("build.sh.j2")
 
+    # Use production stage if it exists, otherwise base
+    prod_stage = "production" if "production" in config.stages else "base"
+
     content = template.render(
         project_name=config.project.name,
         workspace_name=config.project.workspace,
-        base_image=config.template.base,
+        production_stage=prod_stage,
         production_user=config.production.user if config.production else "user",
     )
 
