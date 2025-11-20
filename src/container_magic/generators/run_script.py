@@ -6,6 +6,7 @@ from pathlib import Path
 from jinja2 import Environment, PackageLoader
 
 from container_magic.core.config import ContainerMagicConfig
+from container_magic.generators.dockerfile import get_user_config
 
 
 def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None:
@@ -22,7 +23,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     backend = config.runtime.backend if config.runtime else "auto"
 
     # Get production user and workspace info
-    production_user = config.production.user if config.production else "user"
+    production_user = get_user_config(config).name
     workspace_name = config.project.workspace
 
     # Determine workdir based on production user

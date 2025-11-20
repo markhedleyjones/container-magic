@@ -47,28 +47,25 @@ def generate_justfile(
     dev_stage = "development" if "development" in config.stages else "base"
     dev_stage_config = config.stages[dev_stage]
 
-    # Auto-detect shell if not specified in development config or stage
-    shell = (
-        config.development.shell
-        or dev_stage_config.shell
-        or detect_shell(dev_stage_config.frm)
-    )
+    # Auto-detect shell if not specified in stage
+    shell = dev_stage_config.shell or detect_shell(dev_stage_config.frm)
 
     # Build feature flags for run command
     features = {
-        "display": "display" in config.development.features,
-        "gpu": "gpu" in config.development.features,
-        "audio": "audio" in config.development.features,
-        "aws_credentials": "aws_credentials" in config.development.features,
+        "display": "display" in config.runtime.features,
+        "gpu": "gpu" in config.runtime.features,
+        "audio": "audio" in config.runtime.features,
+        "aws_credentials": "aws_credentials" in config.runtime.features,
     }
 
     justfile_content = template.render(
         config_hash=config_hash,
         project_name=config.project.name,
         workspace_name=config.project.workspace,
+        auto_update=config.project.auto_update,
         runtime=runtime.value,
         privileged=config.runtime.privileged,
-        mount_workspace=config.development.mount_workspace,
+        mount_workspace=True,  # Always mount workspace in development
         shell=shell,
         features=features,
         dev_stage=dev_stage,

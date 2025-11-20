@@ -10,7 +10,7 @@ IMAGE_NAME := "{{ project_name }}"
 WORKSPACE_NAME := "{{ workspace_name }}"
 
 # Check if configuration has changed and warn user
-_check-config:
+_check-config force="":
     #!/usr/bin/env bash
     expected="{{ config_hash }}"
     if [ ! -f "container-magic.yaml" ]; then
@@ -19,18 +19,30 @@ _check-config:
     fi
     current=$(sha256sum container-magic.yaml | cut -d' ' -f1)
     if [ "$current" != "$expected" ]; then
-        echo "⚠️  container-magic.yaml has changed since last generation"
-        echo "   Run 'cm update' to regenerate Justfile and Dockerfile"
-        echo ""
+        {% if auto_update %}
+        # Auto-update enabled - regenerate files
+        echo "📝 Config changed, regenerating files..."
+        cm update
+        {% else %}
+        if [ "{{ force }}" != "--force" ]; then
+            echo "⚠️  container-magic.yaml has changed since last generation"
+            echo "   Run 'cm update' to regenerate Justfile and Dockerfile"
+            echo "   Or use --force to build anyway"
+            echo "   Or set project.auto_update: true in your config"
+            echo ""
+            exit 1
+        fi
+        {% endif %}
     fi
 
 # Build development image
-build: _check-config
+build force="": (_check-config force)
     {{runtime}} build \
         --target {{ dev_stage }} \
         --build-arg USER_GID=$(id --group) \
         --build-arg USER_UID=$(id --user) \
         --build-arg USER_NAME=$(id --user --name) \
+        --build-arg USER_HOME=$(echo ~) \
         --build-arg WORKDIR=$(echo ~) \
         --tag {{ project_name }}:development \
         .
@@ -43,7 +55,7 @@ build-production: _check-config
         .
 
 # Run command in container
-run *args: _check-config
+run *args:
     #!/usr/bin/env bash
     set -euo pipefail
 

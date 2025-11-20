@@ -6,6 +6,7 @@ from pathlib import Path
 from jinja2 import Environment, PackageLoader
 
 from container_magic.core.config import ContainerMagicConfig
+from container_magic.generators.dockerfile import get_user_config
 
 
 def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> None:
@@ -25,7 +26,7 @@ def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> No
         project_name=config.project.name,
         workspace_name=config.project.workspace,
         production_stage=prod_stage,
-        production_user=config.production.user if config.production else "user",
+        production_user=get_user_config(config).name,
     )
 
     build_script = project_dir / "build.sh"
