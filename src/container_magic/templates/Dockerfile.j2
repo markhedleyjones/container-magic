@@ -44,24 +44,25 @@ RUN pip install --no-cache-dir{% for package in stage.pip_packages %} \
 
 {% elif step.type == "create_user" %}
 # Create user account
-ARG USER_GID=1000
-ARG USER_UID=1000
+ARG USER_GID={{ stage.user_gid }}
+ARG USER_UID={{ stage.user_uid }}
 ARG USER_NAME={{ stage.user }}
+ARG USER_HOME={{ stage.user_home }}
 {% if stage.user_creation_style == "alpine" %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
         addgroup -g ${USER_GID} ${USER_NAME} && \
-        adduser -D -u ${USER_UID} -G ${USER_NAME} ${USER_NAME}; \
+        adduser -D -u ${USER_UID} -G ${USER_NAME} -h ${USER_HOME} ${USER_NAME}; \
     fi
 {% else %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
         groupadd --gid ${USER_GID} ${USER_NAME} && \
-        useradd --uid ${USER_UID} --gid ${USER_GID} --create-home ${USER_NAME}; \
+        useradd --uid ${USER_UID} --gid ${USER_GID} --home-dir ${USER_HOME} --create-home ${USER_NAME}; \
     fi
 {% endif %}
 
 {% elif step.type == "switch_user" %}
 # Switch to user
-USER {{ stage.user }}
+USER ${USER_NAME}
 
 {% elif step.type == "switch_root" %}
 # Switch to root

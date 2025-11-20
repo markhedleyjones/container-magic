@@ -6,7 +6,7 @@ from pathlib import Path
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.cache import get_asset_cache_path
-from container_magic.core.config import ContainerMagicConfig, StageConfig
+from container_magic.core.config import ContainerMagicConfig, StageConfig, UserConfig
 from container_magic.core.templates import (
     detect_package_manager,
     detect_shell,
@@ -14,11 +14,25 @@ from container_magic.core.templates import (
 )
 
 
-def process_stage_build_steps(
+def get_user_config(config: ContainerMagicConfig) -> UserConfig:
+    """Get the user configuration from project config."""
+    if config.project.production_user:
+        return config.project.production_user
+    elif config.project.development_user:
+        return config.project.development_user
+    elif config.project.user:
+        return config.project.user
+    else:
+        # Default user config
+        return UserConfig(name="nonroot", uid=1000, gid=1000)
+
+
+def process_stage_steps(
     stage: StageConfig,
     stage_name: str,
     project_dir: Path,
     stages_dict: dict[str, StageConfig],
+    production_user: str,
 ) -> tuple[list[dict], bool, list[dict]]:
     """
     Process build steps for a stage.
@@ -27,31 +41,31 @@ def process_stage_build_steps(
         (ordered_steps, has_copy_cached_assets, cached_assets_data)
     """
     # Default build order if not specified
-    if stage.build_steps is None:
+    if stage.steps is None:
         # For stages that inherit from another stage (not a Docker image),
-        # default to empty build_steps (inherit everything from parent)
+        # default to empty steps (inherit everything from parent)
         # For base stages (from a Docker image), use full build steps
         if ":" in stage.frm or "/" in stage.frm:
             # FROM a Docker image - full default build
-            build_steps = [
+            steps = [
                 "install_system_packages",
                 "install_pip_packages",
                 "create_user",
             ]
         else:
             # FROM another stage - minimal default (just inherits)
-            build_steps = []
+            steps = []
     else:
-        build_steps = stage.build_steps
+        steps = stage.steps
 
-    # Track what we find in build_steps
+    # Track what we find in steps
     has_create_user = False
     has_switch_user = False
     has_copy_cached_assets = False
 
-    # Process build_steps into ordered sections
+    # Process steps into ordered sections
     ordered_steps = []
-    for step in build_steps:
+    for step in steps:
         if step == "install_system_packages":
             ordered_steps.append({"type": "system_packages"})
         elif step == "install_pip_packages":
@@ -71,14 +85,6 @@ def process_stage_build_steps(
             # Custom RUN command
             ordered_steps.append({"type": "custom", "command": step})
 
-    # Validation: Check if user is defined but create_user not in build_steps
-    if stage.user and not has_create_user and not has_switch_user:
-        print(
-            f"⚠️  Warning: Stage '{stage_name}' defines user='{stage.user}' but has no 'create_user' or 'switch_user' in build_steps",
-            file=sys.stderr,
-        )
-        print("   The user field will have no effect.", file=sys.stderr)
-
     # Validation: Check if switch_user used but no create_user in this or parent stages
     if has_switch_user and not has_create_user:
         # Walk up the stage hierarchy to find if any parent has create_user
@@ -97,14 +103,11 @@ def process_stage_build_steps(
 
                 current_stage = stages_dict[current_stage_name]
                 # Check if parent has create_user keyword OR uses default build steps from Docker image
-                if (
-                    current_stage.build_steps
-                    and "create_user" in current_stage.build_steps
-                ):
+                if current_stage.steps and "create_user" in current_stage.steps:
                     user_created = True
                     break
-                # Check if parent uses default build steps (no build_steps specified and FROM a Docker image)
-                if current_stage.build_steps is None and (
+                # Check if parent uses default build steps (no steps specified and FROM a Docker image)
+                if current_stage.steps is None and (
                     ":" in current_stage.frm or "/" in current_stage.frm
                 ):
                     # Default build steps include create_user
@@ -124,19 +127,25 @@ def process_stage_build_steps(
             )
             print("   The switch_user step may fail at build time.", file=sys.stderr)
 
-    # Warn if cached_assets defined but copy_cached_assets not in build_steps
+    # Validation: Check if create_user or switch_user used but production.user not defined
+    if (has_create_user or has_switch_user) and not production_user:
+        print(
+            f"⚠️  Warning: Stage '{stage_name}' uses 'create_user' or 'switch_user' but production.user is not defined",
+            file=sys.stderr,
+        )
+        print("   Define production.user in your configuration.", file=sys.stderr)
+
+    # Warn if cached_assets defined but copy_cached_assets not in steps
     if stage.cached_assets and not has_copy_cached_assets:
         print(
-            f"⚠️  Warning: Stage '{stage_name}' has cached_assets but 'copy_cached_assets' not in build_steps",
+            f"⚠️  Warning: Stage '{stage_name}' has cached_assets but 'copy_cached_assets' not in steps",
             file=sys.stderr,
         )
         print(
             "   Assets will be downloaded but not copied into the image.",
             file=sys.stderr,
         )
-        print(
-            "   Add 'copy_cached_assets' to build_steps to use them.", file=sys.stderr
-        )
+        print("   Add 'copy_cached_assets' to steps to use them.", file=sys.stderr)
 
     # Prepare cached assets data
     cached_assets_data = []
@@ -175,13 +184,16 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
     if "development" not in stages:
         from container_magic.core.config import StageConfig
 
-        stages["development"] = StageConfig(frm="base", build_steps=["switch_user"])
+        stages["development"] = StageConfig(frm="base", steps=["switch_user"])
 
     # Add default production stage if missing
     if "production" not in stages:
         from container_magic.core.config import StageConfig
 
         stages["production"] = StageConfig(frm="base")
+
+    # Get user config
+    user_cfg = get_user_config(config)
 
     # Process all stages
     stages_data = []
@@ -196,14 +208,9 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
         user_creation_style = detect_user_creation_style(base_image)
 
         # Process build steps
-        ordered_steps, has_copy_cached_assets, cached_assets_data = (
-            process_stage_build_steps(
-                stage_config, stage_name, output_path.parent, stages
-            )
+        ordered_steps, has_copy_cached_assets, cached_assets_data = process_stage_steps(
+            stage_config, stage_name, output_path.parent, stages, user_cfg.name
         )
-
-        # Determine user for this stage (fallback to production.user or 'user')
-        stage_user = stage_config.user or config.production.user or "user"
 
         stages_data.append(
             {
@@ -216,7 +223,10 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
                 "package_manager": package_manager,
                 "shell": shell,
                 "user_creation_style": user_creation_style,
-                "user": stage_user,
+                "user": user_cfg.name,
+                "user_uid": user_cfg.uid,
+                "user_gid": user_cfg.gid,
+                "user_home": user_cfg.home or f"/home/{user_cfg.name}",
                 "ordered_steps": ordered_steps,
             }
         )
@@ -224,8 +234,6 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
     dockerfile_content = template.render(
         stages=stages_data,
         workspace_name=config.project.workspace,
-        production_user=config.production.user,
-        production_entrypoint=config.production.entrypoint,
     )
 
     with open(output_path, "w") as f:
