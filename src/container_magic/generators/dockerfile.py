@@ -25,11 +25,19 @@ def process_stage_build_steps(
     """
     # Default build order if not specified
     if stage.build_steps is None:
-        build_steps = [
-            "install_system_packages",
-            "install_pip_packages",
-            "create_user",
-        ]
+        # For stages that inherit from another stage (not a Docker image),
+        # default to empty build_steps (inherit everything from parent)
+        # For base stages (from a Docker image), use full build steps
+        if ":" in stage.frm or "/" in stage.frm:
+            # FROM a Docker image - full default build
+            build_steps = [
+                "install_system_packages",
+                "install_pip_packages",
+                "create_user",
+            ]
+        else:
+            # FROM another stage - minimal default (just inherits)
+            build_steps = []
     else:
         build_steps = stage.build_steps
 
@@ -94,9 +102,24 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
 
     template = env.get_template("Dockerfile.j2")
 
+    # Build stages dict with defaults if needed
+    stages = dict(config.stages)
+
+    # Add default development stage if missing
+    if "development" not in stages:
+        from container_magic.core.config import StageConfig
+
+        stages["development"] = StageConfig(frm="base")
+
+    # Add default production stage if missing
+    if "production" not in stages:
+        from container_magic.core.config import StageConfig
+
+        stages["production"] = StageConfig(frm="base")
+
     # Process all stages
     stages_data = []
-    for stage_name, stage_config in config.stages.items():
+    for stage_name, stage_config in stages.items():
         # Auto-detect package manager and shell if not specified
         # For non-base stages, try to detect from their base image
         base_image = stage_config.frm

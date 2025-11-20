@@ -46,7 +46,7 @@ def init(template: str, name: str, path: Path | None):
     click.echo(f"Creating project at {path}")
     path.mkdir(parents=True)
 
-    # Create default config with base stage
+    # Create default config with base, development, and production stages
     base_image = (
         f"{template}:latest"
         if template in ["python", "ubuntu", "debian", "alpine"]
@@ -54,7 +54,11 @@ def init(template: str, name: str, path: Path | None):
     )
     config = ContainerMagicConfig(
         project={"name": name, "workspace": "workspace"},
-        stages={"base": {"from": base_image}},
+        stages={
+            "base": {"from": base_image},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
     )
 
     config_path = path / "container-magic.yaml"
