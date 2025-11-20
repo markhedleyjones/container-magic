@@ -55,7 +55,7 @@ def init(template: str, name: str, path: Path | None):
     config = ContainerMagicConfig(
         project={"name": name, "workspace": "workspace"},
         stages={
-            "base": {"from": base_image},
+            "base": {"from": base_image, "user": "nonroot"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },
