@@ -80,27 +80,42 @@ def process_stage_build_steps(
         print("   The user field will have no effect.", file=sys.stderr)
 
     # Validation: Check if switch_user used but no create_user in this or parent stages
-    if has_switch_user:
+    if has_switch_user and not has_create_user:
         # Walk up the stage hierarchy to find if any parent has create_user
-        user_created = has_create_user
+        user_created = False
         current_stage_name = stage_name
         visited = set()
 
-        while not user_created and current_stage_name in stages_dict:
-            if current_stage_name in visited:
-                break
-            visited.add(current_stage_name)
+        # Check parent stages
+        if stage.frm in stages_dict:
+            current_stage_name = stage.frm
 
-            current_stage = stages_dict[current_stage_name]
-            if current_stage.build_steps and "create_user" in current_stage.build_steps:
-                user_created = True
-                break
+            while not user_created and current_stage_name in stages_dict:
+                if current_stage_name in visited:
+                    break
+                visited.add(current_stage_name)
 
-            # Move to parent stage
-            if current_stage.frm in stages_dict:
-                current_stage_name = current_stage.frm
-            else:
-                break
+                current_stage = stages_dict[current_stage_name]
+                # Check if parent has create_user keyword OR uses default build steps from Docker image
+                if (
+                    current_stage.build_steps
+                    and "create_user" in current_stage.build_steps
+                ):
+                    user_created = True
+                    break
+                # Check if parent uses default build steps (no build_steps specified and FROM a Docker image)
+                if current_stage.build_steps is None and (
+                    ":" in current_stage.frm or "/" in current_stage.frm
+                ):
+                    # Default build steps include create_user
+                    user_created = True
+                    break
+
+                # Move to parent stage
+                if current_stage.frm in stages_dict:
+                    current_stage_name = current_stage.frm
+                else:
+                    break
 
         if not user_created:
             print(
@@ -160,7 +175,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
     if "development" not in stages:
         from container_magic.core.config import StageConfig
 
-        stages["development"] = StageConfig(frm="base")
+        stages["development"] = StageConfig(frm="base", build_steps=["switch_user"])
 
     # Add default production stage if missing
     if "production" not in stages:

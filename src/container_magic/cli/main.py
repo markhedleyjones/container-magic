@@ -56,7 +56,7 @@ def init(template: str, name: str, path: Path | None):
         project={"name": name, "workspace": "workspace"},
         stages={
             "base": {"from": base_image, "user": "nonroot"},
-            "development": {"from": "base"},
+            "development": {"from": "base", "build_steps": ["switch_user"]},
             "production": {"from": "base"},
         },
     )
