@@ -42,11 +42,11 @@ RUN pip install --no-cache-dir{% for package in stage.pip_packages %} \
         {{ package }}{% endfor %}
 {% endif %}
 
-{% elif step.type == "user" %}
+{% elif step.type == "create_user" %}
 # Create user account
 ARG USER_GID=1000
 ARG USER_UID=1000
-ARG USER_NAME={{ production_user }}
+ARG USER_NAME={{ stage.user }}
 {% if stage.user_creation_style == "alpine" %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
         addgroup -g ${USER_GID} ${USER_NAME} && \
@@ -58,6 +58,14 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
         useradd --uid ${USER_UID} --gid ${USER_GID} --create-home ${USER_NAME}; \
     fi
 {% endif %}
+
+{% elif step.type == "switch_user" %}
+# Switch to user
+USER {{ stage.user }}
+
+{% elif step.type == "switch_root" %}
+# Switch to root
+USER root
 
 {% elif step.type == "cached_assets" %}
 # Copy cached assets

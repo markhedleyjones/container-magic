@@ -15,7 +15,10 @@ from container_magic.core.templates import (
 
 
 def process_stage_build_steps(
-    stage: StageConfig, stage_name: str, project_dir: Path
+    stage: StageConfig,
+    stage_name: str,
+    project_dir: Path,
+    stages_dict: dict[str, StageConfig],
 ) -> tuple[list[dict], bool, list[dict]]:
     """
     Process build steps for a stage.
@@ -41,22 +44,70 @@ def process_stage_build_steps(
     else:
         build_steps = stage.build_steps
 
+    # Track what we find in build_steps
+    has_create_user = False
+    has_switch_user = False
+    has_copy_cached_assets = False
+
     # Process build_steps into ordered sections
     ordered_steps = []
-    has_copy_cached_assets = False
     for step in build_steps:
         if step == "install_system_packages":
             ordered_steps.append({"type": "system_packages"})
         elif step == "install_pip_packages":
             ordered_steps.append({"type": "pip_packages"})
         elif step == "create_user":
-            ordered_steps.append({"type": "user"})
+            ordered_steps.append({"type": "create_user"})
+            has_create_user = True
+        elif step == "switch_user":
+            ordered_steps.append({"type": "switch_user"})
+            has_switch_user = True
+        elif step == "switch_root":
+            ordered_steps.append({"type": "switch_root"})
         elif step == "copy_cached_assets":
             ordered_steps.append({"type": "cached_assets"})
             has_copy_cached_assets = True
         else:
             # Custom RUN command
             ordered_steps.append({"type": "custom", "command": step})
+
+    # Validation: Check if user is defined but create_user not in build_steps
+    if stage.user and not has_create_user and not has_switch_user:
+        print(
+            f"⚠️  Warning: Stage '{stage_name}' defines user='{stage.user}' but has no 'create_user' or 'switch_user' in build_steps",
+            file=sys.stderr,
+        )
+        print("   The user field will have no effect.", file=sys.stderr)
+
+    # Validation: Check if switch_user used but no create_user in this or parent stages
+    if has_switch_user:
+        # Walk up the stage hierarchy to find if any parent has create_user
+        user_created = has_create_user
+        current_stage_name = stage_name
+        visited = set()
+
+        while not user_created and current_stage_name in stages_dict:
+            if current_stage_name in visited:
+                break
+            visited.add(current_stage_name)
+
+            current_stage = stages_dict[current_stage_name]
+            if current_stage.build_steps and "create_user" in current_stage.build_steps:
+                user_created = True
+                break
+
+            # Move to parent stage
+            if current_stage.frm in stages_dict:
+                current_stage_name = current_stage.frm
+            else:
+                break
+
+        if not user_created:
+            print(
+                f"⚠️  Warning: Stage '{stage_name}' uses 'switch_user' but no 'create_user' found in this stage or parent stages",
+                file=sys.stderr,
+            )
+            print("   The switch_user step may fail at build time.", file=sys.stderr)
 
     # Warn if cached_assets defined but copy_cached_assets not in build_steps
     if stage.cached_assets and not has_copy_cached_assets:
@@ -131,8 +182,13 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
 
         # Process build steps
         ordered_steps, has_copy_cached_assets, cached_assets_data = (
-            process_stage_build_steps(stage_config, stage_name, output_path.parent)
+            process_stage_build_steps(
+                stage_config, stage_name, output_path.parent, stages
+            )
         )
+
+        # Determine user for this stage (fallback to production.user or 'user')
+        stage_user = stage_config.user or config.production.user or "user"
 
         stages_data.append(
             {
@@ -145,6 +201,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
                 "package_manager": package_manager,
                 "shell": shell,
                 "user_creation_style": user_creation_style,
+                "user": stage_user,
                 "ordered_steps": ordered_steps,
             }
         )

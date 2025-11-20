@@ -52,6 +52,10 @@ class StageConfig(BaseModel):
     shell: Optional[str] = Field(
         default=None, description="Default shell (auto-detected if not specified)"
     )
+    user: Optional[str] = Field(
+        default=None,
+        description="User to create/switch to in this stage (used by create_user and switch_user keywords)",
+    )
     env: dict[str, str] = Field(
         default_factory=dict, description="Environment variables to set in Dockerfile"
     )
@@ -61,7 +65,7 @@ class StageConfig(BaseModel):
     )
     build_steps: Optional[list[str]] = Field(
         default=None,
-        description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user, copy_cached_assets",
+        description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user, switch_user, switch_root, copy_cached_assets",
     )
 
     class Config:
