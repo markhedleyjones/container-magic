@@ -4,7 +4,18 @@ from pathlib import Path
 from typing import Any, Literal, Optional
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+class UserConfig(BaseModel):
+    """User configuration."""
+
+    name: str = Field(description="User name")
+    uid: int = Field(default=1000, description="User ID")
+    gid: int = Field(default=1000, description="Group ID")
+    home: Optional[str] = Field(
+        default=None, description="Home directory (defaults to /home/${name})"
+    )
 
 
 class ProjectConfig(BaseModel):
@@ -12,6 +23,20 @@ class ProjectConfig(BaseModel):
 
     name: str = Field(description="Project name")
     workspace: str = Field(default="workspace", description="Workspace directory name")
+    auto_update: bool = Field(
+        default=False,
+        description="Automatically regenerate files when config changes",
+    )
+    user: Optional[UserConfig] = Field(
+        default=None, description="User for both development and production"
+    )
+    production_user: Optional[UserConfig] = Field(
+        default=None,
+        description="User for production (development uses host user)",
+    )
+    development_user: Optional[UserConfig] = Field(
+        default=None, description="User for development (production uses root)"
+    )
 
 
 class RuntimeConfig(BaseModel):
@@ -22,6 +47,9 @@ class RuntimeConfig(BaseModel):
     )
     privileged: bool = Field(
         default=False, description="Run containers in privileged mode"
+    )
+    features: list[Literal["display", "gpu", "audio", "aws_credentials"]] = Field(
+        default_factory=list, description="Features to enable in containers"
     )
 
 
@@ -52,10 +80,6 @@ class StageConfig(BaseModel):
     shell: Optional[str] = Field(
         default=None, description="Default shell (auto-detected if not specified)"
     )
-    user: Optional[str] = Field(
-        default=None,
-        description="User to create/switch to in this stage (used by create_user and switch_user keywords)",
-    )
     env: dict[str, str] = Field(
         default_factory=dict, description="Environment variables to set in Dockerfile"
     )
@@ -63,35 +87,14 @@ class StageConfig(BaseModel):
         default_factory=list,
         description="Assets to download and cache on host, then copy into image",
     )
-    build_steps: Optional[list[str]] = Field(
+    steps: Optional[list[str]] = Field(
         default=None,
         description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user, switch_user, switch_root, copy_cached_assets",
+        alias="build_steps",  # Support old name for backwards compatibility
     )
 
     class Config:
         populate_by_name = True
-
-
-class DevelopmentConfig(BaseModel):
-    """Development environment configuration."""
-
-    mount_workspace: bool = Field(
-        default=True, description="Mount workspace directory into container"
-    )
-    shell: Optional[str] = Field(
-        default=None,
-        description="Shell to use in container (auto-detected if not specified)",
-    )
-    features: list[Literal["display", "gpu", "audio", "aws_credentials"]] = Field(
-        default_factory=list, description="Features to enable"
-    )
-
-
-class ProductionConfig(BaseModel):
-    """Production environment configuration."""
-
-    user: str = Field(default="nonroot", description="User to run container as")
-    entrypoint: Optional[str] = Field(default=None, description="Container entrypoint")
 
 
 class CommandArgument(BaseModel):
@@ -133,8 +136,6 @@ class ContainerMagicConfig(BaseModel):
     project: ProjectConfig
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     stages: dict[str, StageConfig]
-    development: DevelopmentConfig = Field(default_factory=DevelopmentConfig)
-    production: ProductionConfig = Field(default_factory=ProductionConfig)
     commands: dict[str, CustomCommand] = Field(
         default_factory=dict, description="Custom command definitions"
     )
@@ -161,3 +162,26 @@ class ContainerMagicConfig(BaseModel):
                 "Project name must contain only alphanumeric characters, hyphens, and underscores"
             )
         return v
+
+    @model_validator(mode="after")
+    def validate_user_config(self) -> "ContainerMagicConfig":
+        """Validate that only one user config variant is specified."""
+        user_configs = [
+            self.project.user is not None,
+            self.project.production_user is not None,
+            self.project.development_user is not None,
+        ]
+        if sum(user_configs) > 1:
+            raise ValueError(
+                "Can only specify one of: user, production_user, or development_user"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_required_stages(self) -> "ContainerMagicConfig":
+        """Validate that development and production stages exist."""
+        if "development" not in self.stages:
+            raise ValueError("stages.development is required")
+        if "production" not in self.stages:
+            raise ValueError("stages.production is required")
+        return self
