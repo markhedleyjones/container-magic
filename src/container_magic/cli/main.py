@@ -53,10 +53,14 @@ def init(template: str, name: str, path: Path | None):
         else template
     )
     config = ContainerMagicConfig(
-        project={"name": name, "workspace": "workspace"},
+        project={
+            "name": name,
+            "workspace": "workspace",
+            "production_user": {"name": "nonroot"},
+        },
         stages={
-            "base": {"from": base_image, "user": "nonroot"},
-            "development": {"from": "base", "build_steps": ["switch_user"]},
+            "base": {"from": base_image},
+            "development": {"from": "base", "steps": ["switch_user"]},
             "production": {"from": "base"},
         },
     )
@@ -290,13 +294,33 @@ def main():
 
 def run_main():
     """Entry point for run command (docker-bbq style)."""
-    # TODO: Find nearest container-magic.yaml
-    # TODO: Execute command in that project
-    if len(sys.argv) == 1:
-        click.echo("Usage: run <command> [args...]")
+    # Find nearest container-magic.yaml by walking up from current directory
+    current_dir = Path.cwd()
+    project_dir = None
+
+    for parent in [current_dir] + list(current_dir.parents):
+        if (parent / "container-magic.yaml").exists():
+            project_dir = parent
+            break
+
+    if not project_dir:
+        click.echo(
+            "Error: No container-magic.yaml found in current directory or parents",
+            err=True,
+        )
         sys.exit(1)
 
-    click.echo(f"run: {' '.join(sys.argv[1:])}")
+    # Check if just is available
+    if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
+        click.echo("Error: 'just' command not found. Please install just.", err=True)
+        sys.exit(1)
+
+    # Call just run with command
+    just_args = ["just", "run"]
+    if len(sys.argv) > 1:
+        just_args.extend(sys.argv[1:])
+    result = subprocess.run(just_args, cwd=project_dir)
+    sys.exit(result.returncode)
 
 
 if __name__ == "__main__":
