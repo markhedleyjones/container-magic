@@ -177,8 +177,13 @@ class ContainerMagicConfig(BaseModel):
             data = yaml.safe_load(f)
         return cls(**data)
 
-    def to_yaml(self, path: Path) -> None:
-        """Save configuration to YAML file."""
+    def to_yaml(self, path: Path, compact: bool = True) -> None:
+        """Save configuration to YAML file.
+
+        Args:
+            path: Path to save YAML file
+            compact: If False, include helpful comments (default: True)
+        """
         data = self.model_dump(exclude_none=True)
 
         # Custom YAML dumper that adds blank lines between top-level sections
@@ -191,26 +196,113 @@ class ContainerMagicConfig(BaseModel):
 
         BlankLineDumper.add_representer(dict, write_blank_line)
 
+        # Dump YAML
+        output = yaml.dump(
+            data,
+            Dumper=BlankLineDumper,
+            default_flow_style=False,
+            sort_keys=False,
+            width=float("inf"),  # Prevent line wrapping
+        )
+
+        # Add blank lines between top-level sections
+        lines = output.split("\n")
+        formatted_lines = []
+        for i, line in enumerate(lines):
+            # Add blank line before top-level keys (no leading whitespace)
+            if line and not line[0].isspace() and i > 0 and formatted_lines:
+                formatted_lines.append("")
+            formatted_lines.append(line)
+
+        output = "\n".join(formatted_lines)
+
+        # Add comments if not compact
+        if not compact:
+            output = self._add_comments(output)
+
         with open(path, "w") as f:
-            # Dump YAML
-            output = yaml.dump(
-                data,
-                Dumper=BlankLineDumper,
-                default_flow_style=False,
-                sort_keys=False,
-                width=float("inf"),  # Prevent line wrapping
-            )
+            f.write(output)
 
-            # Add blank lines between top-level sections
-            lines = output.split("\n")
-            formatted_lines = []
-            for i, line in enumerate(lines):
-                # Add blank line before top-level keys (no leading whitespace)
-                if line and not line[0].isspace() and i > 0 and formatted_lines:
-                    formatted_lines.append("")
-                formatted_lines.append(line)
+    def _add_comments(self, yaml_content: str) -> str:
+        """Add helpful comments to YAML content."""
+        header = """# container-magic.yaml
+# Configuration file for container-magic - a tool for containerised development environments
+#
+# For a more compact config without comments, use: cm init --compact
+# This will generate cm.yaml instead of container-magic.yaml
+#
+# Learn more: https://github.com/your-repo/container-magic
 
-            f.write("\n".join(formatted_lines))
+"""
+
+        # Add section comments
+        commented = header + yaml_content
+
+        # Add comments above keys (only first occurrence)
+        replacements = [
+            ("project:", "# Project configuration\nproject:"),
+            ("  name:", "  # Project name (used for Docker image tagging)\n  name:"),
+            (
+                "  workspace:",
+                "  # Directory name for your code (mounted into container)\n  workspace:",
+            ),
+            (
+                "  auto_update:",
+                "  # Automatically regenerate files when config changes\n  auto_update:",
+            ),
+            (
+                "  production_user:",
+                "  # User to create in production image\n  production_user:",
+            ),
+            ("runtime:", "# Container runtime configuration\nruntime:"),
+            (
+                "  backend:",
+                "  # Container runtime: auto (detects docker/podman), docker, or podman\n  backend:",
+            ),
+            (
+                "  privileged:",
+                "  # Run containers in privileged mode (needed for some hardware access)\n  privileged:",
+            ),
+            (
+                "  features:",
+                "  # Enable features: display, gpu, audio, aws_credentials\n  features:",
+            ),
+            ("stages:", "# Build stages - each stage builds on the previous\nstages:"),
+            ("  base:", "  # Base stage - foundation for all other stages\n  base:"),
+            ("    frm:", "    # Base Docker image (FROM in Dockerfile)\n    frm:"),
+            ("    packages:", "    # Packages to install\n    packages:"),
+            (
+                "      apt:",
+                "      # System packages (apt-get on Debian/Ubuntu, apk on Alpine, dnf on Fedora)\n      apt:",
+            ),
+            ("      pip:", "      # Python packages (installed with pip)\n      pip:"),
+            ("    env:", "    # Environment variables\n    env:"),
+            (
+                "    cached_assets:",
+                "    # Large files to download once and cache (e.g., model weights)\n    cached_assets:",
+            ),
+            (
+                "  development:",
+                "  # Development stage - used when running locally\n  development:",
+            ),
+            (
+                "    steps:",
+                "    # Build steps: install_system_packages, install_pip_packages, create_user, switch_user, copy_cached_assets\n    steps:",
+            ),
+            (
+                "  production:",
+                "  # Production stage - final deployable image\n  production:",
+            ),
+            (
+                "commands:",
+                "# Custom commands - define your own container commands\ncommands:",
+            ),
+        ]
+
+        for old, new in replacements:
+            commented = commented.replace(old, new, 1)  # Only replace first occurrence
+
+        return commented
 
     @field_validator("project")
     @classmethod

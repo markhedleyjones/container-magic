@@ -101,7 +101,7 @@ def init(
     # Choose filename based on compact flag
     config_filename = "cm.yaml" if compact else "container-magic.yaml"
     config_path = path / config_filename
-    config.to_yaml(config_path)
+    config.to_yaml(config_path, compact=compact)
 
     # Create workspace directory if it doesn't exist
     workspace_dir = path / "workspace"
