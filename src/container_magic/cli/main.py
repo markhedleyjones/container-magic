@@ -23,7 +23,7 @@ def cli():
 
 @cli.command()
 @click.argument("template")
-@click.argument("name")
+@click.argument("name", required=False)
 @click.option(
     "--path",
     type=Path,
@@ -34,22 +34,53 @@ def cli():
     is_flag=True,
     help="Use compact config (cm.yaml) without comments",
 )
-def init(template: str, name: str, path: Path | None, compact: bool):
+@click.option(
+    "--here",
+    "--in-place",
+    "in_place",
+    is_flag=True,
+    help="Initialize in current directory instead of creating new one",
+)
+def init(
+    template: str, name: str | None, path: Path | None, compact: bool, in_place: bool
+):
     """Initialize a new container-magic project from a template."""
+    # Determine project name
+    if name is None:
+        if in_place:
+            # Use current directory name as project name
+            name = Path.cwd().name
+        else:
+            click.echo(
+                "Error: name argument is required unless using --here/--in-place",
+                err=True,
+            )
+            sys.exit(1)
+
     click.echo(f"Initializing {name} from {template} template...")
 
-    if path is None:
+    # Determine project path
+    if in_place:
+        # Initialize in current directory
+        path = Path.cwd()
+    elif path is None:
+        # Create new directory with project name
         path = Path.cwd() / name
     else:
+        # Create new directory under specified path
         path = path / name
 
-    if path.exists():
+    # Check if directory exists (only for new directory creation)
+    if not in_place and path.exists():
         click.echo(f"Error: Directory {path} already exists", err=True)
         sys.exit(1)
 
-    # TODO: Implement template initialization
-    click.echo(f"Creating project at {path}")
-    path.mkdir(parents=True)
+    # Create directory if needed
+    if not in_place:
+        click.echo(f"Creating project at {path}")
+        path.mkdir(parents=True)
+    else:
+        click.echo(f"Initializing in {path}")
 
     # Create default config with base, development, and production stages
     base_image = (
@@ -75,8 +106,12 @@ def init(template: str, name: str, path: Path | None, compact: bool):
     config_path = path / config_filename
     config.to_yaml(config_path)
 
-    # Create workspace directory
-    (path / "workspace").mkdir()
+    # Create workspace directory if it doesn't exist
+    workspace_dir = path / "workspace"
+    if not workspace_dir.exists():
+        workspace_dir.mkdir()
+    elif in_place:
+        click.echo("  Note: Using existing workspace directory")
 
     # Generate Dockerfile, Justfile, and standalone scripts
     generate_dockerfile(config, path / "Dockerfile")
