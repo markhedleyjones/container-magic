@@ -83,11 +83,8 @@ def init(
         click.echo(f"Initializing in {path}")
 
     # Create default config with base, development, and production stages
-    base_image = (
-        f"{template}:latest"
-        if template in ["python", "ubuntu", "debian", "alpine"]
-        else template
-    )
+    # If no tag specified, append :latest
+    base_image = f"{template}:latest" if ":" not in template else template
     config = ContainerMagicConfig(
         project={
             "name": name,
