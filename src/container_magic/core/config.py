@@ -1,10 +1,40 @@
 """Configuration schema and validation for container-magic."""
 
+import sys
 from pathlib import Path
 from typing import Any, Literal, Optional
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+def find_config_file(path: Path) -> Path:
+    """
+    Find the config file to use.
+
+    Priority: cm.yaml > container-magic.yaml
+
+    Raises:
+        SystemExit: If both files exist or neither exists
+    """
+    cm_yaml = path / "cm.yaml"
+    container_magic_yaml = path / "container-magic.yaml"
+
+    if cm_yaml.exists() and container_magic_yaml.exists():
+        print("Error: Both cm.yaml and container-magic.yaml found.", file=sys.stderr)
+        print("Please delete one to avoid confusion.", file=sys.stderr)
+        sys.exit(1)
+
+    if cm_yaml.exists():
+        return cm_yaml
+    elif container_magic_yaml.exists():
+        return container_magic_yaml
+    else:
+        print(
+            "Error: No config file found (cm.yaml or container-magic.yaml)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 class UserConfig(BaseModel):

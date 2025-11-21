@@ -24,7 +24,7 @@ def generate_justfile(
 
     Args:
         config: Container-magic configuration
-        config_path: Path to container-magic.yaml (for hash calculation)
+        config_path: Path to config file (for hash calculation)
         output_path: Path to write Justfile
     """
     env = Environment(

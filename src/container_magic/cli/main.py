@@ -7,7 +7,7 @@ from pathlib import Path
 import click
 
 from container_magic import __version__
-from container_magic.core.config import ContainerMagicConfig
+from container_magic.core.config import ContainerMagicConfig, find_config_file
 from container_magic.generators.build_script import generate_build_script
 from container_magic.generators.dockerfile import generate_dockerfile
 from container_magic.generators.justfile import generate_justfile
@@ -29,7 +29,12 @@ def cli():
     type=Path,
     help="Directory to create project in (default: current directory)",
 )
-def init(template: str, name: str, path: Path | None):
+@click.option(
+    "--compact",
+    is_flag=True,
+    help="Use compact config (cm.yaml) without comments",
+)
+def init(template: str, name: str, path: Path | None, compact: bool):
     """Initialize a new container-magic project from a template."""
     click.echo(f"Initializing {name} from {template} template...")
 
@@ -65,7 +70,9 @@ def init(template: str, name: str, path: Path | None):
         },
     )
 
-    config_path = path / "container-magic.yaml"
+    # Choose filename based on compact flag
+    config_filename = "cm.yaml" if compact else "container-magic.yaml"
+    config_path = path / config_filename
     config.to_yaml(config_path)
 
     # Create workspace directory
@@ -97,14 +104,8 @@ def init(template: str, name: str, path: Path | None):
     "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
 )
 def update(path: Path):
-    """Regenerate all files from container-magic.yaml."""
-    config_path = path / "container-magic.yaml"
-
-    if not config_path.exists():
-        click.echo(
-            "Error: container-magic.yaml not found in current directory", err=True
-        )
-        sys.exit(1)
+    """Regenerate all files from config (cm.yaml or container-magic.yaml)."""
+    config_path = find_config_file(path)
 
     click.echo("Regenerating files from configuration...")
 
@@ -125,7 +126,7 @@ def update(path: Path):
     "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
 )
 def generate(path: Path):
-    """Regenerate all files from container-magic.yaml (alias for update)."""
+    """Regenerate all files from config (alias for update)."""
     update.callback(path)
 
 
@@ -135,13 +136,7 @@ def generate(path: Path):
 )
 def build(path: Path):
     """Build container image (regenerates if config changed)."""
-    config_path = path / "container-magic.yaml"
-
-    if not config_path.exists():
-        click.echo(
-            "Error: container-magic.yaml not found in current directory", err=True
-        )
-        sys.exit(1)
+    config_path = find_config_file(path)
 
     # Load config to check for cached assets
     config = ContainerMagicConfig.from_yaml(config_path)
@@ -186,13 +181,7 @@ def build(path: Path):
 )
 def run(command: tuple[str, ...], path: Path):
     """Run a command in the container."""
-    config_path = path / "container-magic.yaml"
-
-    if not config_path.exists():
-        click.echo(
-            "Error: container-magic.yaml not found in current directory", err=True
-        )
-        sys.exit(1)
+    find_config_file(path)
 
     # Check if just is available
     if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
@@ -269,13 +258,7 @@ def cache_path(path: Path):
 )
 def shell(path: Path):
     """Open an interactive shell in the container."""
-    config_path = path / "container-magic.yaml"
-
-    if not config_path.exists():
-        click.echo(
-            "Error: container-magic.yaml not found in current directory", err=True
-        )
-        sys.exit(1)
+    find_config_file(path)
 
     # Check if just is available
     if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
@@ -294,18 +277,18 @@ def main():
 
 def run_main():
     """Entry point for run command (docker-bbq style)."""
-    # Find nearest container-magic.yaml by walking up from current directory
+    # Find nearest config file by walking up from current directory
     current_dir = Path.cwd()
     project_dir = None
 
     for parent in [current_dir] + list(current_dir.parents):
-        if (parent / "container-magic.yaml").exists():
+        if (parent / "cm.yaml").exists() or (parent / "container-magic.yaml").exists():
             project_dir = parent
             break
 
     if not project_dir:
         click.echo(
-            "Error: No container-magic.yaml found in current directory or parents",
+            "Error: No config file (cm.yaml or container-magic.yaml) found in current directory or parents",
             err=True,
         )
         sys.exit(1)
