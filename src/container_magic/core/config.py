@@ -180,8 +180,37 @@ class ContainerMagicConfig(BaseModel):
     def to_yaml(self, path: Path) -> None:
         """Save configuration to YAML file."""
         data = self.model_dump(exclude_none=True)
+
+        # Custom YAML dumper that adds blank lines between top-level sections
+        class BlankLineDumper(yaml.SafeDumper):
+            pass
+
+        def write_blank_line(dumper, data):
+            """Add blank line before top-level mappings."""
+            return dumper.represent_dict(data)
+
+        BlankLineDumper.add_representer(dict, write_blank_line)
+
         with open(path, "w") as f:
-            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+            # Dump YAML
+            output = yaml.dump(
+                data,
+                Dumper=BlankLineDumper,
+                default_flow_style=False,
+                sort_keys=False,
+                width=float("inf"),  # Prevent line wrapping
+            )
+
+            # Add blank lines between top-level sections
+            lines = output.split("\n")
+            formatted_lines = []
+            for i, line in enumerate(lines):
+                # Add blank line before top-level keys (no leading whitespace)
+                if line and not line[0].isspace() and i > 0 and formatted_lines:
+                    formatted_lines.append("")
+                formatted_lines.append(line)
+
+            f.write("\n".join(formatted_lines))
 
     @field_validator("project")
     @classmethod
