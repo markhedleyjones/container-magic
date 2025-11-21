@@ -22,19 +22,22 @@ def capture_stderr(func, *args, **kwargs):
         sys.stderr = old_stderr
 
 
-def test_user_defined_but_no_create_or_switch():
-    """Warn if user is defined but neither create_user nor switch_user in build_steps."""
+def test_production_user_empty_string():
+    """Warn if create_user or switch_user used but production.user is empty."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
+        "production": {"user": ""},  # Empty user
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                "user": "myuser",  # User defined
                 "build_steps": [
-                    "install_system_packages",
-                    # No create_user or switch_user!
+                    "create_user",  # Using create_user but no production.user
                 ],
-            }
+            },
+            "development": {
+                "from": "base",
+                "build_steps": [],  # Prevent default development stage warnings
+            },
         },
     }
     config = ContainerMagicConfig(**config_dict)
@@ -43,19 +46,18 @@ def test_user_defined_but_no_create_or_switch():
         output_path = Path(tmpdir) / "Dockerfile"
         stderr = capture_stderr(generate_dockerfile, config, output_path)
 
-        assert "user='myuser'" in stderr
-        assert "has no 'create_user' or 'switch_user'" in stderr
-        assert "will have no effect" in stderr
+        assert "production.user is not defined" in stderr
+        assert "Define production.user" in stderr
 
 
 def test_switch_user_without_create_in_same_stage():
     """Warn if switch_user used but no create_user in same stage."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
+        "production": {"user": "myuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                "user": "myuser",
                 "build_steps": [
                     "switch_user",  # Trying to switch without creating
                 ],
@@ -77,17 +79,16 @@ def test_switch_user_with_create_in_parent_stage():
     """No warning if switch_user used and create_user exists in parent stage."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
+        "production": {"user": "myuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                "user": "myuser",
                 "build_steps": [
                     "create_user",  # Create in base
                 ],
             },
             "production": {
                 "from": "base",  # Inherit from base
-                "user": "myuser",
                 "build_steps": [
                     "switch_user",  # Switch in production - should be OK
                 ],
@@ -109,10 +110,10 @@ def test_create_user_and_switch_user_both_present():
     """No warning if both create_user and switch_user are present."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
+        "production": {"user": "myuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                "user": "myuser",
                 "build_steps": [
                     "create_user",
                     "switch_user",
@@ -130,18 +131,22 @@ def test_create_user_and_switch_user_both_present():
         assert "Warning" not in stderr
 
 
-def test_no_user_field_no_warnings():
-    """No warnings if user field not defined."""
+def test_no_user_keywords_no_warnings():
+    """No warnings if no create_user or switch_user keywords used."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
+        "production": {"user": "myuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                # No user field
                 "build_steps": [
                     "install_system_packages",
                 ],
-            }
+            },
+            "development": {
+                "from": "base",
+                "build_steps": [],
+            },
         },
     }
     config = ContainerMagicConfig(**config_dict)
@@ -151,17 +156,17 @@ def test_no_user_field_no_warnings():
         stderr = capture_stderr(generate_dockerfile, config, output_path)
 
         # Should not warn
-        assert "user=" not in stderr
+        assert "Warning" not in stderr
 
 
 def test_switch_root_no_validation_needed():
     """switch_root should not trigger any validation warnings."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
+        "production": {"user": "myuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                "user": "myuser",
                 "build_steps": [
                     "create_user",
                     "switch_root",  # Should not warn
