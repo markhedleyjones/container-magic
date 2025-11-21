@@ -184,7 +184,7 @@ class ContainerMagicConfig(BaseModel):
             path: Path to save YAML file
             compact: If False, include helpful comments (default: True)
         """
-        data = self.model_dump(exclude_none=True)
+        data = self.model_dump(exclude_none=True, by_alias=True)
 
         # Custom YAML dumper that adds blank lines between top-level sections
         class BlankLineDumper(yaml.SafeDumper):
@@ -269,7 +269,10 @@ class ContainerMagicConfig(BaseModel):
             ),
             ("stages:", "# Build stages - each stage builds on the previous\nstages:"),
             ("  base:", "  # Base stage - foundation for all other stages\n  base:"),
-            ("    frm:", "    # Base image to build from (any Docker image)\n    frm:"),
+            (
+                "    from:",
+                "    # Base image to build from (any Docker image)\n    from:",
+            ),
             ("    packages:", "    # Packages to install\n    packages:"),
             (
                 "      apt:",
