@@ -244,11 +244,11 @@ class ContainerMagicConfig(BaseModel):
             ("  name:", "  # Project name (used for Docker image tagging)\n  name:"),
             (
                 "  workspace:",
-                "  # Directory name for your code (mounted into container)\n  workspace:",
+                "  # Directory containing your code (mounted into container)\n  workspace:",
             ),
             (
                 "  auto_update:",
-                "  # Automatically regenerate files when config changes\n  auto_update:",
+                "  # Automatically regenerate Dockerfile and Justfile when this file changes\n  auto_update:",
             ),
             (
                 "  production_user:",
@@ -257,29 +257,29 @@ class ContainerMagicConfig(BaseModel):
             ("runtime:", "# Container runtime configuration\nruntime:"),
             (
                 "  backend:",
-                "  # Container runtime: auto (detects docker/podman), docker, or podman\n  backend:",
+                "  # Container runtime: auto, docker, or podman\n  backend:",
             ),
             (
                 "  privileged:",
-                "  # Run containers in privileged mode (needed for some hardware access)\n  privileged:",
+                "  # Run containers in privileged mode (for hardware access)\n  privileged:",
             ),
             (
                 "  features:",
-                "  # Enable features: display, gpu, audio, aws_credentials\n  features:",
+                "  # Features to enable: display, gpu, audio, aws_credentials\n  features:",
             ),
             ("stages:", "# Build stages - each stage builds on the previous\nstages:"),
             ("  base:", "  # Base stage - foundation for all other stages\n  base:"),
-            ("    frm:", "    # Base Docker image (FROM in Dockerfile)\n    frm:"),
+            ("    frm:", "    # Base image to build from (any Docker image)\n    frm:"),
             ("    packages:", "    # Packages to install\n    packages:"),
             (
                 "      apt:",
-                "      # System packages (apt-get on Debian/Ubuntu, apk on Alpine, dnf on Fedora)\n      apt:",
+                "      # System packages (apt/apk/dnf depending on base image)\n      apt:",
             ),
-            ("      pip:", "      # Python packages (installed with pip)\n      pip:"),
+            ("      pip:", "      # Python packages\n      pip:"),
             ("    env:", "    # Environment variables\n    env:"),
             (
                 "    cached_assets:",
-                "    # Large files to download once and cache (e.g., model weights)\n    cached_assets:",
+                "    # Large files to download and cache (e.g. model weights)\n    cached_assets:",
             ),
             (
                 "  development:",
