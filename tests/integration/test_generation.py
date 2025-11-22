@@ -184,11 +184,17 @@ def test_project_generation(name, template, compact, test_output_dir):
     justfile_content = (project_dir / "Justfile").read_text()
     assert "build" in justfile_content, "Justfile missing build target"
 
-    # Compact should have no comments, full should have comments
+    # Compact should have minimal comments (header only), full should have detailed comments
     if compact:
-        assert not any(
-            line.startswith("#") for line in config_content.split("\n") if line.strip()
-        ), "Compact config contains comments"
+        comment_lines = [
+            line for line in config_content.split("\n") if line.strip().startswith("#")
+        ]
+        assert len(comment_lines) == 1, (
+            f"Compact config should only have header link, found {len(comment_lines)}"
+        )
+        assert "github.com/markhedleyjones/container-magic" in comment_lines[0], (
+            "Compact config missing repository link"
+        )
     else:
         assert "# Project configuration" in config_content, (
             "Full config missing comments"

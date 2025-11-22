@@ -46,12 +46,13 @@ def test_init_with_compact_flag(temp_project_dir):
     assert (temp_project_dir / "cm.yaml").exists()
     assert not (temp_project_dir / "container-magic.yaml").exists()
 
-    # Check that compact file has no comments
+    # Check that compact file has minimal comments (just header link)
     config_content = (temp_project_dir / "cm.yaml").read_text()
     comment_lines = [
         line for line in config_content.split("\n") if line.strip().startswith("#")
     ]
-    assert len(comment_lines) == 0, "Compact config should not have comments"
+    assert len(comment_lines) == 1, "Compact config should only have header link"
+    assert "github.com/markhedleyjones/container-magic" in comment_lines[0]
 
 
 def test_init_without_compact_has_comments(temp_project_dir):

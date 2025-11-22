@@ -222,6 +222,10 @@ class ContainerMagicConfig(BaseModel):
         # Add comments if not compact
         if not compact:
             output = self._add_comments(output)
+        else:
+            # Add minimal header for compact config
+            compact_header = "# https://github.com/markhedleyjones/container-magic\n"
+            output = compact_header + output
 
         with open(path, "w") as f:
             f.write(output)
@@ -241,10 +245,9 @@ class ContainerMagicConfig(BaseModel):
         header = """# container-magic.yaml
 # Configuration file for container-magic - a tool for containerised development environments
 #
+# Repository: https://github.com/markhedleyjones/container-magic
+# Install: pip install container-magic
 # For a more compact config without comments, use: cm init --compact
-# This will generate cm.yaml instead of container-magic.yaml
-#
-# Learn more: https://github.com/your-repo/container-magic
 
 """
 
