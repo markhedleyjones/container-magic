@@ -1,5 +1,6 @@
 """Main CLI for container-magic."""
 
+import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,73 @@ from container_magic.generators.build_script import generate_build_script
 from container_magic.generators.dockerfile import generate_dockerfile
 from container_magic.generators.justfile import generate_justfile
 from container_magic.generators.run_script import generate_run_script
+
+
+def _show_just_install_help():
+    """Display platform-specific installation instructions for 'just'."""
+    click.echo("Error: 'just' command not found", err=True)
+    click.echo("", err=True)
+    click.echo("'just' is required to run container-magic projects.", err=True)
+    click.echo("Install it using one of these methods:", err=True)
+    click.echo("", err=True)
+
+    system = platform.system()
+
+    if system == "Linux":
+        # Detect Linux distribution
+        distro = ""
+        try:
+            with open("/etc/os-release") as f:
+                for line in f:
+                    if line.startswith("ID="):
+                        distro = line.strip().split("=")[1].strip('"')
+                        break
+        except Exception:
+            pass
+
+        if distro in ["arch", "manjaro"]:
+            click.echo("  pacman -S just", err=True)
+        elif distro in ["ubuntu", "debian", "linuxmint", "pop"]:
+            click.echo("  # Using cargo (recommended):", err=True)
+            click.echo("  cargo install just", err=True)
+            click.echo("", err=True)
+            click.echo("  # Or download pre-built binary:", err=True)
+            click.echo(
+                "  curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin",
+                err=True,
+            )
+        elif distro in ["fedora", "rhel", "centos"]:
+            click.echo("  dnf install just", err=True)
+        else:
+            click.echo("  # Using cargo:", err=True)
+            click.echo("  cargo install just", err=True)
+            click.echo("", err=True)
+            click.echo("  # Or download pre-built binary:", err=True)
+            click.echo(
+                "  curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin",
+                err=True,
+            )
+    elif system == "Darwin":  # macOS
+        click.echo("  # Using Homebrew (recommended):", err=True)
+        click.echo("  brew install just", err=True)
+        click.echo("", err=True)
+        click.echo("  # Or using cargo:", err=True)
+        click.echo("  cargo install just", err=True)
+    elif system == "Windows":
+        click.echo("  # Using Scoop (recommended):", err=True)
+        click.echo("  scoop install just", err=True)
+        click.echo("", err=True)
+        click.echo("  # Or using Cargo:", err=True)
+        click.echo("  cargo install just", err=True)
+        click.echo("", err=True)
+        click.echo("  # Or using Chocolatey:", err=True)
+        click.echo("  choco install just", err=True)
+    else:
+        click.echo("  # Using cargo:", err=True)
+        click.echo("  cargo install just", err=True)
+
+    click.echo("", err=True)
+    click.echo("Learn more: https://github.com/casey/just", err=True)
 
 
 @click.group()
@@ -218,7 +286,7 @@ def build(path: Path):
 
     # Check if just is available
     if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        click.echo("Error: 'just' command not found. Please install just.", err=True)
+        _show_just_install_help()
         sys.exit(1)
 
     # Call just build
@@ -237,7 +305,7 @@ def run(command: tuple[str, ...], path: Path):
 
     # Check if just is available
     if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        click.echo("Error: 'just' command not found. Please install just.", err=True)
+        _show_just_install_help()
         sys.exit(1)
 
     # Call just run with command
@@ -314,7 +382,7 @@ def shell(path: Path):
 
     # Check if just is available
     if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        click.echo("Error: 'just' command not found. Please install just.", err=True)
+        _show_just_install_help()
         sys.exit(1)
 
     # Call just shell
@@ -347,7 +415,7 @@ def run_main():
 
     # Check if just is available
     if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        click.echo("Error: 'just' command not found. Please install just.", err=True)
+        _show_just_install_help()
         sys.exit(1)
 
     # Call just run with command
