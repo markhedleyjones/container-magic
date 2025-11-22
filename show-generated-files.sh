@@ -20,7 +20,7 @@ TEST_CASES=(
 OUTPUT_DIR="test-generated-projects"
 
 # Check for linting tools
-YAMLLINT=$(command -v yamllint || echo "")
+YAMLFMT=$(command -v yamlfmt || echo "")
 HADOLINT=$(command -v hadolint || echo "")
 SHELLCHECK=$(command -v shellcheck || echo "")
 JUST=$(command -v just || echo "")
@@ -32,9 +32,10 @@ validate_file() {
 
 	case "$file" in
 	*.yaml)
-		if [ -n "$YAMLLINT" ]; then
-			if ! yamllint -d relaxed "$file" >/dev/null 2>&1; then
-				echo "    ✗ YAML lint failed: $file"
+		if [ -n "$YAMLFMT" ]; then
+			# Check if file would be reformatted (needs formatting)
+			if ! yamlfmt -lint "$file" >/dev/null 2>&1; then
+				echo "    ✗ YAML format check failed: $file"
 				errors=$((errors + 1))
 			fi
 		fi
@@ -80,7 +81,7 @@ mkdir -p "$OUTPUT_DIR"
 echo "=== Generating Test Projects ==="
 echo ""
 echo "Available linters:"
-[ -n "$YAMLLINT" ] && echo "  ✓ yamllint" || echo "  ✗ yamllint (install with: pip install yamllint)"
+[ -n "$YAMLFMT" ] && echo "  ✓ yamlfmt" || echo "  ✗ yamlfmt (install with: go install github.com/google/yamlfmt/cmd/yamlfmt@latest)"
 [ -n "$HADOLINT" ] && echo "  ✓ hadolint" || echo "  ✗ hadolint (install from: https://github.com/hadolint/hadolint)"
 [ -n "$SHELLCHECK" ] && echo "  ✓ shellcheck" || echo "  ✗ shellcheck (install with: dnf install shellcheck)"
 [ -n "$JUST" ] && echo "  ✓ just" || echo "  ✗ just (install from: https://github.com/casey/just)"
