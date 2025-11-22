@@ -29,9 +29,14 @@ LINTERS = {
 
 
 @pytest.fixture(scope="session")
-def test_output_dir(tmp_path_factory):
-    """Create a temporary directory for test projects."""
-    return tmp_path_factory.mktemp("generated-projects")
+def test_output_dir():
+    """Create directory for test projects in repo for manual inspection."""
+    import os
+
+    repo_root = Path(os.getcwd())
+    output_dir = repo_root / "test-generated-projects"
+    output_dir.mkdir(exist_ok=True)
+    return output_dir
 
 
 def validate_yaml(yaml_file: Path) -> bool:
