@@ -51,7 +51,7 @@ run_{{ command_name }}() {
 	{%- endif %}
 
 	${RUNTIME} run "${RUN_ARGS[@]}" \
-		-w "${WORKDIR}/${WORKSPACE_NAME}" \
+		-w "${WORKDIR}" \
 		"${IMAGE_NAME}:${TAG}" \
 		"${SHELL}" -c "{{ command_spec.command }}"
 }

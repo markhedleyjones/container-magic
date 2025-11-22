@@ -21,3 +21,4 @@ test-generated-projects/
 /container-magic.yaml
 /cm.yaml
 /workspace/
+Justfile

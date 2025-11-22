@@ -167,6 +167,59 @@ def test_no_custom_commands_section_when_empty(temp_project_dir):
     )
 
 
+def test_custom_commands_use_workdir_not_workspace(temp_project_dir):
+    """Test that custom commands use WORKDIR (not WORKDIR/WORKSPACE) as working directory."""
+    # Initialize project
+    result = subprocess.run(
+        ["cm", "init", "--here", "--compact", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm init failed: {result.stderr}"
+
+    # Add custom command
+    config_file = temp_project_dir / "cm.yaml"
+    config_content = config_file.read_text()
+
+    custom_commands = """
+commands:
+  daemon:
+    command: "python workspace/daemon.py"
+    description: "Run daemon"
+"""
+    config_file.write_text(config_content + custom_commands)
+
+    # Regenerate
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm update failed: {result.stderr}"
+
+    # Check run.sh uses WORKDIR (not WORKDIR/WORKSPACE) for custom commands
+    run_sh_content = (temp_project_dir / "run.sh").read_text()
+
+    # Should use -w "${WORKDIR}" not -w "${WORKDIR}/${WORKSPACE_NAME}" in custom commands
+    # Look for the pattern in the run_daemon function
+    import re
+
+    daemon_match = re.search(
+        r"run_daemon\(\).*?^\}", run_sh_content, re.MULTILINE | re.DOTALL
+    )
+    assert daemon_match, "Could not find run_daemon function"
+    daemon_function = daemon_match.group(0)
+
+    assert '-w "${WORKDIR}"' in daemon_function, (
+        "Custom command should use WORKDIR as working directory"
+    )
+    assert '-w "${WORKDIR}/${WORKSPACE_NAME}"' not in daemon_function, (
+        "Custom command should not use WORKDIR/WORKSPACE"
+    )
+
+
 def test_run_sh_shellcheck_validation_with_commands(temp_project_dir):
     """Test that run.sh with custom commands passes shellcheck validation."""
     import shutil
