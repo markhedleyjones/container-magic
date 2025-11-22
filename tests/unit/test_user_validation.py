@@ -99,6 +99,10 @@ def test_switch_user_with_create_in_parent_stage():
                     "create_user",  # Create in base
                 ],
             },
+            "development": {
+                "from": "base",
+                "steps": [],
+            },
             "production": {
                 "from": "base",  # Inherit from base
                 "steps": [
@@ -133,10 +137,10 @@ def test_create_user_and_switch_user_both_present():
                     "create_user",
                     "switch_user",
                 ],
-            }
+            },
+            "development": {"from": "base"},
+            "production": {"from": "base"},
         },
-        "development": {"from": "base"},
-        "production": {"from": "base"},
     }
     config = ContainerMagicConfig(**config_dict)
 
@@ -167,6 +171,10 @@ def test_no_user_keywords_no_warnings():
                 "from": "base",
                 "steps": [],
             },
+            "production": {
+                "from": "base",
+                "steps": [],
+            },
         },
     }
     config = ContainerMagicConfig(**config_dict)
@@ -194,7 +202,9 @@ def test_switch_root_no_validation_needed():
                     "create_user",
                     "switch_root",  # Should not warn
                 ],
-            }
+            },
+            "development": {"from": "base"},
+            "production": {"from": "base"},
         },
     }
     config = ContainerMagicConfig(**config_dict)

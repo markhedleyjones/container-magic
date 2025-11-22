@@ -33,6 +33,7 @@ def process_stage_steps(
     project_dir: Path,
     stages_dict: dict[str, StageConfig],
     production_user: str,
+    has_explicit_user_config: bool,
 ) -> tuple[list[dict], bool, list[dict]]:
     """
     Process build steps for a stage.
@@ -128,7 +129,7 @@ def process_stage_steps(
             print("   The switch_user step may fail at build time.", file=sys.stderr)
 
     # Validation: Check if create_user or switch_user used but production.user not defined
-    if (has_create_user or has_switch_user) and not production_user:
+    if (has_create_user or has_switch_user) and not has_explicit_user_config:
         print(
             f"⚠️  Warning: Stage '{stage_name}' uses 'create_user' or 'switch_user' but production.user is not defined",
             file=sys.stderr,
@@ -208,8 +209,14 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
         user_creation_style = detect_user_creation_style(base_image)
 
         # Process build steps
+        has_explicit_user = config.project.production_user is not None
         ordered_steps, has_copy_cached_assets, cached_assets_data = process_stage_steps(
-            stage_config, stage_name, output_path.parent, stages, user_cfg.name
+            stage_config,
+            stage_name,
+            output_path.parent,
+            stages,
+            user_cfg.name,
+            has_explicit_user,
         )
 
         stages_data.append(
