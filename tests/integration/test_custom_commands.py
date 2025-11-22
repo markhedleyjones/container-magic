@@ -1,0 +1,218 @@
+"""Integration tests for custom commands feature."""
+
+import subprocess
+
+import pytest
+
+
+@pytest.fixture
+def temp_project_dir(tmp_path):
+    """Create a temporary directory for CLI tests."""
+    project_dir = tmp_path / "test-project"
+    project_dir.mkdir()
+    return project_dir
+
+
+def test_custom_commands_in_justfile_and_run_sh(temp_project_dir):
+    """Test that custom commands are generated in both Justfile and run.sh."""
+    # Initialize a basic project
+    result = subprocess.run(
+        ["cm", "init", "--here", "--compact", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm init failed: {result.stderr}"
+
+    # Add custom commands to the config
+    config_file = temp_project_dir / "cm.yaml"
+    config_content = config_file.read_text()
+
+    # Add custom commands section
+    custom_commands = """
+commands:
+  daemon:
+    command: "python workspace/daemon.py"
+    description: "Run the daemon process"
+  test:
+    command: "pytest workspace/tests"
+    description: "Run tests"
+    env:
+      PYTEST_ARGS: "-v"
+"""
+    config_file.write_text(config_content + custom_commands)
+
+    # Regenerate files
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm update failed: {result.stderr}"
+
+    # Check Justfile has custom commands
+    justfile_content = (temp_project_dir / "Justfile").read_text()
+    assert "# Custom Commands" in justfile_content, (
+        "Justfile missing custom commands section"
+    )
+    assert "# Run the daemon process" in justfile_content, (
+        "Justfile missing daemon description"
+    )
+    assert "daemon:" in justfile_content, "Justfile missing daemon command"
+    assert "python workspace/daemon.py" in justfile_content, (
+        "Justfile missing daemon command implementation"
+    )
+    assert "# Run tests" in justfile_content, "Justfile missing test description"
+    assert "test:" in justfile_content, "Justfile missing test command"
+    assert "pytest workspace/tests" in justfile_content, (
+        "Justfile missing test command implementation"
+    )
+    assert "PYTEST_ARGS" in justfile_content and "-v" in justfile_content, (
+        "Justfile missing test env vars"
+    )
+
+    # Check run.sh has custom commands
+    run_sh_content = (temp_project_dir / "run.sh").read_text()
+    assert "# Custom command handlers" in run_sh_content, (
+        "run.sh missing custom command handlers section"
+    )
+    assert "run_daemon()" in run_sh_content, "run.sh missing daemon function"
+    assert "# Run the daemon process" in run_sh_content, (
+        "run.sh missing daemon description"
+    )
+    assert "python workspace/daemon.py" in run_sh_content, (
+        "run.sh missing daemon command"
+    )
+    assert "run_test()" in run_sh_content, "run.sh missing test function"
+    assert "# Run tests" in run_sh_content, "run.sh missing test description"
+    assert "pytest workspace/tests" in run_sh_content, "run.sh missing test command"
+    assert "PYTEST_ARGS" in run_sh_content, "run.sh missing test env vars"
+
+    # Check run.sh has case statement to dispatch commands
+    assert 'case "$1" in' in run_sh_content, "run.sh missing case statement"
+    assert "daemon)" in run_sh_content, "run.sh missing daemon case"
+    assert "test)" in run_sh_content, "run.sh missing test case"
+
+
+def test_custom_commands_with_no_description(temp_project_dir):
+    """Test that custom commands work without descriptions."""
+    # Initialize a basic project
+    result = subprocess.run(
+        ["cm", "init", "--here", "--compact", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm init failed: {result.stderr}"
+
+    # Add custom command without description
+    config_file = temp_project_dir / "cm.yaml"
+    config_content = config_file.read_text()
+
+    custom_commands = """
+commands:
+  serve:
+    command: "python -m http.server 8000"
+"""
+    config_file.write_text(config_content + custom_commands)
+
+    # Regenerate files
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm update failed: {result.stderr}"
+
+    # Check both files have the command
+    justfile_content = (temp_project_dir / "Justfile").read_text()
+    assert "serve:" in justfile_content, "Justfile missing serve command"
+    assert "python -m http.server 8000" in justfile_content, (
+        "Justfile missing serve command implementation"
+    )
+
+    run_sh_content = (temp_project_dir / "run.sh").read_text()
+    assert "run_serve()" in run_sh_content, "run.sh missing serve function"
+    assert "python -m http.server 8000" in run_sh_content, (
+        "run.sh missing serve command"
+    )
+
+
+def test_no_custom_commands_section_when_empty(temp_project_dir):
+    """Test that custom command sections are not added when no commands are defined."""
+    # Initialize a basic project (no custom commands)
+    result = subprocess.run(
+        ["cm", "init", "--here", "--compact", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm init failed: {result.stderr}"
+
+    # Check Justfile doesn't have custom commands section
+    justfile_content = (temp_project_dir / "Justfile").read_text()
+    assert "# Custom Commands" not in justfile_content, (
+        "Justfile should not have custom commands section when none defined"
+    )
+
+    # Check run.sh doesn't have custom command handlers
+    run_sh_content = (temp_project_dir / "run.sh").read_text()
+    assert "# Custom command handlers" not in run_sh_content, (
+        "run.sh should not have custom command handlers when none defined"
+    )
+    assert 'case "$1" in' not in run_sh_content, (
+        "run.sh should not have case statement when no custom commands"
+    )
+
+
+def test_run_sh_shellcheck_validation_with_commands(temp_project_dir):
+    """Test that run.sh with custom commands passes shellcheck validation."""
+    import shutil
+
+    if not shutil.which("shellcheck"):
+        pytest.skip("shellcheck not available")
+
+    # Initialize project
+    result = subprocess.run(
+        ["cm", "init", "--here", "--compact", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm init failed: {result.stderr}"
+
+    # Add custom commands
+    config_file = temp_project_dir / "cm.yaml"
+    config_content = config_file.read_text()
+
+    custom_commands = """
+commands:
+  daemon:
+    command: "python workspace/daemon.py"
+    description: "Run daemon"
+    env:
+      LOG_LEVEL: "debug"
+"""
+    config_file.write_text(config_content + custom_commands)
+
+    # Regenerate
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm update failed: {result.stderr}"
+
+    # Validate with shellcheck
+    run_sh = temp_project_dir / "run.sh"
+    result = subprocess.run(
+        ["shellcheck", str(run_sh)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"shellcheck failed for run.sh:\n{result.stdout}\n{result.stderr}"
+    )

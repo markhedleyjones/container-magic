@@ -25,6 +25,52 @@ fi
 RUNTIME="{{ backend }}"
 {%- endif %}
 
+{%- if commands %}
+
+# Custom command handlers
+{%- for command_name, command_spec in commands.items() %}
+
+run_{{ command_name }}() {
+	{%- if command_spec.description %}
+	# {{ command_spec.description }}
+	{%- endif %}
+	local RUN_ARGS=(
+		"--rm"
+		"-it"
+		"--hostname" "${IMAGE_NAME}"
+		{% if privileged %}
+		"--privileged"
+		{% endif %}
+	)
+
+	{%- if command_spec.env %}
+	# Environment variables
+	{%- for key, value in command_spec.env.items() %}
+	RUN_ARGS+=("-e" "{{ key }}={{ value }}")
+	{%- endfor %}
+	{%- endif %}
+
+	${RUNTIME} run "${RUN_ARGS[@]}" \
+		-w "${WORKDIR}/${WORKSPACE_NAME}" \
+		"${IMAGE_NAME}:${TAG}" \
+		"${SHELL}" -c "{{ command_spec.command }}"
+}
+{%- endfor %}
+
+# Check for custom command
+if [ $# -gt 0 ]; then
+	case "$1" in
+	{%- for command_name in commands.keys() %}
+		{{ command_name }})
+			shift
+			run_{{ command_name }} "$@"
+			exit $?
+			;;
+	{%- endfor %}
+	esac
+fi
+{%- endif %}
+
 # Build run arguments
 RUN_ARGS=(
 	"--rm"
