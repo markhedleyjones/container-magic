@@ -9,6 +9,13 @@ from pathlib import Path
 
 import pytest
 
+from tests.utils.validation import (
+    validate_dockerfile,
+    validate_no_consecutive_blank_lines,
+    validate_shell_script,
+    validate_yaml,
+)
+
 # Config fixtures to test
 CONFIG_FIXTURES = [
     "minimal.yaml",
@@ -17,13 +24,6 @@ CONFIG_FIXTURES = [
     "with_gpu_features.yaml",
     "with_cached_assets.yaml",
 ]
-
-# Linting tools (optional)
-LINTERS = {
-    "yamlfmt": shutil.which("yamlfmt"),
-    "hadolint": shutil.which("hadolint"),
-    "shellcheck": shutil.which("shellcheck"),
-}
 
 
 @pytest.fixture
@@ -40,48 +40,6 @@ def temp_project(tmp_path):
     workspace_dir = project_dir / "workspace"
     workspace_dir.mkdir()
     return project_dir
-
-
-def validate_yaml(yaml_file: Path) -> tuple[bool, str]:
-    """Validate YAML file with yamlfmt."""
-    if not LINTERS["yamlfmt"]:
-        return True, "yamlfmt not available"
-    result = subprocess.run(
-        [
-            "yamlfmt",
-            "-formatter",
-            "retain_line_breaks=true",
-            "-lint",
-            str(yaml_file),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0, result.stderr
-
-
-def validate_dockerfile(dockerfile: Path) -> tuple[bool, str]:
-    """Validate Dockerfile with hadolint."""
-    if not LINTERS["hadolint"]:
-        return True, "hadolint not available"
-    result = subprocess.run(
-        ["hadolint", "--failure-threshold", "error", str(dockerfile)],
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0, result.stderr + result.stdout
-
-
-def validate_shell_script(script: Path) -> tuple[bool, str]:
-    """Validate shell script with shellcheck."""
-    if not LINTERS["shellcheck"]:
-        return True, "shellcheck not available"
-    result = subprocess.run(
-        ["shellcheck", str(script)],
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0, result.stderr + result.stdout
 
 
 @pytest.mark.parametrize("config_fixture", CONFIG_FIXTURES)
@@ -115,20 +73,34 @@ def test_config_generates_valid_files(config_fixture, fixtures_dir, temp_project
         assert file_path.exists(), f"Missing file {file} for config {config_fixture}"
 
     # Validate config file
-    valid, msg = validate_yaml(config_path)
-    assert valid, f"YAML validation failed for {config_fixture}: {msg}"
+    result = validate_yaml(config_path)
+    assert result, f"YAML validation failed for {config_fixture}: {result}"
 
     # Validate Dockerfile
-    valid, msg = validate_dockerfile(temp_project / "Dockerfile")
-    assert valid, f"Dockerfile validation failed for {config_fixture}: {msg}"
+    result = validate_dockerfile(temp_project / "Dockerfile")
+    assert result, f"Dockerfile validation failed for {config_fixture}: {result}"
+
+    # Validate Dockerfile has no consecutive blank lines
+    result = validate_no_consecutive_blank_lines(temp_project / "Dockerfile")
+    assert result, f"Dockerfile has consecutive blank lines: {result}"
 
     # Validate build.sh
-    valid, msg = validate_shell_script(temp_project / "build.sh")
-    assert valid, f"build.sh validation failed for {config_fixture}: {msg}"
+    result = validate_shell_script(temp_project / "build.sh")
+    assert result, f"build.sh validation failed for {config_fixture}: {result}"
+
+    result = validate_no_consecutive_blank_lines(temp_project / "build.sh")
+    assert result, f"build.sh has consecutive blank lines: {result}"
 
     # Validate run.sh
-    valid, msg = validate_shell_script(temp_project / "run.sh")
-    assert valid, f"run.sh validation failed for {config_fixture}: {msg}"
+    result = validate_shell_script(temp_project / "run.sh")
+    assert result, f"run.sh validation failed for {config_fixture}: {result}"
+
+    result = validate_no_consecutive_blank_lines(temp_project / "run.sh")
+    assert result, f"run.sh has consecutive blank lines: {result}"
+
+    # Validate Justfile
+    result = validate_no_consecutive_blank_lines(temp_project / "Justfile")
+    assert result, f"Justfile has consecutive blank lines: {result}"
 
 
 @pytest.mark.parametrize("config_fixture", CONFIG_FIXTURES)
@@ -306,7 +278,14 @@ def test_direct_script_execution(fixtures_dir, temp_project):
 
 def test_linter_availability():
     """Display which linters are available (informational)."""
+    linters = {
+        "yamlfmt": shutil.which("yamlfmt"),
+        "hadolint": shutil.which("hadolint"),
+        "shellcheck": shutil.which("shellcheck"),
+        "just": shutil.which("just"),
+    }
+
     print("\n=== Linter Availability ===")
-    for name, path in LINTERS.items():
+    for name, path in linters.items():
         status = "✓" if path else "✗"
         print(f"{status} {name}: {path or 'not found'}")

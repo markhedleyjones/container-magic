@@ -24,7 +24,6 @@
     {% endif %}
     {% endif %}
     {% endfor %}
-
     {% endif %}
     # Build container arguments
     RUN_ARGS=()
@@ -52,14 +51,12 @@
     {% endif %}
     {% endif %}
     {% endfor %}
-
     {% if env %}
     # Environment variables
     {% for key, value in env.items() %}
     RUN_ARGS+=("-e" "{{ key }}={{ value }}")
     {% endfor %}
     {% endif %}
-
     # Image
     RUN_ARGS+=("{{ image_name }}:{{ image_tag }}")
 
