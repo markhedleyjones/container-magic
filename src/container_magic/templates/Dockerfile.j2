@@ -42,6 +42,7 @@ RUN dnf install -y{% for package in stage.apt_packages %} \
 {% if stage.pip_packages %}
 RUN pip install --no-cache-dir{% for package in stage.pip_packages %} \
         {{ package }}{% endfor %}
+
 {% endif %}
 {% elif step.type == "create_user" %}
 # Create user account
