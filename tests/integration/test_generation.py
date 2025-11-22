@@ -35,17 +35,20 @@ def test_output_dir(tmp_path_factory):
 
 
 def validate_yaml(yaml_file: Path) -> bool:
-    """Validate YAML file can be parsed."""
-    # Skip yamlfmt - it conflicts with our intentional blank-line formatting
-    # Just verify it's valid YAML by trying to parse it
-    import yaml
-
-    try:
-        with open(yaml_file) as f:
-            yaml.safe_load(f)
+    """Validate YAML file with yamlfmt."""
+    if not LINTERS["yamlfmt"]:
         return True
-    except yaml.YAMLError:
-        return False
+    result = subprocess.run(
+        [
+            "yamlfmt",
+            "-formatter",
+            "retain_line_breaks=true",
+            "-lint",
+            str(yaml_file),
+        ],
+        capture_output=True,
+    )
+    return result.returncode == 0
 
 
 def validate_dockerfile(dockerfile: Path) -> bool:

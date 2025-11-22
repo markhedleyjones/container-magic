@@ -188,7 +188,9 @@ class ContainerMagicConfig(BaseModel):
 
         # Custom YAML dumper that adds blank lines between top-level sections
         class BlankLineDumper(yaml.SafeDumper):
-            pass
+            def increase_indent(self, flow=False, indentless=False):
+                """Override to make list items not indented (yamlfmt style)."""
+                return super().increase_indent(flow, False)
 
         def write_blank_line(dumper, data):
             """Add blank line before top-level mappings."""
@@ -196,13 +198,14 @@ class ContainerMagicConfig(BaseModel):
 
         BlankLineDumper.add_representer(dict, write_blank_line)
 
-        # Dump YAML
+        # Dump YAML with yamlfmt-compatible formatting
         output = yaml.dump(
             data,
             Dumper=BlankLineDumper,
             default_flow_style=False,
             sort_keys=False,
             width=float("inf"),  # Prevent line wrapping
+            indent=2,  # yamlfmt standard
         )
 
         # Add blank lines between top-level sections
@@ -222,6 +225,16 @@ class ContainerMagicConfig(BaseModel):
 
         with open(path, "w") as f:
             f.write(output)
+
+        # Format with yamlfmt if available
+        import shutil
+        import subprocess
+
+        if shutil.which("yamlfmt"):
+            subprocess.run(
+                ["yamlfmt", "-formatter", "retain_line_breaks=true", str(path)],
+                capture_output=True,
+            )
 
     def _add_comments(self, yaml_content: str) -> str:
         """Add helpful comments to YAML content."""
