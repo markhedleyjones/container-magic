@@ -1,0 +1,33 @@
+# Test config with GPU and audio features
+project:
+  name: test-gpu-audio
+  workspace: workspace
+  production_user:
+    name: nonroot
+    uid: 1000
+    gid: 1000
+
+runtime:
+  backend: auto
+  privileged: true
+  features:
+    - gpu
+    - audio
+    - display
+
+stages:
+  base:
+    from: pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
+    packages:
+      apt:
+        - ffmpeg
+        - libsndfile1
+      pip:
+        - numpy
+        - torch
+
+  development:
+    from: base
+
+  production:
+    from: base

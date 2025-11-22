@@ -1,0 +1,28 @@
+# Minimal test config
+project:
+  name: test-minimal
+  workspace: workspace
+  production_user:
+    name: appuser
+    uid: 1000
+    gid: 1000
+
+runtime:
+  backend: auto
+  privileged: false
+  features: []
+
+stages:
+  base:
+    from: python:3.11-slim
+    packages:
+      apt: []
+      pip: []
+
+  development:
+    from: base
+
+  production:
+    from: base
+    steps:
+      - COPY workspace ${WORKSPACE}

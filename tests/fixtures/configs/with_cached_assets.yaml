@@ -1,0 +1,31 @@
+# Test config with cached assets
+project:
+  name: test-cached-assets
+  workspace: workspace
+  production_user:
+    name: modeluser
+    uid: 1000
+    gid: 1000
+
+runtime:
+  backend: auto
+  privileged: false
+  features: []
+
+stages:
+  base:
+    from: python:3.11-slim
+    packages:
+      pip:
+        - requests
+    env:
+      MODEL_PATH: /models
+    cached_assets:
+      - url: https://httpbin.org/uuid
+        dest: /models/test.json
+
+  development:
+    from: base
+
+  production:
+    from: base

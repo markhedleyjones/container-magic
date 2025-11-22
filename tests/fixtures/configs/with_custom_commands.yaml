@@ -1,0 +1,45 @@
+# Test config with custom commands
+project:
+  name: test-commands
+  workspace: workspace
+  production_user:
+    name: appuser
+    uid: 1000
+    gid: 1000
+
+runtime:
+  backend: auto
+  privileged: false
+  features: []
+
+stages:
+  base:
+    from: python:3.11-slim
+    packages:
+      apt:
+        - curl
+      pip:
+        - pytest
+    env:
+      APP_ENV: production
+
+  development:
+    from: base
+
+  production:
+    from: base
+    steps:
+      - COPY workspace ${WORKSPACE}
+
+commands:
+  test:
+    command: "echo 'Hello from test command'"
+    description: "Run a simple test"
+
+  version:
+    command: "python --version"
+    description: "Show Python version"
+
+  workspace-check:
+    command: "ls -la workspace/"
+    description: "Check workspace contents"

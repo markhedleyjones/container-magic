@@ -1,0 +1,40 @@
+# Test config with environment variables
+project:
+  name: test-env-vars
+  workspace: workspace
+  production_user:
+    name: appuser
+    uid: 1000
+    gid: 1000
+
+runtime:
+  backend: auto
+  privileged: false
+  features: []
+
+stages:
+  base:
+    from: ubuntu:22.04
+    packages:
+      apt:
+        - python3
+        - python3-pip
+    env:
+      DATABASE_URL: postgresql://localhost/mydb
+      API_KEY: test-key-123
+      LOG_LEVEL: debug
+
+  development:
+    from: base
+    env:
+      DEBUG: "true"
+
+  production:
+    from: base
+    env:
+      DEBUG: "false"
+
+commands:
+  env-check:
+    command: "env | grep -E '(DATABASE_URL|API_KEY|LOG_LEVEL)'"
+    description: "Check environment variables"
