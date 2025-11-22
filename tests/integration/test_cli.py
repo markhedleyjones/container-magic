@@ -137,3 +137,89 @@ def test_init_without_here_requires_name(tmp_path):
         "name argument is required" in result.stderr.lower()
         or "required" in result.stderr.lower()
     )
+
+
+def test_gitignore_created_for_new_project(temp_project_dir):
+    """Test that .gitignore is created for new projects."""
+    result = subprocess.run(
+        ["cm", "init", "--here", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+
+    # Check .gitignore exists and has required entries
+    gitignore = temp_project_dir / ".gitignore"
+    assert gitignore.exists()
+
+    content = gitignore.read_text()
+    assert ".cm-cache/" in content
+    assert "Justfile" in content
+
+
+def test_gitignore_appends_to_existing(temp_project_dir):
+    """Test that existing .gitignore is preserved and container-magic entries are added."""
+    # Create existing .gitignore with some content
+    existing_gitignore = temp_project_dir / ".gitignore"
+    existing_content = """# My existing ignores
+*.pyc
+__pycache__/
+.env
+"""
+    existing_gitignore.write_text(existing_content)
+
+    # Initialize project
+    result = subprocess.run(
+        ["cm", "init", "--here", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+
+    # Check .gitignore preserved existing content and added container-magic entries
+    content = existing_gitignore.read_text()
+
+    # Original content should still be there
+    assert "# My existing ignores" in content
+    assert "*.pyc" in content
+    assert "__pycache__/" in content
+    assert ".env" in content
+
+    # Container-magic entries should be added
+    assert ".cm-cache/" in content
+    assert "Justfile" in content
+
+
+def test_gitignore_does_not_duplicate_entries(temp_project_dir):
+    """Test that running init twice doesn't duplicate .gitignore entries."""
+    # Create existing .gitignore with container-magic entries already present
+    existing_gitignore = temp_project_dir / ".gitignore"
+    existing_content = """# My project
+*.log
+
+.cm-cache/
+Justfile
+"""
+    existing_gitignore.write_text(existing_content)
+
+    # Initialize project
+    result = subprocess.run(
+        ["cm", "init", "--here", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+
+    # Check .gitignore doesn't have duplicates
+    content = existing_gitignore.read_text()
+    lines = content.split("\n")
+
+    # Count occurrences of each line
+    assert lines.count(".cm-cache/") == 1, "Should not duplicate .cm-cache/"
+    assert lines.count("Justfile") == 1, "Should not duplicate Justfile"

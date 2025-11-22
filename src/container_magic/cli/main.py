@@ -116,18 +116,34 @@ def init(
     generate_build_script(config, path)
     generate_run_script(config, path)
 
-    # Create .gitignore
-    gitignore_content = """# Container-magic generated files
-# Dockerfile, build.sh, run.sh, and config are committed for reproducibility
-# Justfile is excluded as it's only for local development convenience
+    # Update .gitignore
+    gitignore_path = path / ".gitignore"
+    required_entries = [".cm-cache/", "Justfile"]
 
-# Container-magic cache
-.cm-cache/
+    if gitignore_path.exists():
+        # Read existing content
+        existing_content = gitignore_path.read_text()
+        existing_lines = existing_content.split("\n")
 
-# Justfile (local development only)
+        # Check which entries need to be added
+        entries_to_add = [
+            entry for entry in required_entries if entry not in existing_lines
+        ]
+
+        if entries_to_add:
+            # Append missing entries
+            with gitignore_path.open("a") as f:
+                # Ensure file ends with newline before appending
+                if existing_content and not existing_content.endswith("\n"):
+                    f.write("\n")
+                for entry in entries_to_add:
+                    f.write(f"{entry}\n")
+    else:
+        # Create new .gitignore
+        gitignore_content = """.cm-cache/
 Justfile
 """
-    (path / ".gitignore").write_text(gitignore_content)
+        gitignore_path.write_text(gitignore_content)
 
     click.echo(f"✓ Created {name}")
     click.echo("Next steps:")
