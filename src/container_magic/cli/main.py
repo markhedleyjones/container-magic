@@ -117,11 +117,15 @@ def init(
     generate_run_script(config, path)
 
     # Create .gitignore
-    gitignore_content = """# Container-magic generated files are committed
-# Add your project-specific ignores below
+    gitignore_content = """# Container-magic generated files
+# Dockerfile, build.sh, run.sh, and config are committed for reproducibility
+# Justfile is excluded as it's only for local development convenience
 
 # Container-magic cache
 .cm-cache/
+
+# Justfile (local development only)
+Justfile
 """
     (path / ".gitignore").write_text(gitignore_content)
 
