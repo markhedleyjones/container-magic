@@ -4,6 +4,9 @@
 # To make permanent changes, edit your config file instead
 
 {% for stage in stages %}
+{% if not loop.first %}
+
+{% endif %}
 ################################################################################
 # Stage: {{ stage.name }}
 ################################################################################
