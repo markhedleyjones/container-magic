@@ -1,8 +1,23 @@
 # Container-magic generated files are committed
 # Add your project-specific ignores below
 
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
 # Container-magic cache
 .cm-cache/
 
 # Test-generated projects for manual inspection
 test-generated-projects/
+
+# Container-magic files in repo root (from testing)
+/Dockerfile
+/Justfile
+/build.sh
+/run.sh
+/container-magic.yaml
+/cm.yaml
+/workspace/
