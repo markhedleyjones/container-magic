@@ -89,6 +89,24 @@ def validate_justfile(justfile: Path) -> bool:
     return result.returncode == 0
 
 
+def validate_no_consecutive_blank_lines(file_path: Path) -> bool:
+    """Validate that file has no more than one consecutive blank line."""
+    with open(file_path) as f:
+        lines = f.readlines()
+
+    consecutive_blanks = 0
+    max_consecutive = 0
+
+    for line in lines:
+        if line.strip() == "":
+            consecutive_blanks += 1
+            max_consecutive = max(max_consecutive, consecutive_blanks)
+        else:
+            consecutive_blanks = 0
+
+    return max_consecutive <= 1
+
+
 @pytest.mark.parametrize("name,template", TEST_CASES)
 @pytest.mark.parametrize("compact", [False, True], ids=["full", "compact"])
 def test_project_generation(name, template, compact, test_output_dir):
@@ -135,6 +153,13 @@ def test_project_generation(name, template, compact, test_output_dir):
     assert validate_shell_script(project_dir / "build.sh"), "build.sh validation failed"
     assert validate_shell_script(project_dir / "run.sh"), "run.sh validation failed"
     assert validate_justfile(project_dir / "Justfile"), "Justfile validation failed"
+
+    # Validate no excessive blank lines in generated files
+    for file_name in ["Dockerfile", "Justfile", "build.sh", "run.sh", config_file]:
+        file_path = project_dir / file_name
+        assert validate_no_consecutive_blank_lines(file_path), (
+            f"{file_name} has more than one consecutive blank line"
+        )
 
     # Validate YAML is readable by cm
     result = subprocess.run(

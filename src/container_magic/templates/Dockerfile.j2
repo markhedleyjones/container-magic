@@ -34,14 +34,12 @@ RUN dnf install -y{% for package in stage.apt_packages %} \
     dnf clean all
 {% endif %}
 {% endif %}
-
 {% elif step.type == "pip_packages" %}
 # Install Python pip packages
 {% if stage.pip_packages %}
 RUN pip install --no-cache-dir{% for package in stage.pip_packages %} \
         {{ package }}{% endfor %}
 {% endif %}
-
 {% elif step.type == "create_user" %}
 # Create user account
 ARG USER_GID={{ stage.user_gid }}
@@ -59,21 +57,17 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
         useradd --uid ${USER_UID} --gid ${USER_GID} --home-dir ${USER_HOME} --create-home ${USER_NAME}; \
     fi
 {% endif %}
-
 {% elif step.type == "switch_user" %}
 # Switch to user
 USER ${USER_NAME}
-
 {% elif step.type == "switch_root" %}
 # Switch to root
 USER root
-
 {% elif step.type == "cached_assets" %}
 # Copy cached assets
 {% for asset in stage.cached_assets %}
 COPY {{ asset.source }} {{ asset.dest }}
 {% endfor %}
-
 {% elif step.type == "custom" %}
 {% if step.command.startswith('COPY ') or step.command.startswith('ADD ') or step.command.startswith('ENV ') or step.command.startswith('WORKDIR ') or step.command.startswith('USER ') or step.command.startswith('LABEL ') or step.command.startswith('EXPOSE ') or step.command.startswith('VOLUME ') or step.command.startswith('RUN ') %}
 {{ step.command }}
@@ -82,11 +76,12 @@ RUN {{ step.command }}
 {% endif %}
 {% endif %}
 {% endfor %}
+{% if stage.ordered_steps %}
 
+{% endif %}
 # Setup workspace
 ARG WORKDIR=/home/${USER_NAME}
 ARG WORKSPACE_NAME={{ workspace_name }}
 ENV WORKSPACE=${WORKDIR}/${WORKSPACE_NAME}
 WORKDIR ${WORKDIR}
-
 {% endfor %}

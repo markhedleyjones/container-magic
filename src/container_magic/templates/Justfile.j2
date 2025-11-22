@@ -90,8 +90,8 @@ run *args:
     RUN_ARGS+=("--replace")
     RUN_ARGS+=("--userns=keep-id")
     {% endif %}
-
     {% if privileged %}
+
     # Privileged mode
     RUN_ARGS+=("--privileged")
     {% endif %}
@@ -105,8 +105,8 @@ run *args:
     # Mount workspace
     RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:$(echo ~)/{{ workspace_name }}:z")
     {% endif %}
-
     {% if features.display %}
+
     # Display support (Wayland and X11)
     if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
         wayland_socket="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
@@ -128,8 +128,8 @@ run *args:
         RUN_ARGS+=("--env" "QT_X11_NO_MITSHM=1")
     fi
     {% endif %}
-
     {% if features.gpu %}
+
     # GPU support
     if [[ -d /dev/dri ]]; then
         RUN_ARGS+=("--device" "/dev/dri:/dev/dri")
@@ -145,16 +145,16 @@ run *args:
         {% endif %}
     fi
     {% endif %}
-
     {% if features.audio %}
+
     # Audio support (PulseAudio/PipeWire)
     if [[ -S "/run/user/$(id -u)/pulse/native" ]]; then
         RUN_ARGS+=("-v" "/run/user/$(id -u)/pulse/native:/run/user/$(id -u)/pulse/native")
         RUN_ARGS+=("-e" "PULSE_SERVER=unix:/run/user/$(id -u)/pulse/native")
     fi
     {% endif %}
-
     {% if features.aws_credentials %}
+
     # AWS credentials
     if [[ -d "$HOME/.aws" ]]; then
         RUN_ARGS+=("-v" "$HOME/.aws:$(echo ~)/.aws")
