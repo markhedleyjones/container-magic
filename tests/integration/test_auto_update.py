@@ -29,27 +29,16 @@ def test_auto_update_disabled_requires_manual_update(test_project):
     config = (test_project / "cm.yaml").read_text()
     assert "auto_update: false" in config
 
-    # Check that Justfile has the warning logic (not auto-update logic)
+    # Check that Justfile has runtime auto_update detection
     justfile = (test_project / "Justfile").read_text()
-    assert "Run 'cm update' to regenerate" in justfile
+    assert "grep -E" in justfile  # Runtime check for auto_update
+    assert "auto_update: true" in justfile  # Checking for this pattern
+    assert "Run 'cm update' to regenerate" in justfile  # Warning message in else branch
+    assert "cm update" in justfile  # Auto-update call in if branch
 
-    # Should NOT have the auto-update call (only the warning message)
-    # Check the section between hash mismatch and the end of that if block
-    hash_check_section = justfile.split('if [ "$current" != "$expected" ]; then')[
-        1
-    ].split("# Build")[0]
-    # Should have the warning
-    assert "Run 'cm update' to regenerate" in hash_check_section
-    # Should NOT have a standalone "cm update" command (only in echo statements)
-    lines = hash_check_section.split("\n")
-    for line in lines:
-        stripped = line.strip()
-        if stripped == "cm update" or (
-            stripped.startswith("cm update") and "echo" not in line
-        ):
-            assert False, (
-                "Found standalone 'cm update' command when auto_update is false"
-            )
+    # The Justfile now always contains both code paths
+    # Verify it has the runtime check
+    assert "auto_update=$(grep -E" in justfile
 
 
 def test_auto_update_enabled_regenerates_automatically(test_project):
@@ -98,8 +87,8 @@ def test_auto_update_enabled_regenerates_automatically(test_project):
 
 
 def test_auto_update_in_generated_justfile(tmp_path):
-    """Test that auto_update setting is properly reflected in generated Justfile."""
-    # Create project with auto_update enabled from the start
+    """Test that Justfile uses runtime detection for auto_update."""
+    # Create project
     project_dir = tmp_path / "test-auto-enabled"
     project_dir.mkdir()
 
@@ -112,35 +101,14 @@ def test_auto_update_in_generated_justfile(tmp_path):
     )
     assert result.returncode == 0
 
-    # Enable auto_update in config
-    config_path = project_dir / "cm.yaml"
-    config = config_path.read_text()
-    config = config.replace("auto_update: false", "auto_update: true")
-    config_path.write_text(config)
-
-    # Generate files with auto_update enabled
-    result = subprocess.run(
-        ["cm", "update"],
-        cwd=project_dir,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0
-
-    # Verify Justfile contains auto-update logic
+    # Verify Justfile contains runtime auto_update detection
     justfile = (project_dir / "Justfile").read_text()
 
-    # Simple check: when auto_update is true, the justfile should have "cm update"
-    # and should NOT have "Run 'cm update' to regenerate" warning
-    assert "cm update" in justfile, (
-        "Justfile should contain 'cm update' call when auto_update is true"
+    # The Justfile should always check auto_update at runtime using grep
+    assert "auto_update=$(grep -E" in justfile, (
+        "Justfile should check auto_update at runtime using grep"
     )
 
-    # The warning should not appear (it's in the else branch)
-    # Check that the hash check section doesn't have the warning
-    hash_check_section = justfile.split('if [ "$current" != "$expected" ]; then')[
-        1
-    ].split("# Build")[0]
-    assert "Run 'cm update' to regenerate" not in hash_check_section, (
-        "Justfile should not have manual update warning when auto_update is true"
-    )
+    # Should have both code paths (if auto_update enabled, else manual)
+    assert "cm update" in justfile
+    assert "Run 'cm update' to regenerate" in justfile
