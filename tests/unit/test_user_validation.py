@@ -23,20 +23,24 @@ def capture_stderr(func, *args, **kwargs):
 
 
 def test_production_user_empty_string():
-    """Warn if create_user or switch_user used but production.user is empty."""
+    """Warn if create_user or switch_user used but production_user is not defined."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
-        "production": {"user": ""},  # Empty user
+        # No production_user defined
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                "build_steps": [
-                    "create_user",  # Using create_user but no production.user
+                "steps": [
+                    "create_user",  # Using create_user but no production_user
                 ],
             },
             "development": {
                 "from": "base",
-                "build_steps": [],  # Prevent default development stage warnings
+                "steps": [],  # Prevent default development stage warnings
+            },
+            "production": {
+                "from": "base",
+                "steps": [],
             },
         },
     }
@@ -53,15 +57,20 @@ def test_production_user_empty_string():
 def test_switch_user_without_create_in_same_stage():
     """Warn if switch_user used but no create_user in same stage."""
     config_dict = {
-        "project": {"name": "test", "workspace": "workspace"},
-        "production": {"user": "myuser"},
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            "production_user": {"name": "myuser"},
+        },
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                "build_steps": [
+                "steps": [
                     "switch_user",  # Trying to switch without creating
                 ],
-            }
+            },
+            "development": {"from": "base"},
+            "production": {"from": "base"},
         },
     }
     config = ContainerMagicConfig(**config_dict)
@@ -78,18 +87,21 @@ def test_switch_user_without_create_in_same_stage():
 def test_switch_user_with_create_in_parent_stage():
     """No warning if switch_user used and create_user exists in parent stage."""
     config_dict = {
-        "project": {"name": "test", "workspace": "workspace"},
-        "production": {"user": "myuser"},
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            "production_user": {"name": "myuser"},
+        },
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                "build_steps": [
+                "steps": [
                     "create_user",  # Create in base
                 ],
             },
             "production": {
                 "from": "base",  # Inherit from base
-                "build_steps": [
+                "steps": [
                     "switch_user",  # Switch in production - should be OK
                 ],
             },
@@ -109,17 +121,22 @@ def test_switch_user_with_create_in_parent_stage():
 def test_create_user_and_switch_user_both_present():
     """No warning if both create_user and switch_user are present."""
     config_dict = {
-        "project": {"name": "test", "workspace": "workspace"},
-        "production": {"user": "myuser"},
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            "production_user": {"name": "myuser"},
+        },
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                "build_steps": [
+                "steps": [
                     "create_user",
                     "switch_user",
                 ],
             }
         },
+        "development": {"from": "base"},
+        "production": {"from": "base"},
     }
     config = ContainerMagicConfig(**config_dict)
 
@@ -134,18 +151,21 @@ def test_create_user_and_switch_user_both_present():
 def test_no_user_keywords_no_warnings():
     """No warnings if no create_user or switch_user keywords used."""
     config_dict = {
-        "project": {"name": "test", "workspace": "workspace"},
-        "production": {"user": "myuser"},
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            "production_user": {"name": "myuser"},
+        },
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                "build_steps": [
+                "steps": [
                     "install_system_packages",
                 ],
             },
             "development": {
                 "from": "base",
-                "build_steps": [],
+                "steps": [],
             },
         },
     }
@@ -162,12 +182,15 @@ def test_no_user_keywords_no_warnings():
 def test_switch_root_no_validation_needed():
     """switch_root should not trigger any validation warnings."""
     config_dict = {
-        "project": {"name": "test", "workspace": "workspace"},
-        "production": {"user": "myuser"},
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            "production_user": {"name": "myuser"},
+        },
         "stages": {
             "base": {
                 "from": "python:3-slim",
-                "build_steps": [
+                "steps": [
                     "create_user",
                     "switch_root",  # Should not warn
                 ],

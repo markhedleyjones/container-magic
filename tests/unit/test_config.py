@@ -12,7 +12,11 @@ def test_valid_project_name():
     for name in valid_names:
         config = ContainerMagicConfig(
             project={"name": name, "workspace": "workspace"},
-            template={"base": "python:3-slim"},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
         )
         assert config.project.name == name
 
@@ -24,47 +28,61 @@ def test_invalid_project_name():
         with pytest.raises(ValidationError):
             ContainerMagicConfig(
                 project={"name": name, "workspace": "workspace"},
-                template={"base": "python:3-slim"},
+                stages={
+                    "base": {"from": "python:3-slim"},
+                    "development": {"from": "base"},
+                    "production": {"from": "base"},
+                },
             )
 
 
 def test_default_values():
     """Test that default values are set correctly."""
     config = ContainerMagicConfig(
-        project={"name": "test"}, template={"base": "python:3-slim"}
+        project={"name": "test"},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
     )
 
     assert config.project.workspace == "workspace"
     assert config.runtime.backend == "auto"
     assert config.runtime.privileged is False
-    assert config.development.mount_workspace is True
-    assert config.development.shell == "/bin/bash"
-    assert config.development.features == []
-    assert config.production.user == "nonroot"
+    assert config.runtime.features == []
 
 
 def test_config_with_features():
     """Test configuration with features enabled."""
     config = ContainerMagicConfig(
         project={"name": "test"},
-        template={"base": "python:3-slim"},
-        development={"features": ["display", "gpu", "audio"]},
+        runtime={"features": ["display", "gpu", "audio"]},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
     )
 
-    assert "display" in config.development.features
-    assert "gpu" in config.development.features
-    assert "audio" in config.development.features
+    assert "display" in config.runtime.features
+    assert "gpu" in config.runtime.features
+    assert "audio" in config.runtime.features
 
 
 def test_config_with_packages():
     """Test configuration with package lists."""
     config = ContainerMagicConfig(
         project={"name": "test"},
-        template={
-            "base": "python:3-slim",
-            "packages": {"apt": ["git", "curl"], "pip": ["numpy", "pandas"]},
+        stages={
+            "base": {
+                "from": "python:3-slim",
+                "packages": {"apt": ["git", "curl"], "pip": ["numpy", "pandas"]},
+            },
+            "development": {"from": "base"},
+            "production": {"from": "base"},
         },
     )
 
-    assert config.template.packages.apt == ["git", "curl"]
-    assert config.template.packages.pip == ["numpy", "pandas"]
+    assert config.stages["base"].packages.apt == ["git", "curl"]
+    assert config.stages["base"].packages.pip == ["numpy", "pandas"]
