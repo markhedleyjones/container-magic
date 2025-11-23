@@ -40,7 +40,7 @@ run bash -c "echo Hello from container"
 run  # starts an interactive shell
 ```
 
-The `run` command works from anywhere in your repository and translates paths automatically, so it feels like running on your host machine.
+The `run` command works from anywhere in your repository and translates your working directory automatically. When using the `run` alias (not `just run` directly), path translation ensures the container's working directory matches your position in the repository.
 
 ## Workflow
 
@@ -244,7 +244,37 @@ run <command>
 
 The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, etc.
 
-**Note:** Both `just` and the `build`/`run` aliases work from anywhere in your project by searching upward for the Justfile/config. For basic development, you only need `just` installed. Installing container-magic is recommended primarily for generating and regenerating files from your YAML config. As a bonus, it also provides shorter command aliases (`build` instead of `just build`, `run` instead of `just run`). You can use either the aliases or call just directly.
+**Note:** Both `just` and the `build`/`run` aliases work from anywhere in your project by searching upward for the Justfile/config. For basic development, you only need `just` installed. Installing container-magic is recommended primarily for generating and regenerating files from your YAML config. As a bonus, it also provides command aliases with automatic working directory translation - the `run` alias (not `just run`) adjusts the container's working directory to match your position in the repository, making it feel like you're running commands on the host.
+
+## Using `just` vs `run` Alias
+
+**When calling `just` directly:**
+- Paths must be relative to the project root (where the Justfile is)
+- Works from anywhere, but you must always specify paths from the project root
+- Limitation: `just` changes to the Justfile directory, losing context of where you ran the command
+
+**When using the `run` alias (requires container-magic installed):**
+- Automatically translates your working directory to the container
+- Paths can be relative to your current location
+- The container's working directory matches your position in the repository
+
+**Example:**
+```bash
+# From project root - both work the same:
+just run workspace/script.py  # ✓ Works
+run workspace/script.py       # ✓ Works
+
+# Now cd into workspace/ subdirectory:
+cd workspace
+
+# just fails because it looks for paths from project root:
+just run script.py            # ❌ Fails - looks for script.py in project root (not workspace/)
+
+# run works because it translates your working directory:
+run script.py                 # ✓ Works - finds script.py in current dir
+```
+
+**Note:** You can make `just` work from subdirectories by always using full paths from the project root (e.g., `just run workspace/script.py` would work from anywhere).
 
 ## Development vs Production
 
