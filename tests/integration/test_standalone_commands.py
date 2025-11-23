@@ -204,3 +204,119 @@ def test_empty_commands_returns_empty_list(tmp_path):
 
     scripts = generate_standalone_command_scripts(config, tmp_path)
     assert scripts == []
+
+
+def test_orphaned_scripts_are_cleaned_up(tmp_path):
+    """Test that orphaned standalone scripts are removed when command changes."""
+    # Create initial config with standalone train command
+    config1 = ContainerMagicConfig(
+        project={"name": "test-orphan", "workspace": "workspace"},
+        stages={
+            "base": {"from": "python:3.11-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+        commands={
+            "train": {
+                "command": "python workspace/train.py",
+                "standalone": True,
+            },
+            "test": {
+                "command": "pytest workspace/tests",
+                "standalone": True,
+            },
+        },
+    )
+
+    # Generate scripts
+    scripts = generate_standalone_command_scripts(config1, tmp_path)
+    assert len(scripts) == 2
+    assert (tmp_path / "train.sh").exists()
+    assert (tmp_path / "test.sh").exists()
+
+    # Change config: remove test command, make train non-standalone
+    config2 = ContainerMagicConfig(
+        project={"name": "test-orphan", "workspace": "workspace"},
+        stages={
+            "base": {"from": "python:3.11-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+        commands={
+            "train": {
+                "command": "python workspace/train.py",
+                "standalone": False,  # Changed to non-standalone
+            },
+        },
+    )
+
+    # Regenerate - should clean up both scripts
+    scripts = generate_standalone_command_scripts(config2, tmp_path)
+    assert len(scripts) == 0
+    assert not (tmp_path / "train.sh").exists()
+    assert not (tmp_path / "test.sh").exists()
+
+
+def test_orphaned_scripts_when_command_removed(tmp_path):
+    """Test that scripts are cleaned up when commands are completely removed."""
+    # Create config with standalone command
+    config1 = ContainerMagicConfig(
+        project={"name": "test-removed", "workspace": "workspace"},
+        stages={
+            "base": {"from": "python:3.11-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+        commands={
+            "deploy": {
+                "command": "bash workspace/deploy.sh",
+                "standalone": True,
+            },
+        },
+    )
+
+    generate_standalone_command_scripts(config1, tmp_path)
+    assert (tmp_path / "deploy.sh").exists()
+
+    # Remove command entirely
+    config2 = ContainerMagicConfig(
+        project={"name": "test-removed", "workspace": "workspace"},
+        stages={
+            "base": {"from": "python:3.11-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+        commands={
+            "serve": {
+                "command": "python workspace/serve.py",
+                "standalone": False,
+            },
+        },
+    )
+
+    generate_standalone_command_scripts(config2, tmp_path)
+    assert not (tmp_path / "deploy.sh").exists()
+    assert not (tmp_path / "serve.sh").exists()
+
+
+def test_build_and_run_scripts_not_cleaned_up(tmp_path):
+    """Test that build.sh and run.sh are never cleaned up."""
+    # Create fake build.sh and run.sh
+    (tmp_path / "build.sh").write_text("#!/bin/bash\necho build")
+    (tmp_path / "run.sh").write_text("#!/bin/bash\necho run")
+
+    # Create config with no commands
+    config = ContainerMagicConfig(
+        project={"name": "test-system", "workspace": "workspace"},
+        stages={
+            "base": {"from": "python:3.11-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+    )
+
+    generate_standalone_command_scripts(config, tmp_path)
+
+    # build.sh and run.sh should still exist
+    assert (tmp_path / "build.sh").exists()
+    assert (tmp_path / "run.sh").exists()

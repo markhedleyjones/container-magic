@@ -31,6 +31,10 @@ RUNTIME="{{ backend }}"
 {%- for command_name, command_spec in commands.items() %}
 
 run_{{ command_name }}() {
+	{%- if command_spec.standalone %}
+	# Delegate to standalone script
+	exec "$(dirname "$0")/{{ command_name }}.sh"
+	{%- else %}
 	{%- if command_spec.description %}
 	# {{ command_spec.description }}
 	{%- endif %}
@@ -54,6 +58,7 @@ run_{{ command_name }}() {
 		-w "${WORKDIR}" \
 		"${IMAGE_NAME}:${TAG}" \
 		"${SHELL}" -c "{{ command_spec.command }}"
+	{%- endif %}
 }
 {%- endfor %}
 
