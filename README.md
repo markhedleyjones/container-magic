@@ -1,6 +1,10 @@
-# container-magic
+<div align="center">
+  <img src="https://raw.githubusercontent.com/markhedleyjones/container-magic-artwork/main/sparkles/original-vector.svg" alt="Container Magic - Sparkles the Otter" width="200"/>
 
-A tool for rapidly creating containerised development environments. Configure once in YAML, use anywhere with Docker or Podman.
+  # container-magic
+
+  A tool for rapidly creating containerised development environments. Configure once in YAML, use anywhere with Docker or Podman.
+</div>
 
 ## What It Does
 
