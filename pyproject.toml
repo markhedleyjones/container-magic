@@ -42,6 +42,7 @@ dev = [
 [project.scripts]
 cm = "container_magic.cli.main:main"
 run = "container_magic.cli.main:run_main"
+build = "container_magic.cli.main:build_main"
 
 [project.urls]
 Homepage = "https://github.com/markhedleyjones/container-magic"

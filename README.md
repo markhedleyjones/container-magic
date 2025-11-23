@@ -2,8 +2,6 @@
 
 A tool for rapidly creating containerised development environments. Configure once in YAML, use anywhere with Docker or Podman.
 
-An iteration on the [docker-bbq](https://github.com/markhedleyjones/docker-bbq) project with improved YAML configuration, Python-based tooling, and better dev/prod workflows.
-
 ## What It Does
 
 Container-magic takes a single YAML configuration file and generates:
@@ -33,8 +31,21 @@ cm init python my-project
 cd my-project
 
 # Build and run
+cm build
+cm run python workspace/script.py
+```
+
+Container-magic also installs `build` and `run` aliases:
+```bash
+build                           # Same as cm build
+run python workspace/script.py  # Same as cm run
+```
+
+A Justfile is generated for additional convenience:
+```bash
 just build
 just run python workspace/script.py
+just shell
 ```
 
 ## Workflow
@@ -203,18 +214,17 @@ cm init --compact <image>     # Use cm.yaml instead of container-magic.yaml
 
 # Regenerate files after editing YAML
 cm update
-cmupdate                      # Alias
 
-# Development (uses Justfile)
-just build                    # Build dev image
-just run <command>            # Run command in container
-just shell                    # Interactive shell
-just <custom-command>         # Run custom command
+# Development
+cm build          (or: build, just build)
+cm run <command>  (or: run, just run)
+just shell
+just <custom-command>
 
 # Production (standalone scripts)
-./build.sh                    # Build prod image
-./run.sh <command>            # Run command
-./run.sh <custom-command>     # Run custom command
+./build.sh
+./run.sh <command>
+./run.sh <custom-command>
 ```
 
 The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, etc.

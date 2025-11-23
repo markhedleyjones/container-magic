@@ -396,7 +396,7 @@ def main():
 
 
 def run_main():
-    """Entry point for run command (docker-bbq style)."""
+    """Entry point for run command (standalone alias)."""
     # Find nearest config file by walking up from current directory
     current_dir = Path.cwd()
     project_dir = None
@@ -423,6 +423,63 @@ def run_main():
     if len(sys.argv) > 1:
         just_args.extend(sys.argv[1:])
     result = subprocess.run(just_args, cwd=project_dir)
+    sys.exit(result.returncode)
+
+
+def build_main():
+    """Entry point for build command (standalone alias)."""
+    # Find nearest config file by walking up from current directory
+    current_dir = Path.cwd()
+    project_dir = None
+
+    for parent in [current_dir] + list(current_dir.parents):
+        if (parent / "cm.yaml").exists() or (parent / "container-magic.yaml").exists():
+            project_dir = parent
+            break
+
+    if not project_dir:
+        click.echo(
+            "Error: No config file (cm.yaml or container-magic.yaml) found in current directory or parents",
+            err=True,
+        )
+        sys.exit(1)
+
+    # Load config
+    config_path = find_config_file(project_dir)
+    config = ContainerMagicConfig.from_yaml(config_path)
+
+    # Download cached assets from all stages
+    from container_magic.core.cache import cache_asset
+
+    has_assets = False
+    for stage_name, stage_config in config.stages.items():
+        if stage_config.cached_assets:
+            if not has_assets:
+                click.echo("Downloading cached assets...")
+                has_assets = True
+            for asset in stage_config.cached_assets:
+                try:
+                    asset_dir, asset_file = cache_asset(
+                        project_dir, asset.url, asset.dest
+                    )
+                    if asset_file.exists():
+                        click.echo(
+                            f"  ✓ [{stage_name}] {asset.url} → {asset_file.relative_to(project_dir)}"
+                        )
+                except Exception as e:
+                    click.echo(
+                        f"  ✗ [{stage_name}] Failed to download {asset.url}: {e}",
+                        err=True,
+                    )
+                    sys.exit(1)
+
+    # Check if just is available
+    if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
+        _show_just_install_help()
+        sys.exit(1)
+
+    # Call just build
+    result = subprocess.run(["just", "build"], cwd=project_dir)
     sys.exit(result.returncode)
 
 
