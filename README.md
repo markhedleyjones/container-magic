@@ -126,11 +126,17 @@ commands:
     description: Train the model
 ```
 
-Then use:
+Development:
 ```bash
-just build
-just train        # Runs with GPU support
-just shell        # Interactive shell
+build
+run python workspace/train.py  # Or use custom command: just train
+```
+
+Production:
+```bash
+./build.sh
+./run.sh train     # Run custom command
+./run.sh           # Interactive shell
 ```
 
 ## YAML Reference
@@ -205,11 +211,9 @@ cm init --compact <image>     # Use cm.yaml instead of container-magic.yaml
 # Regenerate files after editing YAML
 cm update
 
-# Development
-cm build          (or: build, just build)
-cm run <command>  (or: run, just run)
-just shell
-just <custom-command>
+# Development (aliases)
+build
+run <command>
 
 # Production (standalone scripts)
 ./build.sh
@@ -218,6 +222,8 @@ just <custom-command>
 ```
 
 The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, etc.
+
+**Note:** Container-magic generates a Justfile that contains the build and run logic. If you have `just` installed, you can also use `just build`, `just run`, `just shell`, and any custom commands you've defined.
 
 ## Development vs Production
 
