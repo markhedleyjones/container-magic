@@ -200,9 +200,14 @@ commands:
     standalone: true  # Optional: generate train.sh script
 ```
 
-Usage:
-- Development: `run train` or `just train`
-- Production: `./run.sh train` or `./train.sh` (if standalone: true)
+**Development:**
+- `run train` - from anywhere in your repository
+- `just train` - from repository root
+
+**Production:**
+- `./run.sh train`
+
+If `standalone: true`, also generates `./train.sh` for direct execution.
 
 ## CLI Commands
 
