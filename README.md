@@ -37,6 +37,7 @@ build
 # Run commands inside the container
 run python --version
 run bash -c "echo Hello from container"
+run                # Interactive shell
 ```
 
 The `run` command works from anywhere in your repository and translates paths automatically, so it feels like running on your host machine.
@@ -223,7 +224,7 @@ run <command>
 
 The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, etc.
 
-**Note:** Container-magic generates a Justfile that contains the build and run logic. If you have `just` installed, you can also use `just build`, `just run`, `just shell`, and any custom commands you've defined.
+**Note:** Container-magic generates a Justfile that contains the build and run logic. If you have `just` installed, you can also use `just build`, `just run`, and any custom commands you've defined.
 
 ## Development vs Production
 
