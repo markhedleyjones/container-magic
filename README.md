@@ -31,15 +31,15 @@ pip install container-magic
 cm init python my-project
 cd my-project
 
-# Build and run
+# Build the container
 build
-run python workspace/script.py
+
+# Run commands inside the container
+run python --version
+run bash -c "echo Hello from container"
 ```
 
-The `run` command works from anywhere in your repository - paths are automatically translated so commands execute as if running on your machine, but inside the container:
-```bash
-cd workspace && run python script.py  # Works from any subdirectory
-```
+The `run` command works from anywhere in your repository and translates paths automatically, so it feels like running on your host machine.
 
 ## Workflow
 
