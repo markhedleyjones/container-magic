@@ -14,6 +14,7 @@ The Dockerfile and standalone scripts are committed to your repository, so anyon
 ## Key Features
 
 * **YAML configuration** - Single source of truth for your container setup
+* **Transparent execution** - Run commands in container from anywhere in your repo with path translation
 * **Custom commands** - Define commands once, use in both dev and prod
 * **Smart features** - GPU, display (X11/Wayland), and audio support
 * **Multi-stage builds** - Separate base, development, and production stages
@@ -40,6 +41,8 @@ Container-magic also installs `build` and `run` aliases:
 build                           # Same as cm build
 run python workspace/script.py  # Same as cm run
 ```
+
+The `run` command works from anywhere in your repository - paths are automatically translated so commands execute as if running on your machine, but inside the container.
 
 A Justfile is generated for additional convenience:
 ```bash
