@@ -174,6 +174,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
         autoescape=select_autoescape(),
         trim_blocks=True,
         lstrip_blocks=True,
+        keep_trailing_newline=True,
     )
 
     template = env.get_template("Dockerfile.j2")

@@ -38,9 +38,9 @@ run_{{ command_name }}() {
 		"--rm"
 		"-it"
 		"--hostname" "${IMAGE_NAME}"
-		{% if privileged %}
+		{%- if privileged %}
 		"--privileged"
-		{% endif %}
+		{%- endif %}
 	)
 
 	{%- if command_spec.env %}
@@ -61,11 +61,11 @@ run_{{ command_name }}() {
 if [ $# -gt 0 ]; then
 	case "$1" in
 	{%- for command_name in commands.keys() %}
-		{{ command_name }})
-			shift
-			run_{{ command_name }} "$@"
-			exit $?
-			;;
+	{{ command_name }})
+		shift
+		run_{{ command_name }} "$@"
+		exit $?
+		;;
 	{%- endfor %}
 	esac
 fi
@@ -76,9 +76,9 @@ RUN_ARGS=(
 	"--rm"
 	"-it"
 	"--hostname" "${IMAGE_NAME}"
-	{% if privileged %}
+	{%- if privileged %}
 	"--privileged"
-	{% endif %}
+	{%- endif %}
 )
 
 # Check if image exists

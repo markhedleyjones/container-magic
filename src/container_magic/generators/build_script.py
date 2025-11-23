@@ -16,7 +16,10 @@ def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> No
         config: Configuration object
         project_dir: Path to project directory
     """
-    env = Environment(loader=PackageLoader("container_magic", "templates"))
+    env = Environment(
+        loader=PackageLoader("container_magic", "templates"),
+        keep_trailing_newline=True,
+    )
     template = env.get_template("build.sh.j2")
 
     # Use production stage if it exists, otherwise base

@@ -16,7 +16,10 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         config: Configuration object
         project_dir: Path to project directory
     """
-    env = Environment(loader=PackageLoader("container_magic", "templates"))
+    env = Environment(
+        loader=PackageLoader("container_magic", "templates"),
+        keep_trailing_newline=True,
+    )
     template = env.get_template("run.sh.j2")
 
     # Determine runtime backend

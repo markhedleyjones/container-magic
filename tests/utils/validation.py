@@ -108,24 +108,50 @@ def validate_dockerfile(dockerfile: Path) -> ValidationResult:
     return ValidationResult(True, "hadolint: OK")
 
 
-def validate_shell_script(script: Path) -> ValidationResult:
-    """Validate shell script with shellcheck."""
+def validate_shell_script(
+    script: Path, check_formatting: bool = True
+) -> ValidationResult:
+    """Validate shell script with shellcheck and optionally shfmt."""
+    messages = []
+    all_passed = True
+
+    # Check with shellcheck
     shellcheck = shutil.which("shellcheck")
     if not shellcheck:
-        return ValidationResult(True, "shellcheck not available (skipped)")
-
-    result = subprocess.run(
-        ["shellcheck", str(script)],
-        capture_output=True,
-        text=True,
-    )
-
-    if result.returncode != 0:
-        return ValidationResult(
-            False, f"shellcheck failed:\n{result.stderr}\n{result.stdout}"
+        messages.append("shellcheck not available (skipped)")
+    else:
+        result = subprocess.run(
+            ["shellcheck", str(script)],
+            capture_output=True,
+            text=True,
         )
 
-    return ValidationResult(True, "shellcheck: OK")
+        if result.returncode != 0:
+            all_passed = False
+            messages.append(f"shellcheck failed:\n{result.stderr}\n{result.stdout}")
+        else:
+            messages.append("shellcheck: OK")
+
+    # Check formatting with shfmt
+    if check_formatting:
+        shfmt = shutil.which("shfmt")
+        if not shfmt:
+            messages.append("shfmt not available (skipped)")
+        else:
+            # Run shfmt in diff mode to check if formatting would change
+            result = subprocess.run(
+                ["shfmt", "-d", str(script)],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                all_passed = False
+                messages.append(f"shfmt formatting needed:\n{result.stdout}")
+            else:
+                messages.append("shfmt: OK")
+
+    return ValidationResult(all_passed, "\n".join(messages))
 
 
 def validate_justfile(justfile: Path) -> ValidationResult:
