@@ -33,24 +33,24 @@ cd my-project
 
 # Build and run
 cm build
-cm run python workspace/script.py
+cm run workspace/script.py
 ```
 
 Container-magic also installs `build` and `run` aliases:
 ```bash
-build                           # Same as cm build
-run python workspace/script.py  # Same as cm run
+build                    # Same as cm build
+run workspace/script.py  # Same as cm run
 ```
 
 The `run` command works from anywhere in your repository - paths are automatically translated so commands execute as if running on your machine, but inside the container:
 ```bash
-cd workspace && run python script.py  # Works from any subdirectory
+cd workspace && run script.py  # Works from any subdirectory
 ```
 
 A Justfile is generated for additional convenience:
 ```bash
 just build
-just run python workspace/script.py
+just run workspace/script.py
 just shell
 ```
 
@@ -59,25 +59,21 @@ just shell
 ```
 ┌─────────────────────┐
 │   cm.yaml           │  ← You edit this
-│  (your config)      │
+│  (central config)   │
 └──────────┬──────────┘
            │
            │  cm init / cm update
            │
-           ├─────────────────────────────┐
-           ▼                             ▼
-  ┌─────────────────┐         ┌──────────────────┐
-  │  Development    │         │   Production     │
-  ├─────────────────┤         ├──────────────────┤
-  │ • Justfile      │         │ • build.sh       │
-  │ • just build    │         │ • run.sh         │
-  │ • just run      │         │                  │
-  │ • just shell    │         │ (standalone,     │
-  │                 │         │  no deps)        │
-  │ (mounts code)   │         └──────────────────┘
-  └─────────────────┘
-           │
-           └── Both use same Dockerfile
+           ├─────────────┬──────────────────┐
+           ▼             ▼                  ▼
+      Dockerfile     Development        Production
+                  ┌───────────────┐  ┌──────────────┐
+                  │ • Justfile    │  │ • build.sh   │
+                  │               │  │ • run.sh     │
+                  │ (mounts live  │  │              │
+                  │  workspace)   │  │ (standalone, │
+                  └───────────────┘  │  no cm deps) │
+                                     └──────────────┘
 ```
 
 Production files (Dockerfile, build.sh, run.sh) are committed to git.
