@@ -9,7 +9,7 @@ Container-magic takes a single YAML configuration file and generates:
 2. A **Justfile** for development (with live workspace mounting)
 3. Standalone **build.sh** and **run.sh** scripts for production
 
-The generated files are committed to your repository, so anyone can use your project with just `docker`/`podman` and `just` - no need to install container-magic itself.
+The Dockerfile and standalone scripts are committed to your repository, so anyone can use your project with just `docker` or `podman` - no need to install container-magic or just.
 
 ## Key Features
 
@@ -74,7 +74,8 @@ just shell
            └── Both use same Dockerfile
 ```
 
-All generated files (Dockerfile, Justfile, build.sh, run.sh) are committed to git.
+Production files (Dockerfile, build.sh, run.sh) are committed to git.
+The Justfile is generated locally for developers.
 
 ## Basic Example
 
@@ -245,11 +246,11 @@ The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `p
 
 ```
 my-project/
-├── cm.yaml              # Your config
-├── Dockerfile           # Generated
-├── Justfile             # Generated (dev)
-├── build.sh             # Generated (prod)
-├── run.sh               # Generated (prod)
+├── cm.yaml              # Your config (committed)
+├── Dockerfile           # Generated (committed)
+├── build.sh             # Generated (committed)
+├── run.sh               # Generated (committed)
+├── Justfile             # Generated locally for dev (gitignored)
 ├── workspace/           # Your code
 └── .cm-cache/           # Downloaded assets (gitignored)
 ```
