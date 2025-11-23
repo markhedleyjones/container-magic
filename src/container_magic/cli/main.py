@@ -13,6 +13,9 @@ from container_magic.generators.build_script import generate_build_script
 from container_magic.generators.dockerfile import generate_dockerfile
 from container_magic.generators.justfile import generate_justfile
 from container_magic.generators.run_script import generate_run_script
+from container_magic.generators.standalone_commands import (
+    generate_standalone_command_scripts,
+)
 
 
 def _show_just_install_help():
@@ -183,6 +186,7 @@ def init(
     generate_justfile(config, config_path, path / "Justfile")
     generate_build_script(config, path)
     generate_run_script(config, path)
+    generate_standalone_command_scripts(config, path)
 
     # Update .gitignore
     gitignore_path = path / ".gitignore"
@@ -237,6 +241,7 @@ def update(path: Path):
     generate_justfile(config, config_path, path / "Justfile")
     generate_build_script(config, path)
     generate_run_script(config, path)
+    generate_standalone_command_scripts(config, path)
 
     click.echo("✓ Regenerated successfully")
 
@@ -418,10 +423,22 @@ def run_main():
         _show_just_install_help()
         sys.exit(1)
 
-    # Call just run with command
-    just_args = ["just", "run"]
-    if len(sys.argv) > 1:
-        just_args.extend(sys.argv[1:])
+    # Load config to check for custom commands
+    config_path = find_config_file(project_dir)
+    config = ContainerMagicConfig.from_yaml(config_path)
+
+    # Check if first argument is a custom command
+    if len(sys.argv) > 1 and config.commands and sys.argv[1] in config.commands:
+        # Call just <command> directly
+        just_args = ["just", sys.argv[1]]
+        if len(sys.argv) > 2:
+            just_args.extend(sys.argv[2:])
+    else:
+        # Call just run with command
+        just_args = ["just", "run"]
+        if len(sys.argv) > 1:
+            just_args.extend(sys.argv[1:])
+
     result = subprocess.run(just_args, cwd=project_dir)
     sys.exit(result.returncode)
 

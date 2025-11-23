@@ -37,7 +37,7 @@ build
 # Run commands inside the container
 run python --version
 run bash -c "echo Hello from container"
-run                # Interactive shell
+run  # starts an interactive shell
 ```
 
 The `run` command works from anywhere in your repository and translates paths automatically, so it feels like running on your host machine.
@@ -130,7 +130,7 @@ commands:
 Development:
 ```bash
 build
-run python workspace/train.py  # Or use custom command: just train
+run train  # Use custom command directly
 ```
 
 Production:
@@ -197,9 +197,12 @@ commands:
     description: Train model
     env:
       CUDA_VISIBLE_DEVICES: "0"
+    standalone: true  # Optional: generate train.sh script
 ```
 
-Use with `just train` or `./run.sh train`.
+Usage:
+- Development: `run train` or `just train`
+- Production: `./run.sh train` or `./train.sh` (if standalone: true)
 
 ## CLI Commands
 

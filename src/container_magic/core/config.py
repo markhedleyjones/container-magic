@@ -158,6 +158,10 @@ class CustomCommand(BaseModel):
         default=False,
         description="Allow passing extra arguments after defined args (appended to command)",
     )
+    standalone: bool = Field(
+        default=False,
+        description="Generate standalone script for this command",
+    )
 
 
 class ContainerMagicConfig(BaseModel):
