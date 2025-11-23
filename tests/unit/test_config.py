@@ -86,3 +86,49 @@ def test_config_with_packages():
 
     assert config.stages["base"].packages.apt == ["git", "curl"]
     assert config.stages["base"].packages.pip == ["numpy", "pandas"]
+
+
+def test_build_script_default_target_default():
+    """Test that build_script.default_target defaults to 'production'."""
+    config = ContainerMagicConfig(
+        project={"name": "test"},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+    )
+
+    assert config.build_script.default_target == "production"
+
+
+def test_build_script_custom_default_target():
+    """Test that build_script.default_target can be customised."""
+    config = ContainerMagicConfig(
+        project={"name": "test"},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+            "testing": {"from": "base"},
+        },
+        build_script={"default_target": "testing"},
+    )
+
+    assert config.build_script.default_target == "testing"
+
+
+def test_build_script_invalid_default_target():
+    """Test that build_script.default_target must exist in stages."""
+    with pytest.raises(ValidationError) as exc_info:
+        ContainerMagicConfig(
+            project={"name": "test"},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+            build_script={"default_target": "nonexistent"},
+        )
+
+    assert "does not exist in stages" in str(exc_info.value)

@@ -22,13 +22,17 @@ def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> No
     )
     template = env.get_template("build.sh.j2")
 
-    # Use production stage if it exists, otherwise base
-    prod_stage = "production" if "production" in config.stages else "base"
+    # Get default target from config (defaults to "production")
+    default_target = config.build_script.default_target
+
+    # Get all available stages for validation
+    available_stages = list(config.stages.keys())
 
     content = template.render(
         project_name=config.project.name,
         workspace_name=config.project.workspace,
-        production_stage=prod_stage,
+        default_target=default_target,
+        available_stages=available_stages,
         production_user=get_user_config(config).name,
     )
 

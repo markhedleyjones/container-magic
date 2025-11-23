@@ -221,6 +221,26 @@ The `standalone` flag (default: `false`) controls script generation:
 - `./run.sh deploy` - via run.sh
 - `./deploy.sh` - dedicated standalone script
 
+### Build Script
+
+Configure the standalone `build.sh` script behaviour:
+
+```yaml
+build_script:
+  default_target: production  # Optional: default stage to build (default: production)
+```
+
+The `build.sh` script can build any defined stage:
+
+```bash
+./build.sh              # Builds the default target (production)
+./build.sh testing      # Builds the testing stage
+./build.sh development  # Builds the development stage
+./build.sh --help       # Shows all available targets
+```
+
+This is useful when you have multiple build targets beyond just development and production (e.g., testing, staging, or platform-specific builds).
+
 ## CLI Commands
 
 ```bash

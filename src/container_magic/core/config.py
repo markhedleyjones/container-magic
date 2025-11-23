@@ -164,6 +164,15 @@ class CustomCommand(BaseModel):
     )
 
 
+class BuildScriptConfig(BaseModel):
+    """Build script configuration."""
+
+    default_target: str = Field(
+        default="production",
+        description="Default stage to build when running build.sh without arguments",
+    )
+
+
 class ContainerMagicConfig(BaseModel):
     """Complete container-magic configuration."""
 
@@ -173,6 +182,7 @@ class ContainerMagicConfig(BaseModel):
     commands: dict[str, CustomCommand] = Field(
         default_factory=dict, description="Custom command definitions"
     )
+    build_script: BuildScriptConfig = Field(default_factory=BuildScriptConfig)
 
     @classmethod
     def from_yaml(cls, path: Path) -> "ContainerMagicConfig":
@@ -358,4 +368,14 @@ class ContainerMagicConfig(BaseModel):
             raise ValueError("stages.development is required")
         if "production" not in self.stages:
             raise ValueError("stages.production is required")
+        return self
+
+    @model_validator(mode="after")
+    def validate_build_script_target(self) -> "ContainerMagicConfig":
+        """Validate that build_script.default_target exists in stages."""
+        if self.build_script.default_target not in self.stages:
+            raise ValueError(
+                f"build_script.default_target '{self.build_script.default_target}' "
+                f"does not exist in stages. Available stages: {', '.join(self.stages.keys())}"
+            )
         return self
