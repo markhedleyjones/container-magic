@@ -9,6 +9,7 @@
 RUNTIME := "{{ runtime }}"
 IMAGE_NAME := "{{ project_name }}"
 WORKSPACE_NAME := "{{ workspace_name }}"
+USER_CWD := ""
 
 # Check if configuration has changed and warn user
 _check-config force="":
@@ -165,8 +166,26 @@ run *args:
     fi
     {% endif %}
 
-    # Working directory
-    RUN_ARGS+=("--workdir=$(echo ~)")
+    # Working directory - translate user's cwd to container path
+    if [[ -n "{{ '{{USER_CWD}}' }}" ]]; then
+        # Calculate relative path from project root to user's cwd
+        PROJECT_ROOT="$(pwd)"
+        USER_PATH="{{ '{{USER_CWD}}' }}"
+
+        # Get relative path
+        REL_PATH=$(realpath --relative-to="$PROJECT_ROOT" "$USER_PATH" 2>/dev/null || echo "")
+
+        if [[ -n "$REL_PATH" && "$REL_PATH" != "." ]]; then
+            # User is in a subdirectory - set container workdir accordingly
+            RUN_ARGS+=("--workdir=$(echo ~)/${REL_PATH}")
+        else
+            # User is at project root
+            RUN_ARGS+=("--workdir=$(echo ~)")
+        fi
+    else
+        # No USER_CWD set (called via 'just' directly) - use project root
+        RUN_ARGS+=("--workdir=$(echo ~)")
+    fi
 
     # Image and command
     RUN_ARGS+=("${IMAGE}")

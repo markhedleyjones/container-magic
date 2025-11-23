@@ -52,19 +52,19 @@ The `run` command works from anywhere in your repository and translates paths au
            │
            │  cm init / cm update
            │
-           ├─────────────┬──────────────────┐
-           ▼             ▼                  ▼
-      Dockerfile     Development        Production
-                  ┌───────────────┐  ┌──────────────┐
-                  │ • Justfile    │  │ • build.sh   │
-                  │               │  │ • run.sh     │
-                  │ (mounts live  │  │              │
-                  │  workspace)   │  │ (standalone, │
-                  └───────────────┘  │  no cm deps) │
-                                     └──────────────┘
+           ├─────────────┬──────────────────┬──────────────────┐
+           ▼             ▼                  ▼                  ▼
+      Dockerfile     Development        Production      Command Scripts
+                  ┌───────────────┐  ┌──────────────┐  ┌──────────────┐
+                  │ • Justfile    │  │ • build.sh   │  │ • <cmd>.sh   │
+                  │               │  │ • run.sh     │  │   (optional) │
+                  │ (mounts live  │  │              │  │              │
+                  │  workspace)   │  │ (standalone, │  │ (standalone, │
+                  └───────────────┘  │  no cm deps) │  │  no cm deps) │
+                                     └──────────────┘  └──────────────┘
 ```
 
-Production files (Dockerfile, build.sh, run.sh) are committed to git.
+Production files (Dockerfile, build.sh, run.sh, command scripts) are committed to git.
 The Justfile is generated locally for developers.
 
 ## Basic Example
@@ -125,19 +125,20 @@ commands:
   train:
     command: python workspace/train.py
     description: Train the model
+    standalone: true  # Generate dedicated train.sh script
 ```
 
-Development:
+**Development:**
 ```bash
 build
-run train  # Use custom command directly
+run train  # Use custom command directly (from anywhere)
 ```
 
-Production:
+**Production:**
 ```bash
 ./build.sh
-./run.sh train     # Run custom command
-./run.sh           # Interactive shell
+./run.sh train  # Run via run.sh
+./train.sh      # Or use dedicated standalone script
 ```
 
 ## YAML Reference
@@ -197,17 +198,28 @@ commands:
     description: Train model
     env:
       CUDA_VISIBLE_DEVICES: "0"
-    standalone: true  # Optional: generate train.sh script
+    standalone: false  # Default: false (no dedicated script)
+
+  deploy:
+    command: bash workspace/deploy.sh
+    description: Deploy the model
+    standalone: true   # Generates deploy.sh script
 ```
+
+The `standalone` flag (default: `false`) controls script generation:
+- **`standalone: false`** (default) - Command available via `run <command>` and `./run.sh <command>` only
+- **`standalone: true`** - Also generates a dedicated `<command>.sh` script for direct execution
 
 **Development:**
 - `run train` - from anywhere in your repository
-- `just train` - from repository root
+- `just train` - from repository root (if you have `just` installed)
 
-**Production:**
-- `./run.sh train`
+**Production (standalone: false):**
+- `./run.sh train` - only way to run
 
-If `standalone: true`, also generates `./train.sh` for direct execution.
+**Production (standalone: true):**
+- `./run.sh deploy` - via run.sh
+- `./deploy.sh` - dedicated standalone script
 
 ## CLI Commands
 
@@ -232,7 +244,7 @@ run <command>
 
 The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, etc.
 
-**Note:** Container-magic generates a Justfile that contains the build and run logic. If you have `just` installed, you can also use `just build`, `just run <command>`, and `just <custom-command>` (e.g., `just train`).
+**Note:** Both `just` and the `build`/`run` aliases work from anywhere in your project by searching upward for the Justfile/config. For basic development, you only need `just` installed. Installing container-magic is recommended primarily for generating and regenerating files from your YAML config. As a bonus, it also provides shorter command aliases (`build` instead of `just build`, `run` instead of `just run`). You can use either the aliases or call just directly.
 
 ## Development vs Production
 
@@ -254,10 +266,13 @@ my-project/
 ├── Dockerfile           # Generated (committed)
 ├── build.sh             # Generated (committed)
 ├── run.sh               # Generated (committed)
+├── <command>.sh         # Generated for each command where standalone: true (committed)
 ├── Justfile             # Generated locally for dev (gitignored)
 ├── workspace/           # Your code
 └── .cm-cache/           # Downloaded assets (gitignored)
 ```
+
+Command scripts (e.g., `train.sh`, `deploy.sh`) are only generated for commands with `standalone: true` and are committed to the repository.
 
 ## Contributing
 

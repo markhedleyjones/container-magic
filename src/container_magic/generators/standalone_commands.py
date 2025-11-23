@@ -14,8 +14,8 @@ def generate_standalone_command_scripts(
     """
     Generate standalone scripts for commands with standalone=True.
 
-    Cleans up any orphaned standalone scripts (from commands that no longer
-    have standalone=True or no longer exist).
+    Does not automatically delete old scripts - users are responsible
+    for cleaning up scripts when commands are removed or renamed.
 
     Args:
         config: Container-magic configuration
@@ -24,16 +24,7 @@ def generate_standalone_command_scripts(
     Returns:
         List of paths to generated scripts
     """
-    # Find all existing standalone scripts
-    existing_scripts = set(output_dir.glob("*.sh"))
-    # Exclude build.sh and run.sh which are not command scripts
-    existing_scripts.discard(output_dir / "build.sh")
-    existing_scripts.discard(output_dir / "run.sh")
-
     if not config.commands:
-        # Clean up all standalone scripts if no commands defined
-        for script in existing_scripts:
-            script.unlink()
         return []
 
     env = Environment(
@@ -66,9 +57,9 @@ def generate_standalone_command_scripts(
     generated_scripts = []
 
     for command_name, command_spec in config.commands.items():
-        script_path = output_dir / f"{command_name}.sh"
-
         if command_spec.standalone:
+            script_path = output_dir / f"{command_name}.sh"
+
             # Generate standalone script
             content = template.render(
                 command_name=command_name,
@@ -85,16 +76,5 @@ def generate_standalone_command_scripts(
             script_path.write_text(content)
             script_path.chmod(0o755)
             generated_scripts.append(script_path)
-        elif script_path in existing_scripts:
-            # Command exists but standalone=false, delete orphaned script
-            script_path.unlink()
-
-    # Clean up completely orphaned scripts (commands that no longer exist)
-    current_command_scripts = {
-        output_dir / f"{name}.sh" for name in config.commands.keys()
-    }
-    orphaned_scripts = existing_scripts - current_command_scripts
-    for script in orphaned_scripts:
-        script.unlink()
 
     return generated_scripts

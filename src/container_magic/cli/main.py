@@ -427,15 +427,18 @@ def run_main():
     config_path = find_config_file(project_dir)
     config = ContainerMagicConfig.from_yaml(config_path)
 
+    # Pass user's current working directory to just for path translation
+    user_cwd = str(current_dir.resolve())
+
     # Check if first argument is a custom command
     if len(sys.argv) > 1 and config.commands and sys.argv[1] in config.commands:
         # Call just <command> directly
-        just_args = ["just", sys.argv[1]]
+        just_args = ["just", "--set", "USER_CWD", user_cwd, sys.argv[1]]
         if len(sys.argv) > 2:
             just_args.extend(sys.argv[2:])
     else:
         # Call just run with command
-        just_args = ["just", "run"]
+        just_args = ["just", "--set", "USER_CWD", user_cwd, "run"]
         if len(sys.argv) > 1:
             just_args.extend(sys.argv[1:])
 

@@ -206,8 +206,8 @@ def test_empty_commands_returns_empty_list(tmp_path):
     assert scripts == []
 
 
-def test_orphaned_scripts_are_cleaned_up(tmp_path):
-    """Test that orphaned standalone scripts are removed when command changes."""
+def test_orphaned_scripts_not_cleaned_up(tmp_path):
+    """Test that old scripts are NOT automatically removed (user must clean up)."""
     # Create initial config with standalone train command
     config1 = ContainerMagicConfig(
         project={"name": "test-orphan", "workspace": "workspace"},
@@ -250,15 +250,16 @@ def test_orphaned_scripts_are_cleaned_up(tmp_path):
         },
     )
 
-    # Regenerate - should clean up both scripts
+    # Regenerate - old scripts should still exist (not cleaned up)
     scripts = generate_standalone_command_scripts(config2, tmp_path)
     assert len(scripts) == 0
-    assert not (tmp_path / "train.sh").exists()
-    assert not (tmp_path / "test.sh").exists()
+    # Old scripts remain - user is responsible for cleanup
+    assert (tmp_path / "train.sh").exists()
+    assert (tmp_path / "test.sh").exists()
 
 
 def test_orphaned_scripts_when_command_removed(tmp_path):
-    """Test that scripts are cleaned up when commands are completely removed."""
+    """Test that scripts remain when commands are removed (user cleanup)."""
     # Create config with standalone command
     config1 = ContainerMagicConfig(
         project={"name": "test-removed", "workspace": "workspace"},
@@ -295,7 +296,9 @@ def test_orphaned_scripts_when_command_removed(tmp_path):
     )
 
     generate_standalone_command_scripts(config2, tmp_path)
-    assert not (tmp_path / "deploy.sh").exists()
+    # deploy.sh still exists - user must clean up
+    assert (tmp_path / "deploy.sh").exists()
+    # serve.sh not generated because standalone=false
     assert not (tmp_path / "serve.sh").exists()
 
 
@@ -320,3 +323,37 @@ def test_build_and_run_scripts_not_cleaned_up(tmp_path):
     # build.sh and run.sh should still exist
     assert (tmp_path / "build.sh").exists()
     assert (tmp_path / "run.sh").exists()
+
+
+def test_unrelated_shell_scripts_not_deleted(tmp_path):
+    """Test that unrelated .sh files are never deleted."""
+    # Create some unrelated shell scripts
+    (tmp_path / "install.sh").write_text("#!/bin/bash\necho installing")
+    (tmp_path / "setup.sh").write_text("#!/bin/bash\necho setup")
+    (tmp_path / "custom.sh").write_text("#!/bin/bash\necho custom")
+
+    # Create config with a command named "train"
+    config = ContainerMagicConfig(
+        project={"name": "test-unrelated", "workspace": "workspace"},
+        stages={
+            "base": {"from": "python:3.11-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+        commands={
+            "train": {
+                "command": "python train.py",
+                "standalone": True,
+            },
+        },
+    )
+
+    generate_standalone_command_scripts(config, tmp_path)
+
+    # Unrelated scripts should still exist
+    assert (tmp_path / "install.sh").exists()
+    assert (tmp_path / "setup.sh").exists()
+    assert (tmp_path / "custom.sh").exists()
+
+    # train.sh should be generated
+    assert (tmp_path / "train.sh").exists()
