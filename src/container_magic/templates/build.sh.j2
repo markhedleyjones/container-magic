@@ -13,7 +13,7 @@ USER_NAME="{{ production_user }}"
 USER_UID="1000"
 USER_GID="1000"
 DEFAULT_TARGET="{{ default_target }}"
-AVAILABLE_TARGETS=({% for stage in available_stages %}"{{ stage }}" {% endfor %})
+AVAILABLE_TARGETS=({% for stage in available_stages %}"{{ stage }}"{{ " " if not loop.last }}{% endfor %})
 
 # Parse arguments
 TARGET="${1:-$DEFAULT_TARGET}"
