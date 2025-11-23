@@ -232,12 +232,12 @@ run <command>
 
 The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, etc.
 
-**Note:** Container-magic generates a Justfile that contains the build and run logic. If you have `just` installed, you can also use `just build`, `just run`, and any custom commands you've defined.
+**Note:** Container-magic generates a Justfile that contains the build and run logic. If you have `just` installed, you can also use `just build`, `just run <command>`, and `just <custom-command>` (e.g., `just train`).
 
 ## Development vs Production
 
-**Development** (Justfile):
-- Workspace mounted from host (edit code live)
+**Development:**
+- Workspace mounted from host (edit code live, not baked into image)
 - Runs as your user (correct permissions)
 - Includes dev dependencies
 
