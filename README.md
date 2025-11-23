@@ -32,26 +32,13 @@ cm init python my-project
 cd my-project
 
 # Build and run
-cm build
-cm run workspace/script.py
-```
-
-Container-magic also installs `build` and `run` aliases:
-```bash
-build                    # Same as cm build
-run workspace/script.py  # Same as cm run
+build
+run python workspace/script.py
 ```
 
 The `run` command works from anywhere in your repository - paths are automatically translated so commands execute as if running on your machine, but inside the container:
 ```bash
-cd workspace && run script.py  # Works from any subdirectory
-```
-
-A Justfile is generated for additional convenience:
-```bash
-just build
-just run workspace/script.py
-just shell
+cd workspace && run python script.py  # Works from any subdirectory
 ```
 
 ## Workflow
