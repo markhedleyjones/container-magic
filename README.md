@@ -11,12 +11,14 @@ This tool might be useful if you:
 ## Features
 
 * **YAML-driven configuration** - Single source of truth for your entire container setup
+* **Custom commands** - Define reusable commands that work in both development and production
 * **Smart `run` command** - Seamlessly execute code in containers with automatic workspace mounting, GPU, and display support
 * **Generated artifacts** - Produces Dockerfile, Justfile, and standalone scripts that work without container-magic installed
-* **Template system** - Start new projects instantly with proven templates (Python, Ubuntu, Debian, ROS, etc.)
+* **Template system** - Start new projects instantly with proven templates (Python, Ubuntu, Debian, PyTorch, etc.)
 * **Docker and Podman support** - Automatically detects and works with either container runtime
-* **Development/Production builds** - Separate workflows optimised for each use case
+* **Multi-stage builds** - Separate base, development, and production stages
 * **Standalone production scripts** - Generated `build.sh` and `run.sh` work with no dependencies
+* **Auto-update detection** - Warns when config changes and can auto-regenerate files
 
 ## Quick Start
 
@@ -26,26 +28,20 @@ This tool might be useful if you:
 pip install container-magic
 ```
 
-This installs two commands:
-- `cm` - Main container-magic CLI
-- `run` - Quick command execution (docker-bbq style)
+This installs the `cm` command (or `cmupdate` alias).
 
 ### Create a New Project
 
 ```bash
 # Initialize from template
+cm init --here python
+# or
 cm init python my-analytics-project
 cd my-analytics-project
 
-# Edit configuration
-vim container-magic.yaml
-
 # Build and run
-cm build
-cm run python analyze.py
-
-# Or use the quick 'run' command
-run python analyze.py
+just build
+just run python analyze.py
 ```
 
 ### Clone an Existing Project
@@ -75,206 +71,391 @@ These generated files are **committed to git**, making your project usable by an
 ### Basic Workflow
 
 ```
-container-magic.yaml  ──┐
-  (source of truth)     │
-                        ├─> cm init/update/generate
-                        │
-                        ├─> Dockerfile (generated)
-                        ├─> Justfile (generated, for development)
-                        │   ├─> just build
-                        │   ├─> just run
-                        │   └─> just shell
-                        │
-                        ├─> build.sh (generated, for production)
-                        └─> run.sh (generated, for production)
+cm.yaml or               ──┐
+container-magic.yaml       │
+  (source of truth)        │
+                           ├─> cm init/update
+                           │
+                           ├─> Dockerfile (generated)
+                           ├─> Justfile (generated, for development)
+                           │   ├─> just build
+                           │   ├─> just run
+                           │   └─> just shell
+                           │
+                           ├─> build.sh (generated, for production)
+                           └─> run.sh (generated, for production)
 ```
 
 ## Configuration
 
-Example `container-magic.yaml`:
+### Complete Example
 
 ```yaml
 project:
   name: my-project
   workspace: workspace
+  auto_update: true  # Auto-regenerate when config changes
+  production_user:
+    name: appuser
+    uid: 1000
+    gid: 1000
 
 runtime:
   backend: auto  # docker, podman, or auto
   privileged: false
-
-template:
-  base: python:3-slim
-  packages:
-    apt: [git, curl, build-essential]
-    pip: [numpy, pandas, matplotlib]
-  env:
-    MY_VAR: /path/to/something
-    ANOTHER_VAR: value
-  cached_assets:
-    - url: https://example.com/large-model.tar.gz
-      dest: /resources/model.tar.gz
-    - url: https://example.com/data.bin
-      dest: /resources/data.bin
-  build_steps:
-    # Control the exact order of Dockerfile build steps
-    - install_system_packages
-    - install_pip_packages
-    - copy_cached_assets  # Copy assets downloaded to .cm-cache/
-    - create_user
-
-development:
-  mount_workspace: true
-  shell: /bin/bash
   features:
-    - display    # X11/Wayland support
-    - gpu        # NVIDIA GPU access
-    - audio      # PulseAudio/PipeWire
+    - gpu      # NVIDIA GPU access
+    - audio    # PulseAudio/PipeWire
+    - display  # X11/Wayland support
 
-production:
-  user: nonroot
-  entrypoint: /workspace/main.py
+stages:
+  base:
+    from: python:3.11-slim
+    packages:
+      apt:
+        - git
+        - curl
+        - build-essential
+      pip:
+        - numpy
+        - pandas
+        - scikit-learn
+    env:
+      MODEL_PATH: /models
+      LOG_LEVEL: info
+    cached_assets:
+      - url: https://example.com/model.tar.gz
+        dest: /models/model.tar.gz
+    steps:
+      - install_system_packages
+      - install_pip_packages
+      - copy_cached_assets
+      - create_user
+      - switch_user
+
+  development:
+    from: base
+    packages:
+      pip:
+        - pytest
+        - ipython
+    env:
+      DEBUG: "true"
+
+  production:
+    from: base
+    steps:
+      - COPY workspace ${WORKSPACE}
+
+commands:
+  train:
+    command: "python workspace/train.py"
+    description: "Train the model"
+    env:
+      CUDA_VISIBLE_DEVICES: "0"
+
+  test:
+    command: "pytest workspace/tests"
+    description: "Run tests"
+
+  serve:
+    command: "python workspace/serve.py --port 8000"
+    description: "Start API server"
 ```
 
-When you run `cm build` or `cm update`, this generates a Dockerfile, Justfile, and standalone scripts tailored to your configuration.
+### Configuration Reference
+
+#### Project Section
+
+```yaml
+project:
+  name: my-project           # Required: Container image name
+  workspace: workspace       # Required: Directory containing your code
+  auto_update: false         # Optional: Auto-regenerate on config change
+  production_user:           # Optional: User for production builds
+    name: appuser
+    uid: 1000
+    gid: 1000
+```
+
+#### Runtime Section
+
+```yaml
+runtime:
+  backend: auto              # docker, podman, or auto (default)
+  privileged: false          # Run containers in privileged mode
+  features:                  # Optional list of features
+    - gpu                    # Enable NVIDIA GPU access
+    - audio                  # Enable audio (PulseAudio/PipeWire)
+    - display                # Enable display (X11/Wayland)
+```
+
+#### Stages Section
+
+Define multi-stage Docker builds:
+
+```yaml
+stages:
+  base:
+    from: python:3.11-slim   # Base image or parent stage name
+    shell: /bin/bash         # Optional: shell to use (default: bash)
+    packages:
+      apt: [package1, package2]
+      apk: [package1]        # For Alpine images
+      pip: [package1, package2]
+    env:
+      VAR_NAME: value
+    cached_assets:
+      - url: https://example.com/file.tar.gz
+        dest: /path/in/container
+    steps:                   # Optional: control build order
+      - install_system_packages
+      - install_pip_packages
+      - copy_cached_assets
+      - create_user
+      - switch_user
+      - COPY src /app/src   # Raw Dockerfile commands
+
+  development:
+    from: base               # Inherit from base stage
+    packages:
+      pip: [dev-package1]
+
+  production:
+    from: base
+    steps:
+      - COPY workspace ${WORKSPACE}
+```
+
+**Available build steps:**
+- `install_system_packages` - Install apt/apk packages
+- `install_pip_packages` - Install Python packages
+- `copy_cached_assets` - Copy downloaded cached assets
+- `create_user` - Create the production user
+- `switch_user` - Switch to the production user
+- Raw Dockerfile commands (e.g., `COPY`, `RUN`, `ENV`)
+
+#### Commands Section
+
+Define custom commands that work in both development and production:
+
+```yaml
+commands:
+  command-name:
+    command: "python workspace/script.py"
+    description: "Description of what this does"
+    env:                     # Optional: environment variables
+      VAR_NAME: value
+```
+
+Usage:
+```bash
+# Development
+just command-name
+
+# Production
+./run.sh command-name
+```
 
 ## Commands
 
 ### Project Management
 
 ```bash
-cm init <template> <name>    # Create new project from template
+cm init <template> [name]    # Create new project from template
+  --here                     # Initialize in current directory
+  --compact                  # Generate compact YAML (no comments)
+
 cm update                    # Regenerate all files from YAML
-cm generate                  # Alias for cm update
-cm build                     # Build container image (auto-updates if YAML changed)
+cmupdate                     # Alias for cm update
 ```
 
-### Running Code
+### Templates
 
-```bash
-cm run <command> [args]      # Run command in container
-cm shell                     # Interactive shell in container
+Available templates:
+- `python` or `python:3.11` - Python base images
+- `ubuntu` or `ubuntu:22.04` - Ubuntu base images
+- `debian` - Debian base
+- `alpine` - Alpine Linux
+- `pytorch/pytorch` or `pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime` - PyTorch images
+- `nvidia/cuda:12.4.0-runtime-ubuntu22.04` - NVIDIA CUDA images
 
-# Or use the quick 'run' command (works from anywhere)
-run python script.py
-run ~/repos/my-project/workspace/analyze.py
-```
+### Using Just (Development)
 
-### Using Just Directly
-
-After `cm init` or `cm update`, you can use `just` commands:
+After `cm init` or `cm update`:
 
 ```bash
 just build                   # Build development image
 just run python script.py    # Run command in container
 just shell                   # Interactive shell
+just clean                   # Remove containers
+just clean-images            # Remove images
+
+# Custom commands (if defined in config)
+just train                   # Run training
+just test                    # Run tests
 ```
 
-## Templates
+### Using Standalone Scripts (Production)
 
-Available templates (MVP):
+```bash
+./build.sh                   # Build production image
+./run.sh python script.py    # Run command
+./run.sh                     # Interactive shell
 
-- **python** - Python 3 with pip support
-- **ubuntu** - Ubuntu base with apt packages
-- **debian** - Debian slim base
-
-Future templates:
-- **ros** - ROS Noetic
-- **ros2** - ROS 2 Humble/Jazzy
-- **alpine** - Minimal Alpine Linux
+# Custom commands (if defined in config)
+./run.sh train              # Run training
+./run.sh test               # Run tests
+```
 
 ## Development vs Production
 
-Container-magic supports two distinct workflows:
-
 ### Development Workflow
 
-Uses **Just** for rapid iteration with workspace mounting:
+Uses **Justfile** for rapid iteration with workspace mounting:
 
 ```bash
-# Build development image
-just build
-# or
-cm build
-
-# Run commands with live code mounting
-just run python script.py
-cm run python script.py
-
-# Interactive shell
-just shell
-cm shell
+just build                  # Build development image
+just run python script.py   # Run with live code mounting
+just shell                  # Interactive shell
 ```
 
-**Development mode**:
+**Development mode:**
 - Mounts workspace from host (live code editing)
 - Runs as your user (correct file permissions)
-- Includes development tools
-- Requires `just` installed
+- Includes development packages
+- Uses development image tag
 
 ### Production Workflow
 
-Uses **standalone scripts** that work without any dependencies:
+Uses **standalone scripts** that work without dependencies:
 
 ```bash
-# Build production image (no cm or just needed)
-./build.sh
-
-# Run production container (no cm or just needed)
-./run.sh python script.py
-./run.sh                    # Interactive shell
+./build.sh                  # Build production image
+./run.sh python script.py   # Run production container
 ```
 
-**Production mode**:
+**Production mode:**
 - Workspace baked into image
 - Minimal image size
-- Runs as non-root user
+- Runs as configured user (non-root)
 - Only requires `docker` or `podman`
 - Scripts can be committed and used anywhere
-
-The standalone scripts (`build.sh` and `run.sh`) are generated by container-magic but have zero dependencies once created. This means you can distribute your project and users can build and run it without installing container-magic or just.
 
 ## Repository Structure
 
 ```
 my-project/
-├── container-magic.yaml      # Configuration (edit this)
-├── Dockerfile                # Generated from YAML (committed)
-├── Justfile                  # Generated from YAML (committed, for dev)
-├── build.sh                  # Generated from YAML (committed, for prod)
-├── run.sh                    # Generated from YAML (committed, for prod)
-├── workspace/                # Your code goes here
-│   └── main.py
-└── .gitignore
+├── cm.yaml                   # Configuration (edit this)
+│   or container-magic.yaml
+├── Dockerfile                # Generated (committed)
+├── Justfile                  # Generated (committed, for dev)
+├── build.sh                  # Generated (committed, for prod)
+├── run.sh                    # Generated (committed, for prod)
+├── workspace/                # Your code
+│   ├── main.py
+│   └── tests/
+├── .gitignore
+└── .cm-cache/                # Downloaded cached assets (not committed)
 ```
+
+## Advanced Features
+
+### Cached Assets
+
+Download large files once and cache them:
+
+```yaml
+stages:
+  base:
+    cached_assets:
+      - url: https://huggingface.co/model.tar.gz
+        dest: /models/model.tar.gz
+    steps:
+      - copy_cached_assets  # Must include in build steps
+```
+
+Assets are downloaded to `.cm-cache/` and copied during build. The cache directory is in `.gitignore`.
+
+### Custom Build Steps
+
+Control the exact order of Dockerfile operations:
+
+```yaml
+stages:
+  base:
+    steps:
+      - install_system_packages
+      - RUN echo "Custom command here"
+      - install_pip_packages
+      - create_user
+      - COPY config.json /app/
+      - switch_user
+```
+
+### Multiple Stages
+
+```yaml
+stages:
+  base:
+    from: python:3.11-slim
+    packages:
+      apt: [build-essential]
+
+  development:
+    from: base
+    packages:
+      pip: [pytest, black, ruff]
+
+  production:
+    from: base  # Inherits from base, not development
+    steps:
+      - COPY workspace ${WORKSPACE}
+```
+
+### Auto-Update
+
+Enable automatic regeneration when config changes:
+
+```yaml
+project:
+  auto_update: true
+```
+
+Now `just build` will auto-regenerate if `cm.yaml` changed.
 
 ## Architecture
 
 Container-magic is built with:
 - **Python** - Core CLI tool
 - **YAML** - Configuration format
-- **Jinja2** - Template engine for generating Dockerfiles and Justfiles
-- **Just** - Task runner for daily workflow
+- **Jinja2** - Template engine for generating files
+- **Just** - Task runner for development workflow
 - **Docker/Podman** - Container runtimes (auto-detected)
 
-The tool acts as a "compiler" that transforms declarative YAML configuration into executable artifacts (Dockerfile, Justfile, build.sh, run.sh). Once generated, projects are self-contained and don't require container-magic for daily use.
+The tool acts as a "compiler" that transforms declarative YAML configuration into executable artifacts. Once generated, projects are self-contained and don't require container-magic for daily use.
 
 ## Design Philosophy
 
 1. **YAML as source of truth** - All configuration in one place
 2. **Generate, don't abstract** - Produce readable files you can inspect and modify
-3. **Standalone after generation** - Development uses just, production uses zero dependencies
+3. **Standalone after generation** - Development uses Just, production uses zero dependencies
 4. **Auto-sync** - Regenerate when configuration changes, warn if out of sync
 5. **Clear dev/prod separation** - Different tools for different workflows
+6. **Validation** - Comprehensive linting and formatting checks
 
 ## Comparison with Docker-BBQ
 
 Container-magic is the successor to [docker-bbq](https://github.com/markhedleyjones/docker-bbq) with these improvements:
 
-- **YAML configuration** instead of scattered Makefile variables and .docker-bbq files
+- **YAML configuration** instead of scattered Makefile variables and `.docker-bbq` files
 - **Python-based** instead of shell scripts (better error handling, testing, extensibility)
 - **Just integration** instead of Make (more powerful, cross-platform)
 - **Generated artifacts** are committed (reviewable in PRs, works without cm installed)
+- **Custom commands** that work in both dev and prod
 - **Validation** of configuration with helpful error messages
+- **Multi-stage builds** with flexible step ordering
+- **Cached assets** support for large model files
 
 ## Contributing
 
