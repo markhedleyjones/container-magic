@@ -362,6 +362,14 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
     )
     assert result.returncode == 0
 
+    # Detect which runtime is available (same logic as build.sh)
+    if shutil.which("podman"):
+        runtime = "podman"
+    elif shutil.which("docker"):
+        runtime = "docker"
+    else:
+        pytest.skip("Neither podman nor docker found")
+
     # Test 1: Build production - should be tagged as 'latest'
     result = subprocess.run(
         ["./build.sh", "production"],
@@ -378,7 +386,7 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
     # Verify image exists with latest tag
     result = subprocess.run(
         [
-            "docker",
+            runtime,
             "images",
             "--format",
             "{{.Repository}}:{{.Tag}}",
@@ -405,7 +413,7 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
     # Verify image exists with development tag
     result = subprocess.run(
         [
-            "docker",
+            runtime,
             "images",
             "--format",
             "{{.Repository}}:{{.Tag}}",
@@ -432,7 +440,7 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
     # Verify image exists with testing tag
     result = subprocess.run(
         [
-            "docker",
+            runtime,
             "images",
             "--format",
             "{{.Repository}}:{{.Tag}}",
@@ -446,7 +454,7 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
     # Cleanup - remove test images
     subprocess.run(
         [
-            "docker",
+            runtime,
             "rmi",
             "test-custom-stage:latest",
             "test-custom-stage:development",
