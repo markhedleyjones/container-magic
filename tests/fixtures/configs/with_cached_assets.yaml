@@ -23,6 +23,11 @@ stages:
     cached_assets:
       - url: https://httpbin.org/uuid
         dest: /models/test.json
+    steps:
+      - install_system_packages
+      - install_pip_packages
+      - create_user
+      - copy_cached_assets
 
   development:
     from: base

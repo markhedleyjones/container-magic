@@ -35,6 +35,7 @@ def process_stage_steps(
     stages_dict: Dict[str, StageConfig],
     production_user: str,
     has_explicit_user_config: bool,
+    workspace_name: str,
 ) -> Tuple[List[Dict], bool, List[Dict]]:
     """
     Process build steps for a stage.
@@ -57,6 +58,9 @@ def process_stage_steps(
         else:
             # FROM another stage - minimal default (just inherits)
             steps = []
+            # Production stage should copy workspace by default
+            if stage_name == "production":
+                steps = ["copy_workspace"]
     else:
         steps = stage.steps
 
@@ -64,6 +68,7 @@ def process_stage_steps(
     has_create_user = False
     has_switch_user = False
     has_copy_cached_assets = False
+    has_copy_workspace = False
 
     # Process steps into ordered sections
     ordered_steps = []
@@ -83,6 +88,9 @@ def process_stage_steps(
         elif step == "copy_cached_assets":
             ordered_steps.append({"type": "cached_assets"})
             has_copy_cached_assets = True
+        elif step == "copy_workspace":
+            ordered_steps.append({"type": "copy_workspace"})
+            has_copy_workspace = True
         else:
             # Custom RUN command
             ordered_steps.append({"type": "custom", "command": step})
@@ -219,6 +227,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
             stages,
             user_cfg.name,
             has_explicit_user,
+            config.project.workspace,
         )
 
         stages_data.append(

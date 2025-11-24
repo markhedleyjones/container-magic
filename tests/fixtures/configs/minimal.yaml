@@ -24,5 +24,3 @@ stages:
 
   production:
     from: base
-    steps:
-      - COPY workspace ${WORKSPACE}

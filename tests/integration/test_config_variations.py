@@ -276,6 +276,73 @@ def test_direct_script_execution(fixtures_dir, temp_project):
     assert "Direct execution works" in result.stdout
 
 
+def test_production_workspace_permissions(fixtures_dir, temp_project):
+    """Test that workspace is copied into production image with correct permissions."""
+    # Use minimal config
+    fixture_path = fixtures_dir / "minimal.yaml"
+    config_path = temp_project / "cm.yaml"
+    shutil.copy(fixture_path, config_path)
+
+    # Create test files in workspace
+    test_file = temp_project / "workspace" / "test_file.txt"
+    test_file.write_text("test content\n")
+
+    # Generate files
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+
+    # Build production image
+    result = subprocess.run(
+        ["./build.sh", "production"],
+        cwd=temp_project,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, f"build.sh failed:\n{result.stderr}"
+
+    # Verify workspace exists in image
+    result = subprocess.run(
+        ["./run.sh", "ls -la ${WORKSPACE}"],
+        cwd=temp_project,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"Workspace check failed:\n{result.stderr}"
+    assert "test_file.txt" in result.stdout, "Workspace file not found in production image"
+
+    # Verify file ownership (should be owned by the configured user, not root)
+    result = subprocess.run(
+        ["./run.sh", "stat -c '%U:%G' ${WORKSPACE}/test_file.txt"],
+        cwd=temp_project,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"File ownership check failed:\n{result.stderr}"
+    # The minimal.yaml config uses appuser:appuser
+    assert "appuser:appuser" in result.stdout, (
+        f"File ownership incorrect. Expected appuser:appuser, got: {result.stdout}"
+    )
+
+    # Verify the user can write to the workspace
+    result = subprocess.run(
+        ["./run.sh", "touch ${WORKSPACE}/test_write.txt && echo 'Write successful'"],
+        cwd=temp_project,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"Write test failed:\n{result.stderr}"
+    assert "Write successful" in result.stdout
+
+
 def test_linter_availability():
     """Display which linters are available (informational)."""
     linters = {
