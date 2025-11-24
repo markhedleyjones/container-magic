@@ -162,7 +162,7 @@ run *args:
 
     # AWS credentials
     if [[ -d "$HOME/.aws" ]]; then
-        RUN_ARGS+=("-v" "$HOME/.aws:$(echo ~)/.aws")
+        RUN_ARGS+=("-v" "$HOME/.aws:$(echo ~)/.aws:z")
     fi
     {% endif %}
 
