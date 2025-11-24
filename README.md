@@ -237,11 +237,16 @@ build_script:
 The `build.sh` script can build any defined stage:
 
 ```bash
-./build.sh              # Builds the default target (production)
-./build.sh testing      # Builds the testing stage
-./build.sh development  # Builds the development stage
+./build.sh              # Builds the default target (production) → tagged as 'latest'
+./build.sh production   # Builds production stage → tagged as 'latest'
+./build.sh testing      # Builds testing stage → tagged as 'testing'
+./build.sh development  # Builds development stage → tagged as 'development'
 ./build.sh --help       # Shows all available targets
 ```
+
+**Image Tagging:**
+- Production stage is tagged as `<project-name>:latest`
+- All other stages are tagged as `<project-name>:<stage-name>`
 
 This is useful when you have multiple build targets beyond just development and production (e.g., testing, staging, or platform-specific builds).
 
