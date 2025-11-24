@@ -18,6 +18,37 @@ from container_magic.generators.standalone_commands import (
 )
 
 
+def update_gitignore(path: Path):
+    """Update .gitignore with required entries."""
+    gitignore_path = path / ".gitignore"
+    required_entries = [".cm-cache/", "Justfile"]
+
+    if gitignore_path.exists():
+        # Read existing content
+        existing_content = gitignore_path.read_text()
+        existing_lines = existing_content.split("\n")
+
+        # Check which entries need to be added
+        entries_to_add = [
+            entry for entry in required_entries if entry not in existing_lines
+        ]
+
+        if entries_to_add:
+            # Append missing entries
+            with gitignore_path.open("a") as f:
+                # Ensure file ends with newline before appending
+                if existing_content and not existing_content.endswith("\n"):
+                    f.write("\n")
+                for entry in entries_to_add:
+                    f.write(f"{entry}\n")
+    else:
+        # Create new .gitignore
+        gitignore_content = """.cm-cache/
+Justfile
+"""
+        gitignore_path.write_text(gitignore_content)
+
+
 def _show_just_install_help():
     """Display platform-specific installation instructions for 'just'."""
     click.echo("Error: 'just' command not found", err=True)
@@ -189,33 +220,7 @@ def init(
     generate_standalone_command_scripts(config, path)
 
     # Update .gitignore
-    gitignore_path = path / ".gitignore"
-    required_entries = [".cm-cache/", "Justfile"]
-
-    if gitignore_path.exists():
-        # Read existing content
-        existing_content = gitignore_path.read_text()
-        existing_lines = existing_content.split("\n")
-
-        # Check which entries need to be added
-        entries_to_add = [
-            entry for entry in required_entries if entry not in existing_lines
-        ]
-
-        if entries_to_add:
-            # Append missing entries
-            with gitignore_path.open("a") as f:
-                # Ensure file ends with newline before appending
-                if existing_content and not existing_content.endswith("\n"):
-                    f.write("\n")
-                for entry in entries_to_add:
-                    f.write(f"{entry}\n")
-    else:
-        # Create new .gitignore
-        gitignore_content = """.cm-cache/
-Justfile
-"""
-        gitignore_path.write_text(gitignore_content)
+    update_gitignore(path)
 
     click.echo(f"✓ Created {name}")
     click.echo("Next steps:")
@@ -242,6 +247,9 @@ def update(path: Path):
     generate_build_script(config, path)
     generate_run_script(config, path)
     generate_standalone_command_scripts(config, path)
+
+    # Update .gitignore
+    update_gitignore(path)
 
     click.echo("✓ Regenerated successfully")
 
