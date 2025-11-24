@@ -1,4 +1,3 @@
-from typing import Dict, List
 """Reusable validation utilities for linting and formatting checks.
 
 Provides consistent validation across tests and generators.
@@ -7,6 +6,7 @@ Provides consistent validation across tests and generators.
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Dict, List
 
 
 class ValidationResult:
