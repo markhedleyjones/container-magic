@@ -13,6 +13,14 @@
 ################################################################################
 FROM {{ stage.from }} AS {{ stage.name }}
 
+{% if stage.needs_user_args %}
+# User configuration (needed for --chown in COPY commands)
+ARG USER_GID={{ stage.user_gid }}
+ARG USER_UID={{ stage.user_uid }}
+ARG USER_NAME={{ stage.user }}
+ARG USER_HOME={{ stage.user_home }}
+
+{% endif %}
 {% if stage.env_vars %}
 # Environment variables
 {% for key, value in stage.env_vars.items() %}
@@ -47,10 +55,6 @@ RUN pip install --no-cache-dir{% for package in stage.pip_packages %} \
 {% endif %}
 {% elif step.type == "create_user" %}
 # Create user account
-ARG USER_GID={{ stage.user_gid }}
-ARG USER_UID={{ stage.user_uid }}
-ARG USER_NAME={{ stage.user }}
-ARG USER_HOME={{ stage.user_home }}
 {% if stage.user_creation_style == "alpine" %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
         addgroup -g ${USER_GID} ${USER_NAME} && \

@@ -68,7 +68,6 @@ def process_stage_steps(
     has_create_user = False
     has_switch_user = False
     has_copy_cached_assets = False
-    has_copy_workspace = False
 
     # Process steps into ordered sections
     ordered_steps = []
@@ -90,7 +89,6 @@ def process_stage_steps(
             has_copy_cached_assets = True
         elif step == "copy_workspace":
             ordered_steps.append({"type": "copy_workspace"})
-            has_copy_workspace = True
         else:
             # Custom RUN command
             ordered_steps.append({"type": "custom", "command": step})
@@ -230,6 +228,14 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
             config.project.workspace,
         )
 
+        # Check if this stage needs USER ARG definitions
+        # Needed for: create_user, switch_user, copy_workspace, cached_assets
+        needs_user_args = any(
+            step.get("type")
+            in ["create_user", "switch_user", "copy_workspace", "cached_assets"]
+            for step in ordered_steps
+        )
+
         stages_data.append(
             {
                 "name": stage_name,
@@ -246,6 +252,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
                 "user_gid": user_cfg.gid,
                 "user_home": user_cfg.home or f"/home/{user_cfg.name}",
                 "ordered_steps": ordered_steps,
+                "needs_user_args": needs_user_args,
             }
         )
 
