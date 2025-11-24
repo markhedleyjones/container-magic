@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -78,7 +78,7 @@ class RuntimeConfig(BaseModel):
     privileged: bool = Field(
         default=False, description="Run containers in privileged mode"
     )
-    features: list[Literal["display", "gpu", "audio", "aws_credentials"]] = Field(
+    features: List[Literal["display", "gpu", "audio", "aws_credentials"]] = Field(
         default_factory=list, description="Features to enable in containers"
     )
 
@@ -86,8 +86,8 @@ class RuntimeConfig(BaseModel):
 class PackagesConfig(BaseModel):
     """Package installation configuration."""
 
-    apt: list[str] = Field(default_factory=list, description="APT packages to install")
-    pip: list[str] = Field(
+    apt: List[str] = Field(default_factory=list, description="APT packages to install")
+    pip: List[str] = Field(
         default_factory=list, description="Python pip packages to install"
     )
 
@@ -110,10 +110,10 @@ class StageConfig(BaseModel):
     shell: Optional[str] = Field(
         default=None, description="Default shell (auto-detected if not specified)"
     )
-    env: dict[str, str] = Field(
+    env: Dict[str, str] = Field(
         default_factory=dict, description="Environment variables to set in Dockerfile"
     )
-    cached_assets: list[CachedAsset] = Field(
+    cached_assets: List[CachedAsset] = Field(
         default_factory=list,
         description="Assets to download and cache on host, then copy into image",
     )
@@ -147,11 +147,11 @@ class CustomCommand(BaseModel):
     """Custom command definition."""
 
     command: str = Field(description="Command template with {arg_name} placeholders")
-    args: dict[str, CommandArgument] = Field(
+    args: Dict[str, CommandArgument] = Field(
         default_factory=dict, description="Command arguments"
     )
     description: Optional[str] = Field(default=None, description="Command description")
-    env: dict[str, str] = Field(
+    env: Dict[str, str] = Field(
         default_factory=dict, description="Environment variables"
     )
     allow_extra_args: bool = Field(
@@ -178,8 +178,8 @@ class ContainerMagicConfig(BaseModel):
 
     project: ProjectConfig
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
-    stages: dict[str, StageConfig]
-    commands: dict[str, CustomCommand] = Field(
+    stages: Dict[str, StageConfig]
+    commands: Dict[str, CustomCommand] = Field(
         default_factory=dict, description="Custom command definitions"
     )
     build_script: BuildScriptConfig = Field(default_factory=BuildScriptConfig)
