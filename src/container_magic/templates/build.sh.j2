@@ -15,10 +15,10 @@ DEFAULT_TARGET="{{ default_target }}"
 AVAILABLE_TARGETS=({% for stage in available_stages %}"{{ stage }}"{{ " " if not loop.last }}{% endfor %})
 
 # Detect runtime backend
-if command -v docker >/dev/null 2>&1; then
-	RUNTIME="docker"
-elif command -v podman >/dev/null 2>&1; then
+if command -v podman >/dev/null 2>&1; then
 	RUNTIME="podman"
+elif command -v docker >/dev/null 2>&1; then
+	RUNTIME="docker"
 else
 	echo "Error: Neither docker nor podman found in PATH" >&2
 	exit 1
