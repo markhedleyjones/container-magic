@@ -23,6 +23,7 @@ CONFIG_FIXTURES = [
     "with_env_vars.yaml",
     "with_gpu_features.yaml",
     "with_cached_assets.yaml",
+    "with_custom_stage.yaml",
 ]
 
 
@@ -315,7 +316,9 @@ def test_production_workspace_permissions(fixtures_dir, temp_project):
         timeout=30,
     )
     assert result.returncode == 0, f"Workspace check failed:\n{result.stderr}"
-    assert "test_file.txt" in result.stdout, "Workspace file not found in production image"
+    assert "test_file.txt" in result.stdout, (
+        "Workspace file not found in production image"
+    )
 
     # Verify file ownership (should be owned by the configured user, not root)
     result = subprocess.run(
@@ -341,6 +344,116 @@ def test_production_workspace_permissions(fixtures_dir, temp_project):
     )
     assert result.returncode == 0, f"Write test failed:\n{result.stderr}"
     assert "Write successful" in result.stdout
+
+
+def test_image_tagging_by_target(fixtures_dir, temp_project):
+    """Test that images are tagged correctly based on build target."""
+    # Use config with custom stage
+    fixture_path = fixtures_dir / "with_custom_stage.yaml"
+    config_path = temp_project / "cm.yaml"
+    shutil.copy(fixture_path, config_path)
+
+    # Generate files
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+
+    # Test 1: Build production - should be tagged as 'latest'
+    result = subprocess.run(
+        ["./build.sh", "production"],
+        cwd=temp_project,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, f"Production build failed:\n{result.stderr}"
+    assert "test-custom-stage:latest" in result.stdout, (
+        "Production should be tagged as 'latest'"
+    )
+
+    # Verify image exists with latest tag
+    result = subprocess.run(
+        [
+            "docker",
+            "images",
+            "--format",
+            "{{.Repository}}:{{.Tag}}",
+            "test-custom-stage",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert "test-custom-stage:latest" in result.stdout
+
+    # Test 2: Build development - should be tagged as 'development'
+    result = subprocess.run(
+        ["./build.sh", "development"],
+        cwd=temp_project,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, f"Development build failed:\n{result.stderr}"
+    assert "test-custom-stage:development" in result.stdout, (
+        "Development should be tagged as 'development'"
+    )
+
+    # Verify image exists with development tag
+    result = subprocess.run(
+        [
+            "docker",
+            "images",
+            "--format",
+            "{{.Repository}}:{{.Tag}}",
+            "test-custom-stage",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert "test-custom-stage:development" in result.stdout
+
+    # Test 3: Build custom stage (testing) - should be tagged as 'testing'
+    result = subprocess.run(
+        ["./build.sh", "testing"],
+        cwd=temp_project,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, f"Testing build failed:\n{result.stderr}"
+    assert "test-custom-stage:testing" in result.stdout, (
+        "Custom stage 'testing' should be tagged as 'testing'"
+    )
+
+    # Verify image exists with testing tag
+    result = subprocess.run(
+        [
+            "docker",
+            "images",
+            "--format",
+            "{{.Repository}}:{{.Tag}}",
+            "test-custom-stage",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert "test-custom-stage:testing" in result.stdout
+
+    # Cleanup - remove test images
+    subprocess.run(
+        [
+            "docker",
+            "rmi",
+            "test-custom-stage:latest",
+            "test-custom-stage:development",
+            "test-custom-stage:testing",
+        ],
+        capture_output=True,
+    )
 
 
 def test_linter_availability():

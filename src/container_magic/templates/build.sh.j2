@@ -7,7 +7,6 @@ set -euo pipefail
 
 # Configuration
 IMAGE_NAME="{{ project_name }}"
-TAG="latest"
 WORKSPACE_NAME="{{ workspace_name }}"
 USER_NAME="{{ production_user }}"
 USER_UID="1000"
@@ -17,6 +16,13 @@ AVAILABLE_TARGETS=({% for stage in available_stages %}"{{ stage }}"{{ " " if not
 
 # Parse arguments
 TARGET="${1:-$DEFAULT_TARGET}"
+
+# Determine tag based on target
+if [[ "$TARGET" == "production" ]]; then
+	TAG="latest"
+else
+	TAG="$TARGET"
+fi
 
 # Show help if requested
 if [[ "$TARGET" == "--help" || "$TARGET" == "-h" ]]; then
