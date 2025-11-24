@@ -4,7 +4,7 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
 import click
 
@@ -145,7 +145,11 @@ def cli():
     help="Initialize in current directory instead of creating new one",
 )
 def init(
-    template: str, name: str | None, path: Path | None, compact: bool, in_place: bool
+    template: str,
+    name: Optional[str],
+    path: Optional[Path],
+    compact: bool,
+    in_place: bool,
 ):
     """Initialize a new container-magic project from a template."""
     # Determine project name
