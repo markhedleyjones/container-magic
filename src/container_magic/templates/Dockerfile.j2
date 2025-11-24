@@ -14,11 +14,11 @@
 FROM {{ stage.from }} AS {{ stage.name }}
 
 {% if stage.needs_user_args %}
-# User configuration (needed for --chown in COPY commands)
-ARG USER_GID={{ stage.user_gid }}
-ARG USER_UID={{ stage.user_uid }}
-ARG USER_NAME={{ stage.user }}
-ARG USER_HOME={{ stage.user_home }}
+# User configuration
+ARG USER_GID={{ stage.user_gid }} \
+    USER_UID={{ stage.user_uid }} \
+    USER_NAME={{ stage.user }} \
+    USER_HOME={{ stage.user_home }}
 
 {% endif %}
 {% if stage.env_vars %}

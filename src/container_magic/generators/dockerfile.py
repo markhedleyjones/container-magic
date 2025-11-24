@@ -229,12 +229,9 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
         )
 
         # Check if this stage needs USER ARG definitions
-        # Needed for: create_user, switch_user, copy_workspace, cached_assets
-        needs_user_args = any(
-            step.get("type")
-            in ["create_user", "switch_user", "copy_workspace", "cached_assets"]
-            for step in ordered_steps
-        )
+        # ARGs don't persist across stages in Docker, so each stage needs them
+        # Skip entirely if user is root (no point in USER_NAME=root, USER_UID=0)
+        needs_user_args = user_cfg.name != "root"
 
         stages_data.append(
             {
