@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+from typing import Dict, List, Tuple
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -31,10 +32,10 @@ def process_stage_steps(
     stage: StageConfig,
     stage_name: str,
     project_dir: Path,
-    stages_dict: dict[str, StageConfig],
+    stages_dict: Dict[str, StageConfig],
     production_user: str,
     has_explicit_user_config: bool,
-) -> tuple[list[dict], bool, list[dict]]:
+) -> Tuple[List[Dict], bool, List[Dict]]:
     """
     Process build steps for a stage.
 

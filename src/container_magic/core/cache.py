@@ -5,6 +5,7 @@ import json
 import shutil
 import urllib.parse
 from pathlib import Path
+from typing import Dict, List, Tuple
 
 import requests
 
@@ -30,7 +31,7 @@ def extract_filename_from_url(url: str) -> str:
     return "asset"
 
 
-def get_asset_cache_path(project_dir: Path, url: str) -> tuple[Path, Path]:
+def get_asset_cache_path(project_dir: Path, url: str) -> Tuple[Path, Path]:
     """
     Get cache paths for an asset.
 
@@ -63,7 +64,7 @@ def download_asset(url: str, dest_path: Path) -> None:
             f.write(chunk)
 
 
-def cache_asset(project_dir: Path, url: str, container_dest: str) -> tuple[Path, Path]:
+def cache_asset(project_dir: Path, url: str, container_dest: str) -> Tuple[Path, Path]:
     """
     Download and cache an asset if not already cached.
 
@@ -98,7 +99,7 @@ def cache_asset(project_dir: Path, url: str, container_dest: str) -> tuple[Path,
     return asset_dir, asset_file
 
 
-def list_cached_assets(project_dir: Path) -> list[dict]:
+def list_cached_assets(project_dir: Path) -> List[dict]:
     """List all cached assets with their metadata."""
     cache_dir = get_cache_dir(project_dir)
     if not cache_dir.exists():

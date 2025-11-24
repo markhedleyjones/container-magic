@@ -1,6 +1,7 @@
 """Standalone command script generation from configuration."""
 
 from pathlib import Path
+from typing import List
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -10,7 +11,7 @@ from container_magic.core.templates import detect_shell
 
 def generate_standalone_command_scripts(
     config: ContainerMagicConfig, output_dir: Path
-) -> list[Path]:
+) -> List[Path]:
     """
     Generate standalone scripts for commands with standalone=True.
 

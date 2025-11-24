@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 """Reusable validation utilities for linting and formatting checks.
 
 Provides consistent validation across tests and generators.
@@ -229,7 +229,7 @@ def validate_file(file_path: Path) -> ValidationResult:
 
 def validate_directory(
     directory: Path, patterns: List[str] = None
-) -> dict[Path, ValidationResult]:
+) -> Dict[Path, ValidationResult]:
     """
     Validate all files in a directory matching patterns.
 

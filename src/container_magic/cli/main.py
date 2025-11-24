@@ -4,6 +4,7 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
+from typing import Tuple
 
 import click
 
@@ -312,7 +313,7 @@ def build(path: Path):
 @click.option(
     "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
 )
-def run(command: tuple[str, ...], path: Path):
+def run(command: Tuple[str, ...], path: Path):
     """Run a command in the container."""
     find_config_file(path)
 

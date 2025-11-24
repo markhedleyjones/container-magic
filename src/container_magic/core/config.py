@@ -117,7 +117,7 @@ class StageConfig(BaseModel):
         default_factory=list,
         description="Assets to download and cache on host, then copy into image",
     )
-    steps: Optional[list[str]] = Field(
+    steps: Optional[List[str]] = Field(
         default=None,
         description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user, switch_user, switch_root, copy_cached_assets",
         alias="build_steps",  # Support old name for backwards compatibility
