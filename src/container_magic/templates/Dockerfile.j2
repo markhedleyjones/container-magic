@@ -51,10 +51,12 @@ RUN apt-get update && \
 {% elif stage.package_manager == "apk" %}
 RUN apk add --no-cache{% for package in stage.apt_packages %} \
         {{ package }}{% endfor %}
+
 {% elif stage.package_manager == "dnf" %}
 RUN dnf install -y{% for package in stage.apt_packages %} \
         {{ package }}{% endfor %} && \
     dnf clean all
+
 {% endif %}
 {% endif %}
 {% elif step.type == "pip_packages" %}
