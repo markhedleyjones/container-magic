@@ -57,7 +57,7 @@ run_{{ command_name }}() {
 	${RUNTIME} run "${RUN_ARGS[@]}" \
 		-w "${WORKDIR}" \
 		"${IMAGE_NAME}:${TAG}" \
-		"${SHELL}" -c "{{ command_spec.command }}"
+		"${SHELL}" -c "{{ command_spec.command | replace('\"', '\\\"') }}"
 	{%- endif %}
 }
 {%- endfor %}
