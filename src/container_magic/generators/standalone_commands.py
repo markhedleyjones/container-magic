@@ -75,6 +75,7 @@ def generate_standalone_command_scripts(
                 privileged=config.runtime.privileged if config.runtime else False,
                 env=command_spec.env,
                 command=command_escaped,
+                workspace_name=config.project.workspace,
             )
 
             script_path.write_text(content)

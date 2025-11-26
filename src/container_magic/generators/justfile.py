@@ -90,6 +90,7 @@ def generate_justfile(
                 image_name=config.project.name,
                 image_tag="development",
                 shell=shell,
+                workspace_name=config.project.workspace,
             )
 
     with open(output_path, "w") as f:

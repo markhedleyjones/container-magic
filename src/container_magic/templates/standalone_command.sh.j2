@@ -36,6 +36,9 @@ RUN_ARGS=(
 {% endif -%}
 )
 
+# Mount workspace
+RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:${WORKDIR}/{{ workspace_name }}:z")
+
 {% if env -%}
 # Environment variables
 {% for key, value in env.items() -%}

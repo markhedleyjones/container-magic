@@ -320,3 +320,51 @@ commands:
     assert r"\$WORKSPACE/scripts/build.sh" in justfile_content, (
         "Justfile should have escaped $WORKSPACE in build command"
     )
+
+
+def test_custom_commands_mount_workspace_in_justfile(temp_project_dir):
+    """Test that custom commands in Justfile mount the workspace directory."""
+    # Initialize project
+    result = subprocess.run(
+        ["cm", "init", "--here", "--compact", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm init failed: {result.stderr}"
+
+    # Add custom command
+    config_file = temp_project_dir / "cm.yaml"
+    config_content = config_file.read_text()
+
+    custom_commands = '\ncommands:\n  build:\n    command: "$WORKSPACE/scripts/build.sh"\n    description: "Build the project"\n'
+    config_file.write_text(config_content + custom_commands)
+
+    # Regenerate
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm update failed: {result.stderr}"
+
+    # Check Justfile has workspace mount in custom command
+    justfile_content = (temp_project_dir / "Justfile").read_text()
+
+    # Custom commands section should be present
+    assert "# Custom Commands" in justfile_content, (
+        "Justfile should have custom commands section"
+    )
+    assert "\nbuild:" in justfile_content, "Justfile should have build command"
+
+    # Should have workspace mount in custom command
+    # The workspace mount should be in the custom command section
+    assert 'RUN_ARGS+=("-v"' in justfile_content, (
+        "Custom command should have volume mount with -v flag"
+    )
+    # Check that the mount includes the workspace name from the config
+    # which is "workspace" for default compact python config
+    assert "$(pwd)/workspace:$(echo ~)/workspace:z" in justfile_content, (
+        "Workspace mount should map local workspace directory"
+    )

@@ -39,6 +39,9 @@
     RUN_ARGS+=("--userns=keep-id")
     {% endif %}
 
+    # Mount workspace
+    RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:$(echo ~)/{{ workspace_name }}:z")
+
     {% for arg_name, arg_spec in args.items() %}
     {% if arg_spec.type in ["file", "directory"] and arg_spec.mount_as %}
     # Mount {{ arg_name }}
