@@ -328,3 +328,42 @@ def test_explicit_switch_user_without_user_config_raises_error():
 
         assert "switch_user" in str(excinfo.value)
         assert "production.user is not defined" in str(excinfo.value)
+
+
+def test_user_defined_but_never_used():
+    """User config defined but never used in create_user or switch_user steps."""
+    config_dict = {
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            "production_user": {"name": "appuser"},  # User defined
+        },
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "install_system_packages",  # No create_user step
+                ],
+            },
+            "development": {
+                "from": "base",
+                "steps": [],
+            },
+            "production": {
+                "from": "base",
+                "steps": [],  # No switch_user step
+            },
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        stderr = capture_stderr(generate_dockerfile, config, output_path)
+
+        # Should not error - it's OK to define a user and not use it in create_user/switch_user
+        # The user args ARE included because they're referenced in WORKDIR
+        dockerfile_content = output_path.read_text()
+        assert "USER_NAME=appuser" in dockerfile_content
+        assert "Warning" not in stderr
+        assert "Error" not in stderr
