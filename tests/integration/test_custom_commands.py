@@ -269,3 +269,54 @@ commands:
     assert result.returncode == 0, (
         f"shellcheck failed for run.sh:\n{result.stdout}\n{result.stderr}"
     )
+
+
+def test_commands_with_workspace_variable(temp_project_dir):
+    """Test that commands with $WORKSPACE variable expand in container."""
+    # Initialize project
+    result = subprocess.run(
+        ["cm", "init", "--here", "--compact", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm init failed: {result.stderr}"
+
+    # Add custom commands with $WORKSPACE variable
+    config_file = temp_project_dir / "cm.yaml"
+    config_content = config_file.read_text()
+
+    custom_commands = """
+commands:
+  build:
+    command: "$WORKSPACE/scripts/build.sh"
+    description: "Build the project"
+  test:
+    command: "bash -c 'source $WORKSPACE/setup.sh && pytest'"
+    description: "Run tests with setup"
+"""
+    config_file.write_text(config_content + custom_commands)
+
+    # Regenerate
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm update failed: {result.stderr}"
+
+    # Check run.sh has escaped dollar signs
+    run_sh_content = (temp_project_dir / "run.sh").read_text()
+    assert r"\$WORKSPACE/scripts/build.sh" in run_sh_content, (
+        "run.sh should have escaped $WORKSPACE in build command"
+    )
+    assert r"source \$WORKSPACE/setup.sh" in run_sh_content, (
+        "run.sh should have escaped $WORKSPACE in test command"
+    )
+
+    # Check Justfile also has escaped dollar signs
+    justfile_content = (temp_project_dir / "Justfile").read_text()
+    assert r"\$WORKSPACE/scripts/build.sh" in justfile_content, (
+        "Justfile should have escaped $WORKSPACE in build command"
+    )

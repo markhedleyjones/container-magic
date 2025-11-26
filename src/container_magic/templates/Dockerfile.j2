@@ -21,6 +21,7 @@ ARG WORKDIR=/home/${USER_NAME}
 ARG WORKDIR={{ stage.user_home }}
 {% endif %}
 ARG WORKSPACE_NAME={{ workspace_name }}
+ENV WORKDIR=${WORKDIR}
 ENV WORKSPACE=${WORKDIR}/${WORKSPACE_NAME}
 WORKDIR ${WORKDIR}
 {% endif %}

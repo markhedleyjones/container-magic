@@ -77,10 +77,12 @@ def generate_justfile(
     if config.commands:
         command_template = env.get_template("custom_command.j2")
         for command_name, command_spec in config.commands.items():
+            # Escape dollar signs in command so they expand in the container
+            command_escaped = command_spec.command.replace("$", r"\$")
             custom_commands_content += "\n" + command_template.render(
                 command_name=command_name,
                 description=command_spec.description,
-                command=command_spec.command,
+                command=command_escaped,
                 args=command_spec.args,
                 env=command_spec.env,
                 allow_extra_args=command_spec.allow_extra_args,
