@@ -268,6 +268,64 @@ stages:
 
 
 @pytest.mark.slow
+def test_package_installation_ubuntu_24_04():
+    """Test that packages install and are accessible in ubuntu:24.04 base."""
+    runtime = get_runtime()
+    config = """
+project:
+  name: test-ubuntu-24
+  workspace: workspace
+
+stages:
+  base:
+    from: ubuntu:24.04
+    packages:
+      apt: [curl, ca-certificates]
+  development:
+    from: base
+  production:
+    from: base
+"""
+
+    with TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Write config
+        (tmpdir_path / "cm.yaml").write_text(config)
+
+        # Create empty workspace
+        (tmpdir_path / "workspace").mkdir()
+        (tmpdir_path / "workspace" / "test.txt").write_text("test")
+
+        # Generate files
+        returncode, stdout, stderr = run_command(["cm", "update"], tmpdir_path)
+        assert returncode == 0, f"cm update failed: {stderr}"
+
+        # Build the image
+        returncode, stdout, stderr = run_command(
+            [runtime, "build", "-t", "test-ubuntu-24:latest", "."],
+            tmpdir_path,
+            timeout=600,
+        )
+        assert returncode == 0, f"{runtime} build failed: {stderr}"
+
+        # Run curl --version in the built image
+        returncode, stdout, stderr = run_command(
+            [
+                runtime,
+                "run",
+                "--rm",
+                "test-ubuntu-24:latest",
+                "curl",
+                "--version",
+            ],
+            tmpdir_path,
+        )
+        assert returncode == 0, f"curl failed in container: {stderr}"
+        assert "curl" in stdout.lower(), f"curl version not found in output: {stdout}"
+
+
+@pytest.mark.slow
 def test_multiple_packages_installation():
     """Test that multiple packages install and are accessible."""
     runtime = get_runtime()
