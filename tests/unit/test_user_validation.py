@@ -367,3 +367,175 @@ def test_user_defined_but_never_used():
         assert "USER_NAME=appuser" in dockerfile_content
         assert "Warning" not in stderr
         assert "Error" not in stderr
+
+
+def test_user_config_with_only_name():
+    """User config with only name uses default uid/gid (1000/1000)."""
+    config_dict = {
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            "production_user": {"name": "appuser"},  # Only name specified
+        },
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": ["create_user"],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        stderr = capture_stderr(generate_dockerfile, config, output_path)
+
+        dockerfile_content = output_path.read_text()
+        # Should use default 1000 for both uid and gid
+        assert "USER_UID=1000" in dockerfile_content
+        assert "USER_GID=1000" in dockerfile_content
+        assert "USER_NAME=appuser" in dockerfile_content
+        assert "Warning" not in stderr
+        assert "Error" not in stderr
+
+
+def test_user_config_with_only_uid():
+    """User config with only name and uid uses default gid (1000)."""
+    config_dict = {
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            "production_user": {
+                "name": "appuser",
+                "uid": 2000,  # Custom uid
+                # gid not specified, should default to 1000
+            },
+        },
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": ["create_user"],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        stderr = capture_stderr(generate_dockerfile, config, output_path)
+
+        dockerfile_content = output_path.read_text()
+        assert "USER_UID=2000" in dockerfile_content
+        assert "USER_GID=1000" in dockerfile_content  # Default
+        assert "USER_NAME=appuser" in dockerfile_content
+        assert "Warning" not in stderr
+        assert "Error" not in stderr
+
+
+def test_user_config_with_only_gid():
+    """User config with only name and gid uses default uid (1000)."""
+    config_dict = {
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            "production_user": {
+                "name": "appuser",
+                # uid not specified, should default to 1000
+                "gid": 3000,  # Custom gid
+            },
+        },
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": ["create_user"],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        stderr = capture_stderr(generate_dockerfile, config, output_path)
+
+        dockerfile_content = output_path.read_text()
+        assert "USER_UID=1000" in dockerfile_content  # Default
+        assert "USER_GID=3000" in dockerfile_content
+        assert "USER_NAME=appuser" in dockerfile_content
+        assert "Warning" not in stderr
+        assert "Error" not in stderr
+
+
+def test_user_config_with_custom_home():
+    """User config with custom home directory."""
+    config_dict = {
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            "production_user": {
+                "name": "appuser",
+                "uid": 2000,
+                "gid": 3000,
+                "home": "/opt/appuser",  # Custom home
+            },
+        },
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": ["create_user"],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        stderr = capture_stderr(generate_dockerfile, config, output_path)
+
+        dockerfile_content = output_path.read_text()
+        assert "USER_UID=2000" in dockerfile_content
+        assert "USER_GID=3000" in dockerfile_content
+        assert "USER_NAME=appuser" in dockerfile_content
+        assert "USER_HOME=/opt/appuser" in dockerfile_content
+        assert "Warning" not in stderr
+        assert "Error" not in stderr
+
+
+def test_user_config_default_home_path():
+    """User config without home uses /home/{name} by default."""
+    config_dict = {
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            "production_user": {
+                "name": "appuser",
+                # home not specified, should default to /home/appuser
+            },
+        },
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": ["create_user"],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        stderr = capture_stderr(generate_dockerfile, config, output_path)
+
+        dockerfile_content = output_path.read_text()
+        # Should use default /home/appuser
+        assert "USER_HOME=/home/appuser" in dockerfile_content
+        assert "Warning" not in stderr
+        assert "Error" not in stderr
