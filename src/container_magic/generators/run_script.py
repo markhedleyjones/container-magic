@@ -10,7 +10,7 @@ from container_magic.generators.dockerfile import get_user_config
 
 
 def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None:
-    """Generate run.sh script from configuration.
+    """Generate run.sh script from production containers.
 
     Args:
         config: Configuration object
@@ -41,6 +41,14 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     stage_config = config.stages[prod_stage]
     shell = stage_config.shell or "bash"
 
+    # Escape dollar signs in command strings so they expand in the container
+    commands_escaped = {}
+    if config.commands:
+        for cmd_name, cmd_spec in config.commands.items():
+            cmd_copy = cmd_spec.copy(deep=True)
+            cmd_copy.command = cmd_spec.command.replace("$", r"\$")
+            commands_escaped[cmd_name] = cmd_copy
+
     content = template.render(
         project_name=config.project.name,
         workspace_name=workspace_name,
@@ -48,7 +56,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         shell=shell,
         backend=backend,
         privileged=config.runtime.privileged if config.runtime else False,
-        commands=config.commands,
+        commands=commands_escaped,
     )
 
     run_script = project_dir / "run.sh"

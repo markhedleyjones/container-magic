@@ -61,6 +61,9 @@ def generate_standalone_command_scripts(
         if command_spec.standalone:
             script_path = output_dir / f"{command_name}.sh"
 
+            # Escape dollar signs in command so they expand in the container
+            command_escaped = command_spec.command.replace("$", r"\$")
+
             # Generate standalone script
             content = template.render(
                 command_name=command_name,
@@ -71,7 +74,7 @@ def generate_standalone_command_scripts(
                 backend=backend,
                 privileged=config.runtime.privileged if config.runtime else False,
                 env=command_spec.env,
-                command=command_spec.command,
+                command=command_escaped,
             )
 
             script_path.write_text(content)
