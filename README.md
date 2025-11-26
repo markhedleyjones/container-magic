@@ -325,6 +325,47 @@ run script.py                 # ✓ Works - finds script.py in current dir
 - Standalone scripts (only need docker/podman)
 - Minimal dependencies
 
+## User Handling
+
+Container-magic handles users differently for development and production:
+
+### Development (`build` and `run` commands)
+
+When you run `build` or `run`, the container is built and run as **your current system user**:
+
+```bash
+# The build command captures:
+USER_UID=$(id --user)            # Your UID
+USER_GID=$(id --group)           # Your GID
+USER_NAME=$(id --user --name)    # Your username
+USER_HOME=$(echo ~)              # Your home directory
+```
+
+This means:
+- You run commands as yourself (same UID/GID as your host)
+- Your home directory is mapped into the container
+- File permissions are correct (no permission issues)
+- You can edit code on the host and run it in the container seamlessly
+
+### Production (`./build.sh` and `./run.sh`)
+
+The standalone production scripts use the user configuration from your `cm.yaml`:
+
+```yaml
+project:
+  production_user:
+    name: appuser      # This user is baked into the image
+    uid: 1000
+    gid: 1000
+```
+
+If no `production_user` is defined, **the container runs as root** (`root` user with UID 0).
+
+**Note:** When no user is configured:
+- The `run.sh` script still works correctly
+- Commands execute with root privileges
+- This is the default Docker/Podman behavior (no `USER` directive means root)
+
 ## Project Structure
 
 ```
