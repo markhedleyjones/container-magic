@@ -5,6 +5,7 @@ from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.generators.dockerfile import generate_dockerfile
@@ -23,7 +24,7 @@ def capture_stderr(func, *args, **kwargs):
 
 
 def test_production_user_empty_string():
-    """Warn if create_user or switch_user used but production_user is not defined."""
+    """Error if create_user or switch_user used but production_user is not defined."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
         # No production_user defined
@@ -48,10 +49,12 @@ def test_production_user_empty_string():
 
     with TemporaryDirectory() as tmpdir:
         output_path = Path(tmpdir) / "Dockerfile"
-        stderr = capture_stderr(generate_dockerfile, config, output_path)
 
-        assert "production.user is not defined" in stderr
-        assert "Define production.user" in stderr
+        # Should raise ValueError
+        with pytest.raises(ValueError) as excinfo:
+            generate_dockerfile(config, output_path)
+
+        assert "production.user is not defined" in str(excinfo.value)
 
 
 def test_switch_user_without_create_in_same_stage():
@@ -215,3 +218,113 @@ def test_switch_root_no_validation_needed():
 
         # Should not warn
         assert "Warning" not in stderr
+
+
+def test_no_user_config_no_default_create_user():
+    """When no user is configured, create_user should not be added to default steps."""
+    config_dict = {
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            # No production_user or any user config
+        },
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                # No explicit steps, should use defaults
+            },
+            "development": {
+                "from": "base",
+                "steps": [],
+            },
+            "production": {
+                "from": "base",
+                "steps": [],
+            },
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        stderr = capture_stderr(generate_dockerfile, config, output_path)
+
+        # Should not produce any warnings or errors
+        assert "Warning" not in stderr
+        assert "Error" not in stderr
+        assert "not defined" not in stderr
+
+        # Check that Dockerfile doesn't have USER directive (since no user was configured)
+        dockerfile_content = output_path.read_text()
+        # Should not have create_user step for root user (no USER directives for root)
+        # The USER_UID, USER_GID args should not be needed if user is root
+        assert "USER_UID" not in dockerfile_content or "root" in dockerfile_content
+
+
+def test_explicit_create_user_without_user_config_raises_error():
+    """Explicitly using create_user without user config should raise an error."""
+    config_dict = {
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            # No production_user defined
+        },
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",  # Explicit but no user config
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+
+        # Should raise ValueError
+        with pytest.raises(ValueError) as excinfo:
+            generate_dockerfile(config, output_path)
+
+        assert "create_user" in str(excinfo.value)
+        assert "production.user is not defined" in str(excinfo.value)
+
+
+def test_explicit_switch_user_without_user_config_raises_error():
+    """Explicitly using switch_user without user config should raise an error."""
+    config_dict = {
+        "project": {
+            "name": "test",
+            "workspace": "workspace",
+            # No production_user defined
+        },
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",  # Need create_user first
+                ],
+            },
+            "development": {
+                "from": "base",
+                "steps": [
+                    "switch_user",  # Explicit but no user config
+                ],
+            },
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+
+        # Should raise ValueError
+        with pytest.raises(ValueError) as excinfo:
+            generate_dockerfile(config, output_path)
+
+        assert "switch_user" in str(excinfo.value)
+        assert "production.user is not defined" in str(excinfo.value)

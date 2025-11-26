@@ -15,8 +15,8 @@ from container_magic.core.templates import (
 )
 
 
-def get_user_config(config: ContainerMagicConfig) -> UserConfig:
-    """Get the user configuration from project config."""
+def get_user_config(config: ContainerMagicConfig) -> UserConfig | None:
+    """Get the user configuration from project config, or None if not defined."""
     if config.project.production_user:
         return config.project.production_user
     elif config.project.development_user:
@@ -24,8 +24,7 @@ def get_user_config(config: ContainerMagicConfig) -> UserConfig:
     elif config.project.user:
         return config.project.user
     else:
-        # Default user config
-        return UserConfig(name="nonroot", uid=1000, gid=1000)
+        return None
 
 
 def process_stage_steps(
@@ -47,14 +46,15 @@ def process_stage_steps(
     if stage.steps is None:
         # For stages that inherit from another stage (not a Docker image),
         # default to empty steps (inherit everything from parent)
-        # For base stages (from a Docker image), use full build steps
+        # For base stages (from a Docker image), use default build steps
         if ":" in stage.frm or "/" in stage.frm:
-            # FROM a Docker image - full default build
+            # FROM a Docker image - default build (only if user is configured)
             steps = [
                 "install_system_packages",
                 "install_pip_packages",
-                "create_user",
             ]
+            if has_explicit_user_config:
+                steps.append("create_user")
         else:
             # FROM another stage - minimal default (just inherits)
             steps = []
@@ -137,11 +137,10 @@ def process_stage_steps(
 
     # Validation: Check if create_user or switch_user used but production.user not defined
     if (has_create_user or has_switch_user) and not has_explicit_user_config:
-        print(
-            f"⚠️  Warning: Stage '{stage_name}' uses 'create_user' or 'switch_user' but production.user is not defined",
-            file=sys.stderr,
+        raise ValueError(
+            f"Stage '{stage_name}' uses 'create_user' or 'switch_user' but production.user is not defined. "
+            "Define production.user in your configuration."
         )
-        print("   Define production.user in your configuration.", file=sys.stderr)
 
     # Warn if cached_assets defined but copy_cached_assets not in steps
     if stage.cached_assets and not has_copy_cached_assets:
@@ -217,21 +216,22 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
         user_creation_style = detect_user_creation_style(base_image)
 
         # Process build steps
-        has_explicit_user = config.project.production_user is not None
+        has_explicit_user = user_cfg is not None
+        user_name = user_cfg.name if user_cfg else "root"
         ordered_steps, has_copy_cached_assets, cached_assets_data = process_stage_steps(
             stage_config,
             stage_name,
             output_path.parent,
             stages,
-            user_cfg.name,
+            user_name,
             has_explicit_user,
             config.project.workspace,
         )
 
         # Check if this stage needs USER ARG definitions
         # ARGs don't persist across stages in Docker, so each stage needs them
-        # Skip entirely if user is root (no point in USER_NAME=root, USER_UID=0)
-        needs_user_args = user_cfg.name != "root"
+        # Skip if user is not explicitly configured or if user is root
+        needs_user_args = user_cfg is not None and user_cfg.name != "root"
 
         stages_data.append(
             {
@@ -244,10 +244,12 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
                 "package_manager": package_manager,
                 "shell": shell,
                 "user_creation_style": user_creation_style,
-                "user": user_cfg.name,
-                "user_uid": user_cfg.uid,
-                "user_gid": user_cfg.gid,
-                "user_home": user_cfg.home or f"/home/{user_cfg.name}",
+                "user": user_name,
+                "user_uid": user_cfg.uid if user_cfg else 0,
+                "user_gid": user_cfg.gid if user_cfg else 0,
+                "user_home": (user_cfg.home or f"/home/{user_cfg.name}")
+                if user_cfg
+                else "/root",
                 "ordered_steps": ordered_steps,
                 "needs_user_args": needs_user_args,
             }

@@ -28,12 +28,16 @@ def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> No
     # Get all available stages for validation
     available_stages = list(config.stages.keys())
 
+    # Get production user if configured
+    user_cfg = get_user_config(config)
+    production_user = user_cfg.name if user_cfg else "root"
+
     content = template.render(
         project_name=config.project.name,
         workspace_name=config.project.workspace,
         default_target=default_target,
         available_stages=available_stages,
-        production_user=get_user_config(config).name,
+        production_user=production_user,
     )
 
     build_script = project_dir / "build.sh"
