@@ -12,21 +12,32 @@
 # Stage: {{ stage.name }}
 ################################################################################
 FROM {{ stage.from }} AS {{ stage.name }}
+{% if loop.first %}
 
+# Setup workspace (only in base stage, inherited by others)
 {% if stage.needs_user_args %}
+ARG WORKDIR=/home/${USER_NAME}
+{% else %}
+ARG WORKDIR={{ stage.user_home }}
+{% endif %}
+ARG WORKSPACE_NAME={{ workspace_name }}
+ENV WORKSPACE=${WORKDIR}/${WORKSPACE_NAME}
+WORKDIR ${WORKDIR}
+{% endif %}
+{% if stage.needs_user_args %}
+
 # User configuration
 ARG USER_GID={{ stage.user_gid }} \
     USER_UID={{ stage.user_uid }} \
     USER_NAME={{ stage.user }} \
     USER_HOME={{ stage.user_home }}
-
 {% endif %}
 {% if stage.env_vars %}
+
 # Environment variables
 {% for key, value in stage.env_vars.items() %}
 ENV {{ key }}={{ value }}
 {% endfor %}
-
 {% endif %}
 {% for step in stage.ordered_steps %}
 {% if step.type == "system_packages" %}
@@ -96,16 +107,4 @@ RUN {{ step.command }}
 {% endif %}
 {% endif %}
 {% endfor %}
-{% if stage.ordered_steps %}
-
-{% endif %}
-# Setup workspace
-{% if stage.needs_user_args %}
-ARG WORKDIR=/home/${USER_NAME}
-{% else %}
-ARG WORKDIR={{ stage.user_home }}
-{% endif %}
-ARG WORKSPACE_NAME={{ workspace_name }}
-ENV WORKSPACE=${WORKDIR}/${WORKSPACE_NAME}
-WORKDIR ${WORKDIR}
 {% endfor %}
