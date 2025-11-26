@@ -368,3 +368,68 @@ def test_custom_commands_mount_workspace_in_justfile(temp_project_dir):
     assert "$(pwd)/workspace:$(echo ~)/workspace:z" in justfile_content, (
         "Workspace mount should map local workspace directory"
     )
+
+
+def test_custom_commands_quote_escaping_in_justfile(temp_project_dir):
+    """Test that custom commands with nested quotes are properly escaped in Justfile."""
+    # Initialize a basic project
+    result = subprocess.run(
+        ["cm", "init", "--here", "--compact", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm init failed: {result.stderr}"
+
+    # Add custom command with nested quotes (bash -c "...")
+    config_file = temp_project_dir / "cm.yaml"
+    config_content = config_file.read_text()
+
+    custom_commands = """
+commands:
+  build:
+    command: "bash -c \\"cd $WORKSPACE && python setup.py build\\""
+    description: "Build the project"
+"""
+    config_file.write_text(config_content + custom_commands)
+
+    # Regenerate files
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm update failed: {result.stderr}"
+
+    # Check Justfile has properly escaped quotes in the COMMAND variable
+    justfile_content = (temp_project_dir / "Justfile").read_text()
+
+    # The COMMAND line should have escaped inner quotes
+    assert (
+        'COMMAND="bash -c \\"cd \\$WORKSPACE && python setup.py build\\""'
+        in justfile_content
+    ), "Justfile custom command should have escaped inner quotes"
+
+    # Verify the generated script would be syntactically valid bash
+    # Extract the build recipe from the Justfile
+    import re
+
+    build_match = re.search(
+        r"^build:\n(    #!/usr/bin/env bash\n.*?)(?=\n^[a-z]|\Z)",
+        justfile_content,
+        re.MULTILINE | re.DOTALL,
+    )
+    if build_match:
+        build_script = build_match.group(1)
+        # Save to temp file and check syntax
+        script_file = temp_project_dir / "build_test.sh"
+        script_file.write_text("#!/usr/bin/env bash\n" + build_script)
+        result = subprocess.run(
+            ["bash", "-n", str(script_file)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"Generated build script has syntax error: {result.stderr}"
+        )
