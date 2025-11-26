@@ -65,7 +65,7 @@
 
     # Command with substituted arguments
     RUN_ARGS+=("{{ shell }}" "-c")
-    COMMAND="{{ command }}"
+    COMMAND="{{ command | replace('\"', '\\\"') }}"
     {% for arg_name, arg_spec in args.items() %}
     {% if arg_spec.mount_as %}
     # Substitute {{ arg_name }} with container path
