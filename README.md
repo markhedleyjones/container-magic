@@ -743,11 +743,50 @@ stages:
 - `LABEL` - Add metadata
 - Any other valid Dockerfile instruction
 
-**Variable substitution:** You can reference container-magic variables:
+**Variable substitution in Dockerfile steps:** You can reference container-magic variables:
 - `${WORKSPACE}` - Workspace directory path
 - `${WORKDIR}` - Working directory
 - `${USER_NAME}` - Non-root user name (if configured)
 - `${USER_UID}` / `${USER_GID}` - User IDs
+
+---
+
+### Using `$WORKSPACE` in container scripts
+
+The `$WORKSPACE` environment variable is **automatically set inside every container** and points to your workspace directory. This is set at build time in the Dockerfile, so scripts can rely on it without any extra setup.
+
+**Inside the container**, use `$WORKSPACE` to reference files without manual path construction:
+
+```bash
+# Good - uses $WORKSPACE variable set at build time
+bash $WORKSPACE/scripts/commands.sh preprocess
+
+# Less ideal - manual path construction
+bash /home/user/workspace/scripts/commands.sh preprocess
+```
+
+**In custom commands, reference workspace files cleanly:**
+
+```yaml
+commands:
+  process:
+    command: python $WORKSPACE/scripts/process.py
+    description: Process workspace data
+```
+
+**In Dockerfile steps, use `${WORKSPACE}` to reference workspace files:**
+
+```yaml
+stages:
+  base:
+    from: python:3.11
+    steps:
+      - copy_workspace
+      - RUN python ${WORKSPACE}/setup.py build
+      - RUN ${WORKSPACE}/scripts/init.sh
+```
+
+This eliminates the need to manually construct paths like `$HOME/workspace/ros2_ws/scripts/...` - just use `$WORKSPACE` which is always available and pre-configured.
 
 ---
 
