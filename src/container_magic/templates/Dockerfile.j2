@@ -17,13 +17,17 @@ FROM {{ stage.from }} AS {{ stage.name }}
 # Setup workspace (only in base stage, inherited by others)
 {% if stage.needs_user_args %}
 ARG WORKDIR=/home/${USER_NAME}
+ARG WORKSPACE_NAME={{ workspace_name }}
+ENV WORKDIR=/home/${USER_NAME}
+ENV WORKSPACE=/home/${USER_NAME}/{{ workspace_name }}
+WORKDIR /home/${USER_NAME}
 {% else %}
 ARG WORKDIR={{ stage.user_home }}
-{% endif %}
 ARG WORKSPACE_NAME={{ workspace_name }}
-ENV WORKDIR=${WORKDIR}
-WORKDIR ${WORKDIR}
-ENV WORKSPACE=${WORKDIR}/${WORKSPACE_NAME}
+ENV WORKDIR={{ stage.user_home }}
+ENV WORKSPACE={{ stage.user_home }}/{{ workspace_name }}
+WORKDIR {{ stage.user_home }}
+{% endif %}
 {% endif %}
 {% if stage.needs_user_args %}
 
