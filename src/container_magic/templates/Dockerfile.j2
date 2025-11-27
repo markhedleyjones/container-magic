@@ -23,6 +23,7 @@ ARG WORKDIR={{ stage.user_home }}
 ARG WORKSPACE_NAME={{ workspace_name }}
 ENV WORKDIR=${WORKDIR}
 WORKDIR ${WORKDIR}
+ENV WORKSPACE=${WORKDIR}/${WORKSPACE_NAME}
 {% endif %}
 {% if stage.needs_user_args %}
 
@@ -79,8 +80,6 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
         useradd --uid ${USER_UID} --gid ${USER_GID} --home-dir ${USER_HOME} --create-home ${USER_NAME}; \
     fi
 {% endif %}
-
-ENV WORKSPACE=${USER_HOME}/${WORKSPACE_NAME}
 {% elif step.type == "switch_user" %}
 # Switch to user
 USER ${USER_NAME}
