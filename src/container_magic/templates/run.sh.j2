@@ -25,6 +25,13 @@ fi
 RUNTIME="{{ backend }}"
 {%- endif %}
 
+# Check if image exists locally (without trying to pull)
+if ! ${RUNTIME} images --no-trunc | grep -q "${IMAGE_NAME}.*${TAG}"; then
+	echo "Error: Image ${IMAGE_NAME}:${TAG} not found locally"
+	echo "Build it with: ./build.sh"
+	exit 1
+fi
+
 {%- if commands %}
 
 # Custom command handlers
@@ -85,13 +92,6 @@ RUN_ARGS=(
 	"--privileged"
 	{%- endif %}
 )
-
-# Check if image exists
-if ! ${RUNTIME} image inspect "${IMAGE_NAME}:${TAG}" >/dev/null 2>&1; then
-	echo "Error: Image ${IMAGE_NAME}:${TAG} not found"
-	echo "Build it first with: ./build.sh"
-	exit 1
-fi
 
 # Run command or shell
 if [ $# -gt 0 ]; then
