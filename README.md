@@ -683,9 +683,9 @@ stages:
    - Metadata saved in `meta.json` alongside each file
 
 2. Build image:
-   - Include `copy_cached_assets` in your steps
+   - **Explicitly add `copy_cached_assets` to your stage's `steps`** (required to copy assets into image)
    - Cached files are copied into image via `COPY` directive
-   - Ownership automatically set for non-root users
+   - If a user is configured, ownership is **automatically set** with `--chown=${USER_UID}:${USER_GID}` (no manual chown needed)
 
 3. Subsequent builds:
    - Cache is checked before downloading
