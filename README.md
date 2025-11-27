@@ -471,7 +471,12 @@ stages:
 
 Creates a non-root user account for running the application.
 
-**Requires:** `production_user` defined in config (object with `name`, `uid`, `gid`, `home`)
+**Condition:** Only created if `production_user` is defined in config (with required `name` field)
+
+**Field Defaults:**
+- `uid`: 1000 (if not specified)
+- `gid`: 1000 (if not specified)
+- `home`: `/home/${name}` (if not specified)
 
 **Example:**
 ```yaml
@@ -489,11 +494,24 @@ stages:
       - create_user
 ```
 
+Minimal example (using defaults):
+```yaml
+project:
+  production_user:
+    name: appuser  # Only required field
+
+stages:
+  production:
+    steps:
+      - create_user  # Creates user with uid=1000, gid=1000, home=/home/appuser
+```
+
 **Generated Dockerfile:** Creates user and group with specified IDs
 
 **Notes:**
 - User UID/GID are passed as build arguments to ensure consistency across builds
 - Automatically skips creation if user is "root"
+- If any field is defined (name, uid, gid, or home), the user will be created
 
 ---
 
@@ -614,13 +632,16 @@ stages:
       - copy_workspace
 ```
 
-**Generated Dockerfile:** `COPY workspace ${WORKSPACE}`
+**Generated Dockerfile:**
+- Without user: `COPY workspace ${WORKSPACE}`
+- With user: `COPY --chown=${USER_UID}:${USER_GID} workspace ${WORKSPACE}`
 
 **Use case:** Include application code in production image
 
 **Notes:**
 - Automatic default step for production stage if not specified
 - Uses `WORKSPACE` environment variable (default: `/root/workspace`)
+- If `create_user` step is used, automatically applies `--chown` with the user's UID/GID to set proper file ownership
 
 ---
 
