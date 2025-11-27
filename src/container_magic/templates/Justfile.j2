@@ -75,13 +75,6 @@ run *args:
     CONTAINER_NAME="{{ project_name }}-development"
     IMAGE="{{ project_name }}:development"
 
-    # Check if image exists locally (without trying to pull)
-    if ! {{ runtime }} images --no-trunc | grep -q "${IMAGE}"; then
-        echo "Error: Image ${IMAGE} not found locally"
-        echo "Build it with: just build"
-        exit 1
-    fi
-
     # Build run arguments
     RUN_ARGS=()
     RUN_ARGS+=("{{ runtime }}" "run")
