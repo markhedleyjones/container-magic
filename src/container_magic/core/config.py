@@ -98,6 +98,19 @@ class CachedAsset(BaseModel):
     url: str = Field(description="URL to download asset from")
     dest: str = Field(description="Destination path in container")
 
+    @model_validator(mode="before")
+    @classmethod
+    def check_for_path_field(cls, data: Any) -> Any:
+        """Provide helpful error message if user tries to use 'path' instead of 'url'."""
+        if isinstance(data, dict) and "path" in data:
+            raise ValueError(
+                "cached_assets does not support 'path' field. "
+                "Use 'url' for remote HTTP/HTTPS resources. "
+                "For local workspace files, use a COPY step instead: "
+                "'COPY workspace/path/to/file /container/path'"
+            )
+        return data
+
 
 class StageConfig(BaseModel):
     """Build stage configuration."""
