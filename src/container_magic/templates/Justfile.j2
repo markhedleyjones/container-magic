@@ -183,9 +183,12 @@ run *args:
     RUN_ARGS+=("${IMAGE}")
 
     # Execute command or shell
-    # Note: Just passes args via positional parameters, not via {{args}} to avoid quoting issues
-    if [[ $# -gt 0 ]]; then
-        RUN_ARGS+=("{{ shell }}" "-c" "$@")
+    # Note: Just passes args via {{args}} - we need set +u to allow undefined variables in user commands
+    set +u
+    COMMAND="{{ '{{args}}' }}"
+    set -u
+    if [[ -n "${COMMAND}" ]]; then
+        RUN_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
     else
         RUN_ARGS+=("{{ shell }}")
     fi
