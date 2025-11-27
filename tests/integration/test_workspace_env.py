@@ -47,7 +47,11 @@ def test_workspace_env_points_to_mounted_path(test_project):
 
     # Test 1: Verify $WORKSPACE variable exists and is set
     result = subprocess.run(
-        ["just", "run", "echo $WORKSPACE"],
+        [
+            "just",
+            "run",
+            "echo $WORKSPACE",
+        ],  # bash will expand $WORKSPACE inside container
         cwd=test_project,
         capture_output=True,
         text=True,

@@ -22,7 +22,6 @@ ARG WORKDIR={{ stage.user_home }}
 {% endif %}
 ARG WORKSPACE_NAME={{ workspace_name }}
 ENV WORKDIR=${WORKDIR}
-ENV WORKSPACE=${WORKDIR}/${WORKSPACE_NAME}
 WORKDIR ${WORKDIR}
 {% endif %}
 {% if stage.needs_user_args %}
@@ -80,6 +79,15 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
         useradd --uid ${USER_UID} --gid ${USER_GID} --home-dir ${USER_HOME} --create-home ${USER_NAME}; \
     fi
 {% endif %}
+
+# Set WORKSPACE environment variable based on actual user home directory
+# This file will be sourced by non-interactive bash shells via BASH_ENV
+RUN mkdir -p /etc/container-magic && \
+    USER_HOME=$(getent passwd ${USER_NAME} | cut -d: -f6 || echo ${WORKDIR}) && \
+    echo "export WORKSPACE=\"${USER_HOME}/${WORKSPACE_NAME}\"" > /etc/container-magic/workspace.sh && \
+    chmod 644 /etc/container-magic/workspace.sh
+ENV BASH_ENV=/etc/container-magic/workspace.sh
+ENV WORKSPACE_NAME=${WORKSPACE_NAME}
 {% elif step.type == "switch_user" %}
 # Switch to user
 USER ${USER_NAME}
