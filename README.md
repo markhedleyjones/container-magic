@@ -419,6 +419,397 @@ Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://pe
          - RUN pip install --break-system-packages requests
    ```
 
+## Build Steps Reference
+
+The `steps` field (or legacy `build_steps`) in each stage defines how the image is constructed. Container-magic provides built-in steps for common tasks, and supports custom Dockerfile commands for advanced use cases.
+
+### Built-in Steps
+
+#### 1. `install_system_packages`
+
+Installs system packages using the distribution's package manager (APT, APK, or DNF).
+
+**Requires:** `packages.apt`, `packages.apk`, or `packages.dnf` defined
+
+**Example:**
+```yaml
+stages:
+  base:
+    from: ubuntu:24.04
+    packages:
+      apt: [curl, git, build-essential]
+    steps:
+      - install_system_packages
+```
+
+**Generated Dockerfile:** Runs `apt-get update && apt-get install` (with cleanup)
+
+---
+
+#### 2. `install_pip_packages`
+
+Installs Python packages using pip.
+
+**Requires:** `packages.pip` defined
+
+**Example:**
+```yaml
+stages:
+  base:
+    from: python:3.11-slim
+    packages:
+      pip: [requests, pytest, numpy]
+    steps:
+      - install_pip_packages
+```
+
+**Generated Dockerfile:** Runs `pip install --no-cache-dir`
+
+---
+
+#### 3. `create_user`
+
+Creates a non-root user account for running the application.
+
+**Requires:** `production_user` defined in config (object with `name`, `uid`, `gid`, `home`)
+
+**Example:**
+```yaml
+project:
+  production_user:
+    name: appuser
+    uid: 1000
+    gid: 1000
+    home: /home/appuser
+
+stages:
+  production:
+    from: base
+    steps:
+      - create_user
+```
+
+**Generated Dockerfile:** Creates user and group with specified IDs
+
+**Notes:**
+- User UID/GID are passed as build arguments to ensure consistency across builds
+- Automatically skips creation if user is "root"
+
+---
+
+#### 4. `switch_user`
+
+Switches the current user context from root to the configured non-root user.
+
+**Requires:** `create_user` step in same or parent stage, `production_user` defined
+
+**Example:**
+```yaml
+stages:
+  production:
+    from: base
+    steps:
+      - create_user
+      - switch_user
+      - COPY app /app
+      - RUN chown -R ${USER_NAME}:${USER_NAME} /app
+```
+
+**Generated Dockerfile:** Sets `USER appuser`
+
+**Use case:** Run application as non-root for security
+
+---
+
+#### 5. `switch_root`
+
+Switches user context back to root (if needed after `switch_user`).
+
+**Requires:** `switch_user` step executed previously
+
+**Example:**
+```yaml
+stages:
+  production:
+    steps:
+      - switch_user
+      - RUN echo "running as appuser"
+      - switch_root
+      - RUN echo "back to root"
+```
+
+**Generated Dockerfile:** Sets `USER root`
+
+**Use case:** Temporarily switch to root for privileged operations
+
+---
+
+#### 6. `copy_cached_assets`
+
+Copies pre-downloaded assets into the image (avoids re-downloading during builds).
+
+**Requires:** `cached_assets` defined in stage
+
+**Example:**
+```yaml
+stages:
+  base:
+    from: python:3.11-slim
+    cached_assets:
+      - url: https://example.com/model.tar.gz
+        dest: /models/model.tar.gz
+      - url: https://huggingface.co/path/to/model
+        dest: /models/huggingface
+    steps:
+      - install_pip_packages
+      - copy_cached_assets
+```
+
+**Generated Dockerfile:** Copies files from build cache into image
+
+**Notes:**
+- Assets are downloaded during `cm update` and stored locally
+- Improves build times by avoiding re-downloading on each build
+- Dockerfile uses `COPY` to include cached assets
+
+---
+
+#### 7. `copy_workspace`
+
+Copies the entire workspace directory into the image (typically for production builds).
+
+**Example:**
+```yaml
+stages:
+  production:
+    from: base
+    steps:
+      - copy_workspace
+```
+
+**Generated Dockerfile:** `COPY workspace ${WORKSPACE}`
+
+**Use case:** Include application code in production image
+
+**Notes:**
+- Automatic default step for production stage if not specified
+- Uses `WORKSPACE` environment variable (default: `/root/workspace`)
+
+---
+
+### Custom Dockerfile Commands
+
+You can include raw Dockerfile commands as steps. Any string that doesn't match a built-in keyword is treated as a custom command.
+
+**Example:**
+```yaml
+stages:
+  base:
+    from: ubuntu:24.04
+    packages:
+      apt: [python3, python3-pip]
+    steps:
+      - install_system_packages
+      - install_pip_packages
+      - RUN pip install --break-system-packages requests
+      - ENV APP_MODE=production
+      - WORKDIR /app
+      - LABEL maintainer="you@example.com"
+```
+
+**Supported Dockerfile instructions:**
+- `RUN` - Execute commands
+- `ENV` - Set environment variables
+- `WORKDIR` - Change working directory
+- `COPY` / `ADD` - Copy files
+- `EXPOSE` - Expose ports
+- `LABEL` - Add metadata
+- Any other valid Dockerfile instruction
+
+**Variable substitution:** You can reference container-magic variables:
+- `${WORKSPACE}` - Workspace directory path
+- `${WORKDIR}` - Working directory
+- `${USER_NAME}` - Non-root user name (if configured)
+- `${USER_UID}` / `${USER_GID}` - User IDs
+
+---
+
+### Default Step Behaviour
+
+If you don't specify `steps`, container-magic applies defaults based on the stage type:
+
+**For stages FROM Docker images** (e.g., `from: python:3.11-slim`):
+```python
+steps = [
+    "install_system_packages",
+    "install_pip_packages",
+    "create_user",  # Only if production_user configured
+]
+```
+
+**For stages FROM other stages** (e.g., `from: base`):
+```python
+steps = []  # Inherits packages from parent
+```
+
+**For production stage:**
+```python
+steps = ["copy_workspace"]  # If not overridden
+```
+
+---
+
+### Step Ordering Rules
+
+1. **Steps execute in order** - Left to right, top to bottom
+2. **User creation before switching** - `create_user` must come before `switch_user`
+3. **Packages before custom commands** - Install system/pip packages before using them
+4. **Assets before commands** - Copy cached assets before commands that use them
+5. **User switching for security** - Switch to non-root after setup, switch back if needed for privileged ops
+
+**Common approach:**
+```yaml
+steps:
+  - install_system_packages
+  - install_pip_packages
+  - copy_cached_assets
+  - create_user
+  - switch_user
+  - COPY app /app
+  - RUN chown -R ${USER_NAME}:${USER_NAME} /app
+```
+
+---
+
+### Common Patterns
+
+#### Multi-stage with shared base
+
+```yaml
+stages:
+  base:
+    from: python:3.11-slim
+    packages:
+      apt: [git, build-essential]
+      pip: [setuptools]
+    steps:
+      - install_system_packages
+      - install_pip_packages
+
+  development:
+    from: base
+    packages:
+      pip: [pytest, black, mypy]
+    # Steps automatically inherited from base
+
+  production:
+    from: base
+    packages:
+      pip: [gunicorn]
+    steps:
+      - create_user
+      - switch_user
+      - copy_workspace
+```
+
+#### Using cached assets for models
+
+```yaml
+stages:
+  base:
+    from: pytorch/pytorch:latest
+    packages:
+      pip: [transformers]
+    cached_assets:
+      - url: https://huggingface.co/bert-base-uncased/resolve/main/model.safetensors
+        dest: /models/bert.safetensors
+    steps:
+      - install_pip_packages
+      - copy_cached_assets
+      - RUN python -c "from transformers import AutoModel; AutoModel.from_pretrained('/models')"
+```
+
+#### Custom build steps with environment
+
+```yaml
+stages:
+  base:
+    from: node:18-alpine
+    packages:
+      npm: [npm-check-updates]
+    steps:
+      - install_system_packages
+      - ENV NODE_ENV=production
+      - ENV PATH=/app/node_modules/.bin:$PATH
+      - RUN npm install --global yarn
+```
+
+---
+
+### Validation Rules
+
+Container-magic validates your step configuration:
+
+| Rule | Error | Solution |
+|------|-------|----------|
+| `switch_user` without `create_user` | Warning | Add `create_user` step before `switch_user` |
+| `create_user` without `production_user` | Error | Define `project.production_user` in config |
+| `switch_user` without `production_user` | Error | Define `project.production_user` in config |
+| `cached_assets` without `copy_cached_assets` | Warning | Add `copy_cached_assets` step to use assets |
+
+---
+
+### Troubleshooting Steps
+
+**Q: "Error: create_user step requires production_user to be configured"**
+
+A: Add `production_user` to your config:
+```yaml
+project:
+  name: my-app
+  production_user:
+    name: appuser
+    uid: 1000
+    gid: 1000
+    home: /home/appuser
+```
+
+**Q: Custom RUN step not executing**
+
+A: Verify step syntax - must start with Dockerfile command:
+```yaml
+# ✓ Correct
+steps:
+  - RUN apt-get install something
+  - ENV VAR=value
+
+# ✗ Incorrect (missing command keyword)
+steps:
+  - apt-get install something
+```
+
+**Q: Build takes too long when downloading assets**
+
+A: Use `cached_assets` to download once and reuse:
+```yaml
+cached_assets:
+  - url: https://large-file.example.com/model.tar.gz
+    dest: /models/model.tar.gz
+steps:
+  - copy_cached_assets
+```
+
+**Q: Permission denied when running as non-root**
+
+A: Ensure files are owned by the application user:
+```yaml
+steps:
+  - create_user
+  - switch_user
+  - COPY app /app
+  - RUN chown -R ${USER_NAME}:${USER_NAME} /app
+```
+
 ## Contributing
 
 Container-magic is in early development. Contributions and feedback welcome!
