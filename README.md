@@ -354,7 +354,7 @@ The standalone production scripts use the user configuration from your `cm.yaml`
 ```yaml
 project:
   production_user:
-    name: appuser      # This user is baked into the image
+    name: user         # This user is baked into the image
     uid: 1000
     gid: 1000
 ```
@@ -482,10 +482,10 @@ Creates a non-root user account for running the application.
 ```yaml
 project:
   production_user:
-    name: appuser
+    name: user
     uid: 1000
     gid: 1000
-    home: /home/appuser
+    home: /home/user
 
 stages:
   production:
@@ -498,12 +498,12 @@ Minimal example (using defaults):
 ```yaml
 project:
   production_user:
-    name: appuser  # Only required field
+    name: user  # Only required field
 
 stages:
   production:
     steps:
-      - create_user  # Creates user with uid=1000, gid=1000, home=/home/appuser
+      - create_user  # Creates user with uid=1000, gid=1000, home=/home/user
 ```
 
 **Generated Dockerfile:** Creates user and group with specified IDs
@@ -533,7 +533,7 @@ stages:
       - RUN chown -R ${USER_NAME}:${USER_NAME} /app
 ```
 
-**Generated Dockerfile:** Sets `USER appuser`
+**Generated Dockerfile:** Sets `USER user`
 
 **Use case:** Run application as non-root for security
 
@@ -551,7 +551,7 @@ stages:
   production:
     steps:
       - switch_user
-      - RUN echo "running as appuser"
+      - RUN echo "running as user"
       - switch_root
       - RUN echo "back to root"
 ```
@@ -730,10 +730,10 @@ cm cache clear
 project:
   name: ml-service
   production_user:
-    name: appuser
+    name: user
     uid: 1000
     gid: 1000
-    home: /home/appuser
+    home: /home/user
 
 stages:
   base:
@@ -961,10 +961,10 @@ A: Add `production_user` to your config:
 project:
   name: my-app
   production_user:
-    name: appuser
+    name: user
     uid: 1000
     gid: 1000
-    home: /home/appuser
+    home: /home/user
 ```
 
 **Q: Custom RUN step not executing**
