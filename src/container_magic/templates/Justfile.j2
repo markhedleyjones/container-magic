@@ -183,12 +183,9 @@ run *args:
     RUN_ARGS+=("${IMAGE}")
 
     # Execute command or shell
-    # Note: Just passes args via {{ '{{args}}' }}, we check if it's non-empty
-    COMMAND="{{ '{{args}}' }}"
-    if [[ -n "${COMMAND:-}" ]]; then
-        # Prepend WORKSPACE setup to command if BASH_ENV might not be sourced
-        WRAPPED_COMMAND=". /etc/container-magic/workspace.sh 2>/dev/null; ${COMMAND}"
-        RUN_ARGS+=("{{ shell }}" "-c" "${WRAPPED_COMMAND}")
+    # Note: Just passes args via positional parameters, not via {{args}} to avoid quoting issues
+    if [[ $# -gt 0 ]]; then
+        RUN_ARGS+=("{{ shell }}" "-c" "$@")
     else
         RUN_ARGS+=("{{ shell }}")
     fi

@@ -80,14 +80,7 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
     fi
 {% endif %}
 
-# Set WORKSPACE environment variable based on actual user home directory
-# This file will be sourced by non-interactive bash shells via BASH_ENV
-RUN mkdir -p /etc/container-magic && \
-    USER_HOME=$(getent passwd ${USER_NAME} | cut -d: -f6 || echo ${WORKDIR}) && \
-    echo "export WORKSPACE=\"${USER_HOME}/${WORKSPACE_NAME}\"" > /etc/container-magic/workspace.sh && \
-    chmod 644 /etc/container-magic/workspace.sh
-ENV BASH_ENV=/etc/container-magic/workspace.sh
-ENV WORKSPACE_NAME=${WORKSPACE_NAME}
+ENV WORKSPACE=${USER_HOME}/${WORKSPACE_NAME}
 {% elif step.type == "switch_user" %}
 # Switch to user
 USER ${USER_NAME}
