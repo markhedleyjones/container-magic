@@ -568,54 +568,12 @@ Copies pre-downloaded assets into the image (avoids re-downloading during builds
 
 **Requires:** `cached_assets` defined in stage
 
-**Example:**
-```yaml
-stages:
-  base:
-    from: python:3.11-slim
-    cached_assets:
-      - url: https://example.com/model.tar.gz
-        dest: /models/model.tar.gz
-      - url: https://huggingface.co/path/to/model
-        dest: /models/huggingface
-    steps:
-      - install_pip_packages
-      - copy_cached_assets
-```
+**Generated Dockerfile:** Copies files from build cache into image with `--chown` applied automatically if a user is configured
 
-**Generated Dockerfile:** Copies files from build cache into image
-
-**How it works:**
-
-1. Define assets to download under `cached_assets` (see below)
-2. Run `cm update` or `cm build` to download assets
-3. Files are cached locally in `.cm-cache/assets/`
-4. Each `cm build` copies cached files into the image (no re-downloading)
-5. Cache is stored by URL hash, so different URLs download separately
-
-**Caching details:**
-- Downloads happen once per unique URL
-- Cached files stored in `.cm-cache/assets/<url-hash>/`
-- Metadata tracked in `meta.json` alongside each asset
-- `.cm-cache/` is automatically added to `.gitignore`
-- For non-root users, ownership is automatically set via `--chown` in COPY
-
-**Managing cache:**
-
-List cached assets:
-```bash
-cm cache list
-```
-
-Clear all cached assets:
-```bash
-cm cache clear
-```
-
-Show cache directory:
-```bash
-cm cache path
-```
+**Notes:**
+- Must be explicitly added to `steps` to copy assets into image (assets are downloaded but not used if step is missing)
+- If a user is configured, ownership is automatically set via `--chown=${USER_UID}:${USER_GID}`
+- See "Downloading and Caching Assets" section below for detailed usage and configuration
 
 ---
 
@@ -647,7 +605,7 @@ stages:
 
 ### Downloading and Caching Assets
 
-Container-magic supports downloading external resources (files, models, datasets) during the build process. Assets are downloaded once and cached locally to avoid re-downloading on subsequent builds.
+Container-magic supports downloading external resources (files, models, datasets) and caching them locally to avoid re-downloading on subsequent builds. Use the `copy_cached_assets` step (see step 6 above) to include cached assets in your image.
 
 **Use cases:**
 - Machine learning models from HuggingFace or other sources
@@ -668,60 +626,26 @@ stages:
         dest: /models/model.tar.gz
       - url: https://huggingface.co/bert-base-uncased/resolve/main/model.safetensors
         dest: /models/bert.safetensors
+    steps:
+      - copy_cached_assets
 ```
 
 **Configuration options:**
 - `url` (required) - HTTP(S) URL to download from
 - `dest` (required) - Destination path inside container
 
-**Download process:**
+**How it works:**
 
-1. Run `cm update` or `cm build`:
-   - Assets are downloaded if not already cached
-   - Downloads timeout after 60 seconds
-   - Files stored in `.cm-cache/assets/<url-hash>/`
-   - Metadata saved in `meta.json` alongside each file
+1. Run `cm update` or `cm build` - assets are downloaded (if not cached) with 60-second timeout
+2. Files cached in `.cm-cache/assets/<url-hash>/` with `meta.json` metadata
+3. Add `copy_cached_assets` to your stage's `steps` to copy into image
+4. Subsequent builds reuse cached files, skipping downloads
 
-2. Build image:
-   - **Explicitly add `copy_cached_assets` to your stage's `steps`** (required to copy assets into image)
-   - Cached files are copied into image via `COPY` directive
-   - If a user is configured, ownership is **automatically set** with `--chown=${USER_UID}:${USER_GID}` (no manual chown needed)
-
-3. Subsequent builds:
-   - Cache is checked before downloading
-   - Already-cached assets skip download
-   - Build time improved by avoiding re-downloads
-
-**Cache directory structure:**
-
-```
-.cm-cache/
-└── assets/
-    ├── <url-hash-1>/
-    │   ├── model.tar.gz
-    │   └── meta.json
-    └── <url-hash-2>/
-        ├── model.safetensors
-        └── meta.json
-```
-
-The `.cm-cache/` directory is automatically gitignored.
-
-**Cache management commands:**
-
-List cached assets with size and URL:
+**Cache management:**
 ```bash
-cm cache list
-```
-
-Show cache directory location:
-```bash
-cm cache path
-```
-
-Clear all cached assets:
-```bash
-cm cache clear
+cm cache list    # List cached assets with size and URL
+cm cache path    # Show cache directory location
+cm cache clear   # Clear all cached assets
 ```
 
 **Example: ML model in production image**
