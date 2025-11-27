@@ -567,10 +567,37 @@ stages:
 
 **Generated Dockerfile:** Copies files from build cache into image
 
-**Notes:**
-- Assets are downloaded during `cm update` and stored locally
-- Improves build times by avoiding re-downloading on each build
-- Dockerfile uses `COPY` to include cached assets
+**How it works:**
+
+1. Define assets to download under `cached_assets` (see below)
+2. Run `cm update` or `cm build` to download assets
+3. Files are cached locally in `.cm-cache/assets/`
+4. Each `cm build` copies cached files into the image (no re-downloading)
+5. Cache is stored by URL hash, so different URLs download separately
+
+**Caching details:**
+- Downloads happen once per unique URL
+- Cached files stored in `.cm-cache/assets/<url-hash>/`
+- Metadata tracked in `meta.json` alongside each asset
+- `.cm-cache/` is automatically added to `.gitignore`
+- For non-root users, ownership is automatically set via `--chown` in COPY
+
+**Managing cache:**
+
+List cached assets:
+```bash
+cm cache list
+```
+
+Clear all cached assets:
+```bash
+cm cache clear
+```
+
+Show cache directory:
+```bash
+cm cache path
+```
 
 ---
 
@@ -594,6 +621,151 @@ stages:
 **Notes:**
 - Automatic default step for production stage if not specified
 - Uses `WORKSPACE` environment variable (default: `/root/workspace`)
+
+---
+
+### Downloading and Caching Assets
+
+Container-magic supports downloading external resources (files, models, datasets) during the build process. Assets are downloaded once and cached locally to avoid re-downloading on subsequent builds.
+
+**Use cases:**
+- Machine learning models from HuggingFace or other sources
+- Large datasets
+- Pre-compiled binaries or libraries
+- Configuration files from remote sources
+
+**Configuration:**
+
+Define assets under `cached_assets` in any stage:
+
+```yaml
+stages:
+  base:
+    from: python:3.11-slim
+    cached_assets:
+      - url: https://example.com/model.tar.gz
+        dest: /models/model.tar.gz
+      - url: https://huggingface.co/bert-base-uncased/resolve/main/model.safetensors
+        dest: /models/bert.safetensors
+```
+
+**Configuration options:**
+- `url` (required) - HTTP(S) URL to download from
+- `dest` (required) - Destination path inside container
+
+**Download process:**
+
+1. Run `cm update` or `cm build`:
+   - Assets are downloaded if not already cached
+   - Downloads timeout after 60 seconds
+   - Files stored in `.cm-cache/assets/<url-hash>/`
+   - Metadata saved in `meta.json` alongside each file
+
+2. Build image:
+   - Include `copy_cached_assets` in your steps
+   - Cached files are copied into image via `COPY` directive
+   - Ownership automatically set for non-root users
+
+3. Subsequent builds:
+   - Cache is checked before downloading
+   - Already-cached assets skip download
+   - Build time improved by avoiding re-downloads
+
+**Cache directory structure:**
+
+```
+.cm-cache/
+└── assets/
+    ├── <url-hash-1>/
+    │   ├── model.tar.gz
+    │   └── meta.json
+    └── <url-hash-2>/
+        ├── model.safetensors
+        └── meta.json
+```
+
+The `.cm-cache/` directory is automatically gitignored.
+
+**Cache management commands:**
+
+List cached assets with size and URL:
+```bash
+cm cache list
+```
+
+Show cache directory location:
+```bash
+cm cache path
+```
+
+Clear all cached assets:
+```bash
+cm cache clear
+```
+
+**Example: ML model in production image**
+
+```yaml
+project:
+  name: ml-service
+  production_user:
+    name: appuser
+    uid: 1000
+    gid: 1000
+    home: /home/appuser
+
+stages:
+  base:
+    from: pytorch/pytorch:latest
+    packages:
+      pip: [transformers, flask]
+    cached_assets:
+      - url: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/pytorch_model.bin
+        dest: /models/model.bin
+    steps:
+      - install_pip_packages
+      - copy_cached_assets
+
+  production:
+    from: base
+    steps:
+      - create_user
+      - switch_user
+      - COPY app /app
+      - RUN chown -R ${USER_NAME}:${USER_NAME} /app
+```
+
+**Downloading during different build stages:**
+
+All stages with `cached_assets` download when running `cm build`:
+
+```yaml
+stages:
+  base:
+    cached_assets:
+      - url: https://example.com/base-asset.tar.gz
+        dest: /opt/base-asset.tar.gz
+    steps:
+      - copy_cached_assets
+
+  development:
+    from: base
+    cached_assets:
+      - url: https://example.com/dev-asset.zip
+        dest: /opt/dev-asset.zip
+    steps:
+      - copy_cached_assets
+
+  production:
+    from: base
+    cached_assets:
+      - url: https://example.com/prod-asset.tar.gz
+        dest: /opt/prod-asset.tar.gz
+    steps:
+      - copy_cached_assets
+```
+
+All three assets are downloaded and available for their respective stages.
 
 ---
 
