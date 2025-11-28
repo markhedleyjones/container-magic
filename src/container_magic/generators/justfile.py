@@ -79,6 +79,18 @@ def generate_justfile(
         # Merge stage environment variables with command-specific ones
         stage_env = dev_stage_config.env or {}
 
+        # Determine container home directory for volume mounts (must match Dockerfile)
+        user_config = (
+            config.project.production_user
+            or config.project.development_user
+            or config.project.user
+        )
+        container_home = (
+            (user_config.home or f"/home/{user_config.name}")
+            if user_config
+            else "/root"
+        )
+
         for command_name, command_spec in config.commands.items():
             # Escape dollar signs in command so they expand in the container
             command_escaped = command_spec.command.replace("$", r"\$")
@@ -96,6 +108,7 @@ def generate_justfile(
                 image_tag="development",
                 shell=shell,
                 workspace_name=config.project.workspace,
+                container_home=container_home,
             )
 
     with open(output_path, "w") as f:
