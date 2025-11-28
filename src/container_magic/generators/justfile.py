@@ -72,28 +72,12 @@ def generate_justfile(
         dev_stage=dev_stage,
     )
 
-    # Compute user_home to automatically inject WORKSPACE environment variable
-    # Match the logic in dockerfile.py for consistency
-    user_config = (
-        config.project.production_user
-        or config.project.development_user
-        or config.project.user
-    )
-    user_home = (
-        (user_config.home or f"/home/{user_config.name}") if user_config else "/root"
-    )
-    workspace_path = f"{user_home}/{config.project.workspace}"
-
     # Generate custom commands if defined
     custom_commands_content = ""
     if config.commands:
         command_template = env.get_template("custom_command.j2")
         # Merge stage environment variables with command-specific ones
-        # Automatically inject WORKSPACE environment variable
         stage_env = dev_stage_config.env or {}
-        # Only inject WORKSPACE if not already explicitly set
-        if "WORKSPACE" not in stage_env:
-            stage_env = {**stage_env, "WORKSPACE": workspace_path}
 
         for command_name, command_spec in config.commands.items():
             # Escape dollar signs in command so they expand in the container
