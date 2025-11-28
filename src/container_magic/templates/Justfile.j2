@@ -93,11 +93,6 @@ run *args:
     RUN_ARGS+=("--privileged")
     {% endif %}
 
-    # Interactive mode detection
-    if [[ -t 0 ]]; then
-        RUN_ARGS+=("--interactive" "--tty")
-    fi
-
     {% if mount_workspace %}
     # Mount workspace
     RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:{{ container_home }}/{{ workspace_name }}:z")
@@ -190,6 +185,10 @@ run *args:
     if [[ -n "${COMMAND}" ]]; then
         RUN_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
     else
+        # Interactive mode: add TTY flags only when running interactive shell
+        if [[ -t 0 ]]; then
+            RUN_ARGS+=("--interactive" "--tty")
+        fi
         RUN_ARGS+=("{{ shell }}")
     fi
 
