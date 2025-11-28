@@ -75,13 +75,21 @@ RUN pip install --no-cache-dir{% for package in stage.pip_packages %} \
 # Create user account
 {% if stage.user_creation_style == "alpine" %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
-        addgroup -g ${USER_GID} ${USER_NAME} && \
-        adduser -D -u ${USER_UID} -G ${USER_NAME} -h ${USER_HOME} ${USER_NAME}; \
+        if ! getent group ${USER_GID} >/dev/null 2>&1; then \
+            addgroup -g ${USER_GID} ${USER_NAME}; \
+        fi && \
+        if ! id -u ${USER_UID} >/dev/null 2>&1; then \
+            adduser -D -u ${USER_UID} -G ${USER_GID} -h ${USER_HOME} ${USER_NAME}; \
+        fi \
     fi
 {% else %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
-        groupadd --gid ${USER_GID} ${USER_NAME} && \
-        useradd --uid ${USER_UID} --gid ${USER_GID} --home-dir ${USER_HOME} --create-home ${USER_NAME}; \
+        if ! getent group ${USER_GID} >/dev/null 2>&1; then \
+            groupadd --gid ${USER_GID} ${USER_NAME}; \
+        fi && \
+        if ! id -u ${USER_UID} >/dev/null 2>&1; then \
+            useradd --uid ${USER_UID} --gid ${USER_GID} --home-dir ${USER_HOME} --create-home ${USER_NAME}; \
+        fi \
     fi
 {% endif %}
 {% elif step.type == "switch_user" %}
