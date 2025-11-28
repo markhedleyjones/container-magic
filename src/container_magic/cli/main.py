@@ -196,7 +196,7 @@ def init(
         project={
             "name": name,
             "workspace": "workspace",
-            "production_user": {"name": "nonroot"},
+            "production_user": {"name": "user"},
         },
         stages={
             "base": {"from": base_image},
