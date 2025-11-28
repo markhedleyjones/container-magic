@@ -30,11 +30,6 @@
     RUN_ARGS+=("{{ runtime }}" "run")
     RUN_ARGS+=("--rm")
 
-    # Interactive mode detection
-    if [[ -t 0 ]]; then
-        RUN_ARGS+=("--interactive" "--tty")
-    fi
-
     # Mount workspace
     RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:{{ container_home }}/{{ workspace_name }}:z")
 
