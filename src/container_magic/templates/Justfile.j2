@@ -169,14 +169,14 @@ run *args:
 
         if [[ -n "$REL_PATH" && "$REL_PATH" != "." ]]; then
             # User is in a subdirectory - set container workdir accordingly
-            RUN_ARGS+=("--workdir=$(echo ~)/${REL_PATH}")
+            RUN_ARGS+=("--workdir={{ container_home }}/${REL_PATH}")
         else
             # User is at project root
-            RUN_ARGS+=("--workdir=$(echo ~)")
+            RUN_ARGS+=("--workdir={{ container_home }}")
         fi
     else
         # No USER_CWD set (called via 'just' directly) - use project root
-        RUN_ARGS+=("--workdir=$(echo ~)")
+        RUN_ARGS+=("--workdir={{ container_home }}")
     fi
 
     # Image and command
