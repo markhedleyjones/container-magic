@@ -50,8 +50,8 @@
     {% endif %}
     {% endif %}
     {% endfor %}
+    # Container environment variables
     {% if env %}
-    # Environment variables
     {% for key, value in env.items() %}
     RUN_ARGS+=("-e" "{{ key }}={{ value }}")
     {% endfor %}
