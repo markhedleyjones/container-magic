@@ -35,10 +35,6 @@
         RUN_ARGS+=("--interactive" "--tty")
     fi
 
-    {% if runtime == "podman" %}
-    RUN_ARGS+=("--userns=keep-id")
-    {% endif %}
-
     # Mount workspace
     RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:$(echo ~)/{{ workspace_name }}:z")
 
