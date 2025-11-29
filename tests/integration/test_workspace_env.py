@@ -46,12 +46,9 @@ def test_workspace_env_points_to_mounted_path(test_project):
     assert build_result.returncode == 0, f"Build failed: {build_result.stderr}"
 
     # Test 1: Verify $WORKSPACE variable exists and is set
+    # Use printenv which doesn't rely on shell variable expansion
     result = subprocess.run(
-        [
-            "just",
-            "run",
-            "echo $WORKSPACE",
-        ],  # bash will expand $WORKSPACE inside container
+        ["just", "run", "printenv WORKSPACE"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -59,10 +56,11 @@ def test_workspace_env_points_to_mounted_path(test_project):
     assert result.returncode == 0, f"Command failed: {result.stderr}"
     workspace_path = result.stdout.strip()
     assert workspace_path, "WORKSPACE variable is empty or not set"
+    assert "/" in workspace_path, f"WORKSPACE path looks invalid: {workspace_path}"
 
     # Test 2: Verify $WORKSPACE points to a valid directory inside container
     result = subprocess.run(
-        ["just", "run", "test -d $WORKSPACE && echo 'OK'"],
+        ["just", "run", "test -d $WORKSPACE && echo OK"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -70,7 +68,7 @@ def test_workspace_env_points_to_mounted_path(test_project):
     assert result.returncode == 0, (
         f"$WORKSPACE directory does not exist: {result.stderr}"
     )
-    assert "OK" in result.stdout, f"$WORKSPACE is not a directory: {result.stdout}"
+    assert "OK" in result.stdout, "Directory test failed"
 
     # Test 3: Verify workspace file is accessible via $WORKSPACE
     result = subprocess.run(
@@ -88,13 +86,13 @@ def test_workspace_env_points_to_mounted_path(test_project):
 
     # Test 4: Verify $WORKSPACE path is consistent (same in multiple invocations)
     result1 = subprocess.run(
-        ["just", "run", "echo $WORKSPACE"],
+        ["just", "run", "printenv WORKSPACE"],
         cwd=test_project,
         capture_output=True,
         text=True,
     )
     result2 = subprocess.run(
-        ["just", "run", "echo $WORKSPACE"],
+        ["just", "run", "printenv WORKSPACE"],
         cwd=test_project,
         capture_output=True,
         text=True,
