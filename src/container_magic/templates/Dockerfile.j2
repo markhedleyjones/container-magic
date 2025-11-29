@@ -23,18 +23,10 @@ ARG USER_GID={{ stage.user_gid }} \
 {% if loop.first %}
 
 # Setup workspace (only in base stage, inherited by others)
-{% if stage.needs_user_args %}
 ARG WORKSPACE_NAME={{ workspace_name }}
-ENV WORKDIR=${USER_HOME}
-ENV WORKSPACE=${USER_HOME}/{{ workspace_name }}
-WORKDIR ${USER_HOME}
-{% else %}
-ARG WORKDIR={{ stage.user_home }}
-ARG WORKSPACE_NAME={{ workspace_name }}
-ENV WORKDIR={{ stage.user_home }}
-ENV WORKSPACE={{ stage.user_home }}/{{ workspace_name }}
-WORKDIR {{ stage.user_home }}
-{% endif %}
+ENV WORKDIR={{ stage.workspace_home }}
+ENV WORKSPACE={{ stage.workspace_home }}/{{ workspace_name }}
+WORKDIR {{ stage.workspace_home }}
 {% endif %}
 {% if stage.env_vars %}
 

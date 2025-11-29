@@ -238,6 +238,12 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
         # Skip if user is not explicitly configured or if user is root
         needs_user_args = user_cfg is not None and user_cfg.name != "root"
 
+        # Calculate workspace home (for setting WORKSPACE env var in base stage)
+        # Always set WORKSPACE, whether user is configured or not
+        workspace_home = (
+            (user_cfg.home or f"/home/{user_cfg.name}") if user_cfg else "/root"
+        )
+
         stages_data.append(
             {
                 "name": stage_name,
@@ -255,6 +261,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
                 "user_home": (user_cfg.home or f"/home/{user_cfg.name}")
                 if user_cfg
                 else "/root",
+                "workspace_home": workspace_home,
                 "ordered_steps": ordered_steps,
                 "needs_user_args": needs_user_args,
             }
