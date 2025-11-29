@@ -7,6 +7,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.core.templates import detect_shell
+from container_magic.generators.dockerfile import get_user_config
 
 
 def generate_standalone_command_scripts(
@@ -48,12 +49,12 @@ def generate_standalone_command_scripts(
     # Determine backend
     backend = config.runtime.backend if config.runtime else "auto"
 
-    # Determine workdir (same as in run_script.py)
-    workdir = (
-        f"/home/{config.project.production_user.name}"
-        if config.project.production_user
-        else "/root"
-    )
+    # Determine workdir from production user config
+    user_cfg = get_user_config(config, target="production")
+    if user_cfg and user_cfg.name:
+        workdir = user_cfg.home or f"/home/{user_cfg.name}"
+    else:
+        workdir = "/root"
 
     generated_scripts = []
 

@@ -8,9 +8,10 @@ set -euo pipefail
 # Configuration
 IMAGE_NAME="{{ project_name }}"
 WORKSPACE_NAME="{{ workspace_name }}"
-USER_NAME="{{ production_user }}"
-USER_UID="1000"
-USER_GID="1000"
+USER_NAME="{{ production_user_name }}"
+USER_UID="{{ production_user_uid }}"
+USER_GID="{{ production_user_gid }}"
+WORKDIR="{{ production_user_home }}"
 DEFAULT_TARGET="{{ default_target }}"
 AVAILABLE_TARGETS=({% for stage in available_stages %}"{{ stage }}"{{ " " if not loop.last }}{% endfor %})
 
@@ -68,13 +69,6 @@ if [[ "$valid_target" == "false" ]]; then
 	echo "Available targets: ${AVAILABLE_TARGETS[*]}" >&2
 	echo "Use '$0 --help' for more information" >&2
 	exit 1
-fi
-
-# Determine workdir based on user
-if [ "${USER_NAME}" = "root" ]; then
-	WORKDIR="/root"
-else
-	WORKDIR="/home/${USER_NAME}"
 fi
 
 echo "Building image: ${IMAGE_NAME}:${TAG} (target: ${TARGET})"

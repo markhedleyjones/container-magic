@@ -49,6 +49,7 @@ _check-config force="":
 
 # Build development image
 build force="": (_check-config force)
+    {% if use_host_user %}
     {{runtime}} build \
         --target {{ dev_stage }} \
         --build-arg USER_GID=$(id --group) \
@@ -58,6 +59,17 @@ build force="": (_check-config force)
         --build-arg WORKDIR=$(echo ~) \
         --tag {{ project_name }}:development \
         .
+    {% else %}
+    {{runtime}} build \
+        --target {{ dev_stage }} \
+        --build-arg USER_GID={{ dev_user_gid }} \
+        --build-arg USER_UID={{ dev_user_uid }} \
+        --build-arg USER_NAME={{ dev_user_name }} \
+        --build-arg USER_HOME={{ dev_user_home }} \
+        --build-arg WORKDIR={{ dev_user_home }} \
+        --tag {{ project_name }}:development \
+        .
+    {% endif %}
 
 # Build production image (if production stage exists)
 build-production: _check-config
