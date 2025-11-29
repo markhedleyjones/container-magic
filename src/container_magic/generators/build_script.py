@@ -31,8 +31,8 @@ def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> No
     # Get production user config
     user_cfg = get_user_config(config, target="production")
     production_user_name = user_cfg.name if user_cfg else "root"
-    production_user_uid = user_cfg.uid if user_cfg else 0
-    production_user_gid = user_cfg.gid if user_cfg else 0
+    production_user_uid = (user_cfg.uid or 1000) if user_cfg else 0
+    production_user_gid = (user_cfg.gid or 1000) if user_cfg else 0
     production_user_home = (
         (user_cfg.home or f"/home/{user_cfg.name}")
         if user_cfg and user_cfg.name
