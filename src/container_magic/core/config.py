@@ -37,14 +37,49 @@ def find_config_file(path: Path) -> Path:
         sys.exit(1)
 
 
-class UserConfig(BaseModel):
-    """User configuration."""
+class UserTargetConfig(BaseModel):
+    """User configuration for a specific target (development, production, etc.)."""
 
-    name: str = Field(description="User name")
-    uid: int = Field(default=1000, description="User ID")
-    gid: int = Field(default=1000, description="Group ID")
+    name: Optional[str] = Field(default=None, description="User name")
+    uid: Optional[int] = Field(default=None, description="User ID")
+    gid: Optional[int] = Field(default=None, description="Group ID")
     home: Optional[str] = Field(
         default=None, description="Home directory (defaults to /home/${name})"
+    )
+    host: Optional[bool] = Field(
+        default=None, description="Use host user (capture actual UID/GID at build time)"
+    )
+
+    @model_validator(mode="after")
+    def validate_host_field(self) -> "UserTargetConfig":
+        """Validate that host is true or omitted, never false."""
+        if self.host is False:
+            raise ValueError(
+                "host must be true or omitted. "
+                "If false, just omit the host field and specify name, uid, gid instead"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_host_exclusive(self) -> "UserTargetConfig":
+        """Validate that host: true is not combined with name/uid/gid."""
+        if self.host is True:
+            if self.name is not None or self.uid is not None or self.gid is not None:
+                raise ValueError(
+                    "host: true cannot be combined with name, uid, or gid. "
+                    "host: true means use the actual host user, so other fields are ignored"
+                )
+        return self
+
+
+class UserConfig(BaseModel):
+    """Top-level user configuration for different targets."""
+
+    development: Optional[UserTargetConfig] = Field(
+        default=None, description="User configuration for development target"
+    )
+    production: Optional[UserTargetConfig] = Field(
+        default=None, description="User configuration for production target"
     )
 
 
@@ -56,16 +91,6 @@ class ProjectConfig(BaseModel):
     auto_update: bool = Field(
         default=False,
         description="Automatically regenerate files when config changes",
-    )
-    user: Optional[UserConfig] = Field(
-        default=None, description="User for both development and production"
-    )
-    production_user: Optional[UserConfig] = Field(
-        default=None,
-        description="User for production (development uses host user)",
-    )
-    development_user: Optional[UserConfig] = Field(
-        default=None, description="User for development (production uses root)"
     )
 
 
@@ -190,6 +215,10 @@ class ContainerMagicConfig(BaseModel):
     """Complete container-magic configuration."""
 
     project: ProjectConfig
+    user: Optional[UserConfig] = Field(
+        default=None,
+        description="User configuration for development and production targets",
+    )
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     stages: Dict[str, StageConfig]
     commands: Dict[str, CustomCommand] = Field(
@@ -294,8 +323,16 @@ class ContainerMagicConfig(BaseModel):
                 "  # Automatically regenerate Dockerfile and Justfile when this file changes\n  auto_update:",
             ),
             (
-                "  production_user:",
-                "  # User to create in production image\n  production_user:",
+                "user:",
+                "# User configuration for development and production targets\nuser:",
+            ),
+            (
+                "  development:",
+                "  # Development target user (development: { host: true } for actual host user)\n  development:",
+            ),
+            (
+                "  production:",
+                "  # Production target user (production: { name: user, uid: 1000, gid: 1000 })\n  production:",
             ),
             ("runtime:", "# Container runtime configuration\nruntime:"),
             (
@@ -359,20 +396,6 @@ class ContainerMagicConfig(BaseModel):
                 "Project name must contain only alphanumeric characters, hyphens, and underscores"
             )
         return v
-
-    @model_validator(mode="after")
-    def validate_user_config(self) -> "ContainerMagicConfig":
-        """Validate that only one user config variant is specified."""
-        user_configs = [
-            self.project.user is not None,
-            self.project.production_user is not None,
-            self.project.development_user is not None,
-        ]
-        if sum(user_configs) > 1:
-            raise ValueError(
-                "Can only specify one of: user, production_user, or development_user"
-            )
-        return self
 
     @model_validator(mode="after")
     def validate_required_stages(self) -> "ContainerMagicConfig":

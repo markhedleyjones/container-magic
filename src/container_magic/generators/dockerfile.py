@@ -7,7 +7,11 @@ from typing import Dict, List, Tuple
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.cache import get_asset_cache_path
-from container_magic.core.config import ContainerMagicConfig, StageConfig, UserConfig
+from container_magic.core.config import (
+    ContainerMagicConfig,
+    StageConfig,
+    UserTargetConfig,
+)
 from container_magic.core.templates import (
     detect_package_manager,
     detect_shell,
@@ -15,16 +19,17 @@ from container_magic.core.templates import (
 )
 
 
-def get_user_config(config: ContainerMagicConfig) -> UserConfig | None:
-    """Get the user configuration from project config, or None if not defined."""
-    if config.project.production_user:
-        return config.project.production_user
-    elif config.project.development_user:
-        return config.project.development_user
-    elif config.project.user:
-        return config.project.user
-    else:
-        return None
+def get_user_config(
+    config: ContainerMagicConfig, target: str = "production"
+) -> UserTargetConfig | None:
+    """Get the user configuration for a specific target (development or production), or None if not defined."""
+
+    if config.user:
+        if target == "development":
+            return config.user.development
+        elif target == "production":
+            return config.user.production
+    return None
 
 
 def process_stage_steps(

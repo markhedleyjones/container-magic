@@ -2,7 +2,9 @@
 project:
   name: test-commands
   workspace: workspace
-  production_user:
+
+user:
+  production:
     name: appuser
     uid: 1000
     gid: 1000
