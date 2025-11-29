@@ -12,23 +12,6 @@
 # Stage: {{ stage.name }}
 ################################################################################
 FROM {{ stage.from }} AS {{ stage.name }}
-{% if loop.first %}
-
-# Setup workspace (only in base stage, inherited by others)
-{% if stage.needs_user_args %}
-ARG WORKDIR=/home/${USER_NAME}
-ARG WORKSPACE_NAME={{ workspace_name }}
-ENV WORKDIR=/home/${USER_NAME}
-ENV WORKSPACE=/home/${USER_NAME}/{{ workspace_name }}
-WORKDIR /home/${USER_NAME}
-{% else %}
-ARG WORKDIR={{ stage.user_home }}
-ARG WORKSPACE_NAME={{ workspace_name }}
-ENV WORKDIR={{ stage.user_home }}
-ENV WORKSPACE={{ stage.user_home }}/{{ workspace_name }}
-WORKDIR {{ stage.user_home }}
-{% endif %}
-{% endif %}
 {% if stage.needs_user_args %}
 
 # User configuration
@@ -36,6 +19,22 @@ ARG USER_GID={{ stage.user_gid }} \
     USER_UID={{ stage.user_uid }} \
     USER_NAME={{ stage.user }} \
     USER_HOME={{ stage.user_home }}
+{% endif %}
+{% if loop.first %}
+
+# Setup workspace (only in base stage, inherited by others)
+{% if stage.needs_user_args %}
+ARG WORKSPACE_NAME={{ workspace_name }}
+ENV WORKDIR=${USER_HOME}
+ENV WORKSPACE=${USER_HOME}/{{ workspace_name }}
+WORKDIR ${USER_HOME}
+{% else %}
+ARG WORKDIR={{ stage.user_home }}
+ARG WORKSPACE_NAME={{ workspace_name }}
+ENV WORKDIR={{ stage.user_home }}
+ENV WORKSPACE={{ stage.user_home }}/{{ workspace_name }}
+WORKDIR {{ stage.user_home }}
+{% endif %}
 {% endif %}
 {% if stage.env_vars %}
 
