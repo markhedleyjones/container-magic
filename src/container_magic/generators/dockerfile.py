@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -21,7 +21,7 @@ from container_magic.core.templates import (
 
 def get_user_config(
     config: ContainerMagicConfig, target: str = "production"
-) -> UserTargetConfig | None:
+) -> Optional[UserTargetConfig]:
     """Get the user configuration for a specific target (development or production), or None if not defined."""
 
     if config.user:
