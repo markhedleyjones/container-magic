@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.0 (2025-12-16)
+
+### Features
+
+- Custom command improvements and runtime feature inheritance
+  ([#2](https://github.com/markhedleyjones/container-magic/pull/2),
+  [`708bee7`](https://github.com/markhedleyjones/container-magic/commit/708bee78643e96c436c190e02dece2ac1103ac42))
+
+
 ## v1.1.0 (2025-12-16)
 
 ### Bug Fixes
