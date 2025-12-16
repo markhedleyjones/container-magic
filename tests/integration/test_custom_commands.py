@@ -59,12 +59,12 @@ commands:
     assert "# Run the daemon process" in justfile_content, (
         "Justfile missing daemon description"
     )
-    assert "daemon:" in justfile_content, "Justfile missing daemon command"
+    assert "daemon *args:" in justfile_content, "Justfile missing daemon command"
     assert "python workspace/daemon.py" in justfile_content, (
         "Justfile missing daemon command implementation"
     )
     assert "# Run tests" in justfile_content, "Justfile missing test description"
-    assert "test:" in justfile_content, "Justfile missing test command"
+    assert "test *args:" in justfile_content, "Justfile missing test command"
     assert "pytest workspace/tests" in justfile_content, (
         "Justfile missing test command implementation"
     )
@@ -128,7 +128,7 @@ commands:
 
     # Check both files have the command
     justfile_content = (temp_project_dir / "Justfile").read_text()
-    assert "serve:" in justfile_content, "Justfile missing serve command"
+    assert "serve *args:" in justfile_content, "Justfile missing serve command"
     assert "python -m http.server 8000" in justfile_content, (
         "Justfile missing serve command implementation"
     )
@@ -356,7 +356,7 @@ def test_custom_commands_mount_workspace_in_justfile(temp_project_dir):
     assert "# Custom Commands" in justfile_content, (
         "Justfile should have custom commands section"
     )
-    assert "\nbuild:" in justfile_content, "Justfile should have build command"
+    assert "\nbuild *args:" in justfile_content, "Justfile should have build command"
 
     # Should have workspace mount in custom command
     # The workspace mount should be in the custom command section
@@ -416,7 +416,7 @@ commands:
     import re
 
     build_match = re.search(
-        r"^build:\n(    #!/usr/bin/env bash\n.*?)(?=\n^[a-z]|\Z)",
+        r"^build \*args:\n(    #!/usr/bin/env bash\n.*?)(?=\n^[a-z]|\Z)",
         justfile_content,
         re.MULTILINE | re.DOTALL,
     )

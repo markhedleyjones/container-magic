@@ -60,29 +60,8 @@ def generate_justfile(
         "aws_credentials": "aws_credentials" in config.runtime.features,
     }
 
-    # Determine container home directory for volume mounts (must match Dockerfile)
-    # Prefer development user config, fall back to production
-    dev_user_config = get_user_config(config, target="development")
-    if dev_user_config:
-        # Development user is configured
-        if dev_user_config.host:
-            # host: true means use actual host home directory
-            container_home = (
-                f"/home/{dev_user_config.name}" if dev_user_config.name else "$(echo ~)"
-            )
-        else:
-            # Fixed values
-            container_home = dev_user_config.home or f"/home/{dev_user_config.name}"
-    else:
-        # No development user config, check production
-        prod_user_config = get_user_config(config, target="production")
-        container_home = (
-            (prod_user_config.home or f"/home/{prod_user_config.name}")
-            if prod_user_config
-            else "/root"
-        )
-
     # Determine if development uses host user or fixed values
+    dev_user_config = get_user_config(config, target="development")
     use_host_user = True  # Default to host user
     dev_user_name = None
     dev_user_uid = None
@@ -104,6 +83,22 @@ def generate_justfile(
             dev_user_uid = dev_user_config.uid or 1000
             dev_user_gid = dev_user_config.gid or 1000
             dev_user_home = dev_user_config.home or f"/home/{dev_user_name}"
+
+    # Determine container home directory for volume mounts (must match Dockerfile)
+    if use_host_user:
+        # Host user mode - home directory is determined at runtime
+        container_home = "$(echo ~)"
+    elif dev_user_config:
+        # Fixed development user
+        container_home = dev_user_config.home or f"/home/{dev_user_config.name}"
+    else:
+        # No development user config, check production
+        prod_user_config = get_user_config(config, target="production")
+        container_home = (
+            (prod_user_config.home or f"/home/{prod_user_config.name}")
+            if prod_user_config
+            else "/root"
+        )
 
     justfile_content = template.render(
         config_hash=config_hash,
@@ -142,13 +137,13 @@ def generate_justfile(
                 command=command_escaped,
                 args=command_spec.args,
                 env=merged_env,
-                allow_extra_args=command_spec.allow_extra_args,
                 runtime=runtime.value,
                 image_name=config.project.name,
                 image_tag="development",
                 shell=shell,
                 workspace_name=config.project.workspace,
                 container_home=container_home,
+                features=features,
             )
 
     with open(output_path, "w") as f:

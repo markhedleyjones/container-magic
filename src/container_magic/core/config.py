@@ -5,7 +5,29 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 import yaml
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+def _collect_extra_fields(model: BaseModel, path: str = "") -> List[str]:
+    """Recursively collect paths to extra fields in a Pydantic model."""
+    extras = []
+
+    if hasattr(model, "model_extra") and model.model_extra:
+        for key in model.model_extra:
+            extras.append(f"{path}.{key}" if path else key)
+
+    for field_name in model.model_fields:
+        value = getattr(model, field_name)
+        field_path = f"{path}.{field_name}" if path else field_name
+
+        if isinstance(value, BaseModel):
+            extras.extend(_collect_extra_fields(value, field_path))
+        elif isinstance(value, dict):
+            for k, v in value.items():
+                if isinstance(v, BaseModel):
+                    extras.extend(_collect_extra_fields(v, f"{field_path}.{k}"))
+
+    return extras
 
 
 def find_config_file(path: Path) -> Path:
@@ -39,6 +61,8 @@ def find_config_file(path: Path) -> Path:
 
 class UserTargetConfig(BaseModel):
     """User configuration for a specific target (development, production, etc.)."""
+
+    model_config = ConfigDict(extra="allow")
 
     name: Optional[str] = Field(default=None, description="User name")
     uid: Optional[int] = Field(default=None, description="User ID")
@@ -75,6 +99,8 @@ class UserTargetConfig(BaseModel):
 class UserConfig(BaseModel):
     """Top-level user configuration for different targets."""
 
+    model_config = ConfigDict(extra="allow")
+
     development: Optional[UserTargetConfig] = Field(
         default=None, description="User configuration for development target"
     )
@@ -86,6 +112,8 @@ class UserConfig(BaseModel):
 class ProjectConfig(BaseModel):
     """Project configuration."""
 
+    model_config = ConfigDict(extra="allow")
+
     name: str = Field(description="Project name")
     workspace: str = Field(default="workspace", description="Workspace directory name")
     auto_update: bool = Field(
@@ -96,6 +124,8 @@ class ProjectConfig(BaseModel):
 
 class RuntimeConfig(BaseModel):
     """Runtime configuration."""
+
+    model_config = ConfigDict(extra="allow")
 
     backend: Literal["auto", "docker", "podman"] = Field(
         default="auto", description="Container runtime to use"
@@ -111,6 +141,8 @@ class RuntimeConfig(BaseModel):
 class PackagesConfig(BaseModel):
     """Package installation configuration."""
 
+    model_config = ConfigDict(extra="allow")
+
     apt: List[str] = Field(default_factory=list, description="APT packages to install")
     pip: List[str] = Field(
         default_factory=list, description="Python pip packages to install"
@@ -119,6 +151,8 @@ class PackagesConfig(BaseModel):
 
 class CachedAsset(BaseModel):
     """Cached asset configuration."""
+
+    model_config = ConfigDict(extra="allow")
 
     url: str = Field(description="URL to download asset from")
     dest: str = Field(description="Destination path in container")
@@ -139,6 +173,8 @@ class CachedAsset(BaseModel):
 
 class StageConfig(BaseModel):
     """Build stage configuration."""
+
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     frm: str = Field(description="Base image or stage name to build from", alias="from")
     packages: PackagesConfig = Field(default_factory=PackagesConfig)
@@ -161,12 +197,11 @@ class StageConfig(BaseModel):
         alias="build_steps",  # Support old name for backwards compatibility
     )
 
-    class Config:
-        populate_by_name = True
-
 
 class CommandArgument(BaseModel):
     """Command argument definition."""
+
+    model_config = ConfigDict(extra="allow")
 
     type: Literal["file", "directory", "string", "int", "float"] = Field(
         description="Argument type"
@@ -184,6 +219,8 @@ class CommandArgument(BaseModel):
 class CustomCommand(BaseModel):
     """Custom command definition."""
 
+    model_config = ConfigDict(extra="allow")
+
     command: str = Field(description="Command template with {arg_name} placeholders")
     args: Dict[str, CommandArgument] = Field(
         default_factory=dict, description="Command arguments"
@@ -191,10 +228,6 @@ class CustomCommand(BaseModel):
     description: Optional[str] = Field(default=None, description="Command description")
     env: Dict[str, str] = Field(
         default_factory=dict, description="Environment variables"
-    )
-    allow_extra_args: bool = Field(
-        default=False,
-        description="Allow passing extra arguments after defined args (appended to command)",
     )
     standalone: bool = Field(
         default=False,
@@ -205,6 +238,8 @@ class CustomCommand(BaseModel):
 class BuildScriptConfig(BaseModel):
     """Build script configuration."""
 
+    model_config = ConfigDict(extra="allow")
+
     default_target: str = Field(
         default="production",
         description="Default stage to build when running build.sh without arguments",
@@ -213,6 +248,8 @@ class BuildScriptConfig(BaseModel):
 
 class ContainerMagicConfig(BaseModel):
     """Complete container-magic configuration."""
+
+    model_config = ConfigDict(extra="allow")
 
     project: ProjectConfig
     user: Optional[UserConfig] = Field(
@@ -231,7 +268,15 @@ class ContainerMagicConfig(BaseModel):
         """Load configuration from YAML file."""
         with open(path) as f:
             data = yaml.safe_load(f)
-        return cls(**data)
+        config = cls(**data)
+
+        extra_fields = _collect_extra_fields(config)
+        for field_path in extra_fields:
+            print(
+                f"Warning: Unknown config key '{field_path}' (ignored)", file=sys.stderr
+            )
+
+        return config
 
     def to_yaml(self, path: Path, compact: bool = True) -> None:
         """Save configuration to YAML file.
