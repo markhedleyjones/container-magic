@@ -176,3 +176,153 @@ def test_workspace_env_in_dockerfile_steps(test_project):
         f"WORKSPACE directory not accessible: {result.stderr}"
     )
     assert "OK" in result.stdout
+
+
+@pytest.fixture
+def test_project_no_user():
+    """Create a test project with no user configuration."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_dir = Path(tmpdir)
+
+        # Create cm.yaml with no user section
+        config_content = """project:
+  name: test-no-user
+  workspace: workspace
+
+stages:
+  base:
+    from: python:3.11-slim
+  development:
+    from: base
+  production:
+    from: base
+    steps:
+    - copy_workspace
+"""
+        (project_dir / "cm.yaml").write_text(config_content)
+
+        # Create workspace with test file
+        workspace_dir = project_dir / "workspace"
+        workspace_dir.mkdir()
+        (workspace_dir / "test.txt").write_text("test content\n")
+
+        # Generate files
+        result = subprocess.run(
+            ["cm", "update"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"cm update failed: {result.stderr}"
+
+        yield project_dir
+
+
+def test_workspace_accessible_without_user_config(test_project_no_user):
+    """Test that WORKSPACE is accessible when no user is configured (runs as root)."""
+    # Build development with --no-cache to avoid cache pollution from other builds
+    # (different USER_HOME values can get cached in base stage layers)
+    build_result = subprocess.run(
+        [
+            "podman",
+            "build",
+            "--no-cache",
+            "--target",
+            "development",
+            "--build-arg",
+            f"USER_HOME={Path.home()}",
+            "--tag",
+            "test-no-user:development",
+            ".",
+        ],
+        cwd=test_project_no_user,
+        capture_output=True,
+        text=True,
+    )
+    assert build_result.returncode == 0, f"Dev build failed: {build_result.stderr}"
+
+    # Verify WORKSPACE env var is set
+    result = subprocess.run(
+        ["just", "run", "printenv WORKSPACE"],
+        cwd=test_project_no_user,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"Failed to get WORKSPACE: {result.stderr}"
+    workspace_path = result.stdout.strip()
+    assert workspace_path, "WORKSPACE should be set"
+
+    # Verify workspace directory exists at WORKSPACE path
+    result = subprocess.run(
+        ["just", "run", f"test -d {workspace_path} && echo OK"],
+        cwd=test_project_no_user,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"WORKSPACE directory not found at {workspace_path}: {result.stderr}"
+    )
+    assert "OK" in result.stdout
+
+    # Verify test file is accessible via WORKSPACE
+    result = subprocess.run(
+        ["just", "run", f"cat {workspace_path}/test.txt"],
+        cwd=test_project_no_user,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"Failed to read test file: {result.stderr}"
+    assert "test content" in result.stdout
+
+
+def test_workspace_in_production_without_user_config(test_project_no_user):
+    """Test that WORKSPACE works in production image when no user is configured."""
+    # Build production with --no-cache to avoid cache pollution from development builds
+    # (dev builds set USER_HOME dynamically, prod uses default /root)
+    build_result = subprocess.run(
+        [
+            "podman",
+            "build",
+            "--no-cache",
+            "--target",
+            "production",
+            "--tag",
+            "test-no-user:latest",
+            ".",
+        ],
+        cwd=test_project_no_user,
+        capture_output=True,
+        text=True,
+    )
+    assert build_result.returncode == 0, f"Prod build failed: {build_result.stderr}"
+
+    # Run production image and check WORKSPACE
+    result = subprocess.run(
+        ["./run.sh", "printenv WORKSPACE"],
+        cwd=test_project_no_user,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"Failed to get WORKSPACE in prod: {result.stderr}"
+    workspace_path = result.stdout.strip()
+    assert workspace_path, "WORKSPACE should be set in production"
+
+    # Verify workspace directory exists
+    result = subprocess.run(
+        ["./run.sh", f"test -d {workspace_path} && echo OK"],
+        cwd=test_project_no_user,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"WORKSPACE not accessible in prod: {result.stderr}"
+    assert "OK" in result.stdout
+
+    # Verify test file is embedded in production image
+    result = subprocess.run(
+        ["./run.sh", f"cat {workspace_path}/test.txt"],
+        cwd=test_project_no_user,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"Test file not in prod image: {result.stderr}"
+    assert "test content" in result.stdout
