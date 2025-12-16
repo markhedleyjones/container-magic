@@ -32,6 +32,61 @@
 
     # Mount workspace
     RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:{{ container_home }}/{{ workspace_name }}:z")
+    {% if features.display %}
+
+    # Display support (Wayland and X11)
+    if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+        wayland_socket="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
+        RUN_ARGS+=("-e" "WAYLAND_DISPLAY")
+        RUN_ARGS+=("-e" "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}")
+        RUN_ARGS+=("-v" "${wayland_socket}:${wayland_socket}:rw")
+    fi
+    if [[ -n "${DISPLAY:-}" ]]; then
+        xsock=/tmp/.X11-unix
+        xauth=/tmp/.docker.xauth
+        touch $xauth
+        if [[ -f "$HOME/.Xauthority" ]]; then
+            xauth nlist "${DISPLAY}" | sed -e 's/^..../ffff/' | xauth -f "${xauth}" nmerge -
+        fi
+        RUN_ARGS+=("-e" "DISPLAY")
+        RUN_ARGS+=("-e" "XAUTHORITY=${xauth}")
+        RUN_ARGS+=("-v" "${xauth}:${xauth}:rw")
+        RUN_ARGS+=("-v" "${xsock}:${xsock}:rw")
+        RUN_ARGS+=("--env" "QT_X11_NO_MITSHM=1")
+    fi
+    {% endif %}
+    {% if features.gpu %}
+
+    # GPU support
+    if [[ -d /dev/dri ]]; then
+        RUN_ARGS+=("--device" "/dev/dri:/dev/dri")
+    fi
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        RUN_ARGS+=("-e" "NVIDIA_DRIVER_CAPABILITIES=all")
+        {% if runtime == "docker" %}
+        RUN_ARGS+=("--gpus=all")
+        {% elif runtime == "podman" %}
+        RUN_ARGS+=("--device" "nvidia.com/gpu=all")
+        RUN_ARGS+=("--annotation=run.oci.keep_original_groups=1")
+        RUN_ARGS+=("--security-opt=label=disable")
+        {% endif %}
+    fi
+    {% endif %}
+    {% if features.audio %}
+
+    # Audio support (PulseAudio/PipeWire)
+    if [[ -S "/run/user/$(id -u)/pulse/native" ]]; then
+        RUN_ARGS+=("-v" "/run/user/$(id -u)/pulse/native:/run/user/$(id -u)/pulse/native")
+        RUN_ARGS+=("-e" "PULSE_SERVER=unix:/run/user/$(id -u)/pulse/native")
+    fi
+    {% endif %}
+    {% if features.aws_credentials %}
+
+    # AWS credentials
+    if [[ -d "$HOME/.aws" ]]; then
+        RUN_ARGS+=("-v" "$HOME/.aws:{{ container_home }}/.aws:z")
+    fi
+    {% endif %}
 
     {% for arg_name, arg_spec in args.items() %}
     {% if arg_spec.type in ["file", "directory"] and arg_spec.mount_as %}

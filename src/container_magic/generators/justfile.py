@@ -143,6 +143,7 @@ def generate_justfile(
                 shell=shell,
                 workspace_name=config.project.workspace,
                 container_home=container_home,
+                features=features,
             )
 
     with open(output_path, "w") as f:
