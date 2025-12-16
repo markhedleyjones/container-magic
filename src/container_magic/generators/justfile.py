@@ -142,7 +142,6 @@ def generate_justfile(
                 command=command_escaped,
                 args=command_spec.args,
                 env=merged_env,
-                allow_extra_args=command_spec.allow_extra_args,
                 runtime=runtime.value,
                 image_name=config.project.name,
                 image_tag="development",
