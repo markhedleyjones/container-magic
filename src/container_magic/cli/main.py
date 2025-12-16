@@ -196,10 +196,13 @@ def init(
         project={
             "name": name,
             "workspace": "workspace",
-            "production_user": {"name": "user"},
+        },
+        user={
+            "development": {"host": True},
+            "production": {"name": "user"},
         },
         stages={
-            "base": {"from": base_image},
+            "base": {"from": base_image, "steps": ["create_user"]},
             "development": {"from": "base", "steps": ["switch_user"]},
             "production": {"from": "base"},
         },

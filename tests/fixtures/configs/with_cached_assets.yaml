@@ -2,7 +2,9 @@
 project:
   name: test-cached-assets
   workspace: workspace
-  production_user:
+
+user:
+  production:
     name: modeluser
     uid: 1000
     gid: 1000

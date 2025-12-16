@@ -2,12 +2,16 @@
 
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.cache import get_asset_cache_path
-from container_magic.core.config import ContainerMagicConfig, StageConfig, UserConfig
+from container_magic.core.config import (
+    ContainerMagicConfig,
+    StageConfig,
+    UserTargetConfig,
+)
 from container_magic.core.templates import (
     detect_package_manager,
     detect_shell,
@@ -15,16 +19,17 @@ from container_magic.core.templates import (
 )
 
 
-def get_user_config(config: ContainerMagicConfig) -> UserConfig | None:
-    """Get the user configuration from project config, or None if not defined."""
-    if config.project.production_user:
-        return config.project.production_user
-    elif config.project.development_user:
-        return config.project.development_user
-    elif config.project.user:
-        return config.project.user
-    else:
-        return None
+def get_user_config(
+    config: ContainerMagicConfig, target: str = "production"
+) -> Optional[UserTargetConfig]:
+    """Get the user configuration for a specific target (development or production), or None if not defined."""
+
+    if config.user:
+        if target == "development":
+            return config.user.development
+        elif target == "production":
+            return config.user.production
+    return None
 
 
 def process_stage_steps(
@@ -245,8 +250,8 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
                 "shell": shell,
                 "user_creation_style": user_creation_style,
                 "user": user_name,
-                "user_uid": user_cfg.uid if user_cfg else 0,
-                "user_gid": user_cfg.gid if user_cfg else 0,
+                "user_uid": (user_cfg.uid or 1000) if user_cfg else 0,
+                "user_gid": (user_cfg.gid or 1000) if user_cfg else 0,
                 "user_home": (user_cfg.home or f"/home/{user_cfg.name}")
                 if user_cfg
                 else "/root",

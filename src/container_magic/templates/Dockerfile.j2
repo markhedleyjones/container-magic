@@ -12,23 +12,6 @@
 # Stage: {{ stage.name }}
 ################################################################################
 FROM {{ stage.from }} AS {{ stage.name }}
-{% if loop.first %}
-
-# Setup workspace (only in base stage, inherited by others)
-{% if stage.needs_user_args %}
-ARG WORKDIR=/home/${USER_NAME}
-ARG WORKSPACE_NAME={{ workspace_name }}
-ENV WORKDIR=/home/${USER_NAME}
-ENV WORKSPACE=/home/${USER_NAME}/{{ workspace_name }}
-WORKDIR /home/${USER_NAME}
-{% else %}
-ARG WORKDIR={{ stage.user_home }}
-ARG WORKSPACE_NAME={{ workspace_name }}
-ENV WORKDIR={{ stage.user_home }}
-ENV WORKSPACE={{ stage.user_home }}/{{ workspace_name }}
-WORKDIR {{ stage.user_home }}
-{% endif %}
-{% endif %}
 {% if stage.needs_user_args %}
 
 # User configuration
@@ -36,6 +19,15 @@ ARG USER_GID={{ stage.user_gid }} \
     USER_UID={{ stage.user_uid }} \
     USER_NAME={{ stage.user }} \
     USER_HOME={{ stage.user_home }}
+{% endif %}
+{% if loop.first %}
+
+# Setup workspace (only in base stage, inherited by others)
+ARG WORKSPACE_NAME={{ workspace_name }}
+ARG USER_HOME={{ stage.user_home }}
+ENV WORKDIR=${USER_HOME}
+ENV WORKSPACE=${USER_HOME}/${WORKSPACE_NAME}
+WORKDIR ${USER_HOME}
 {% endif %}
 {% if stage.env_vars %}
 
@@ -72,23 +64,50 @@ RUN pip install --no-cache-dir{% for package in stage.pip_packages %} \
 
 {% endif %}
 {% elif step.type == "create_user" %}
-# Create user account
+# Create user account (handles renaming if UID exists with different name)
 {% if stage.user_creation_style == "alpine" %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
-        if ! getent group ${USER_GID} >/dev/null 2>&1; then \
-            addgroup -g ${USER_GID} ${USER_NAME}; \
-        fi && \
-        if ! id -u ${USER_UID} >/dev/null 2>&1; then \
-            adduser -D -u ${USER_UID} -G ${USER_GID} -h ${USER_HOME} ${USER_NAME}; \
+        # Check if the user already exists with exact match (name + uid + gid)
+        if getent passwd "${USER_UID}" | grep -q "^${USER_NAME}:"; then \
+            echo "User ${USER_NAME} with UID ${USER_UID} already exists, skipping creation"; \
+        else \
+            # Check if UID exists with a different name
+            EXISTING_USER=$(getent passwd "${USER_UID}" | cut -d: -f1 || echo ""); \
+            if [ -n "${EXISTING_USER}" ] && [ "${EXISTING_USER}" != "${USER_NAME}" ]; then \
+                # Rename the existing user to our desired name
+                echo "Renaming user ${EXISTING_USER} to ${USER_NAME}"; \
+                deluser "${EXISTING_USER}"; \
+                addgroup -g ${USER_GID} ${USER_NAME} 2>/dev/null || true; \
+                adduser -D -u ${USER_UID} -G ${USER_GID} -h ${USER_HOME} ${USER_NAME}; \
+            else \
+                # Create new user
+                if ! getent group ${USER_GID} >/dev/null 2>&1; then \
+                    addgroup -g ${USER_GID} ${USER_NAME}; \
+                fi && \
+                adduser -D -u ${USER_UID} -G ${USER_GID} -h ${USER_HOME} ${USER_NAME}; \
+            fi \
         fi \
     fi
 {% else %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
-        if ! getent group ${USER_GID} >/dev/null 2>&1; then \
-            groupadd --gid ${USER_GID} ${USER_NAME}; \
-        fi && \
-        if ! id -u ${USER_UID} >/dev/null 2>&1; then \
-            useradd --uid ${USER_UID} --gid ${USER_GID} --home-dir ${USER_HOME} --create-home ${USER_NAME}; \
+        # Check if the user already exists with exact match (name + uid + gid)
+        if getent passwd "${USER_UID}" | grep -q "^${USER_NAME}:"; then \
+            echo "User ${USER_NAME} with UID ${USER_UID} already exists, skipping creation"; \
+        else \
+            # Check if UID exists with a different name
+            EXISTING_USER=$(getent passwd "${USER_UID}" | cut -d: -f1 || echo ""); \
+            if [ -n "${EXISTING_USER}" ] && [ "${EXISTING_USER}" != "${USER_NAME}" ]; then \
+                # Rename the existing user to our desired name
+                echo "Renaming user ${EXISTING_USER} to ${USER_NAME}"; \
+                usermod -l ${USER_NAME} ${EXISTING_USER} && \
+                usermod -d ${USER_HOME} -m ${USER_NAME} || true; \
+            else \
+                # Create new user
+                if ! getent group ${USER_GID} >/dev/null 2>&1; then \
+                    groupadd --gid ${USER_GID} ${USER_NAME}; \
+                fi && \
+                useradd --uid ${USER_UID} --gid ${USER_GID} --home-dir ${USER_HOME} --create-home ${USER_NAME}; \
+            fi \
         fi \
     fi
 {% endif %}

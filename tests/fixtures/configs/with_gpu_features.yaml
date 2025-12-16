@@ -2,7 +2,9 @@
 project:
   name: test-gpu-audio
   workspace: workspace
-  production_user:
+
+user:
+  production:
     name: nonroot
     uid: 1000
     gid: 1000

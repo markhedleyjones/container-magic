@@ -8,6 +8,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.core.runtime import get_runtime
 from container_magic.core.templates import detect_shell
+from container_magic.generators.dockerfile import get_user_config
 
 
 def calculate_config_hash(config_path: Path) -> str:
@@ -60,14 +61,49 @@ def generate_justfile(
     }
 
     # Determine container home directory for volume mounts (must match Dockerfile)
-    user_config = (
-        config.project.production_user
-        or config.project.development_user
-        or config.project.user
-    )
-    container_home = (
-        (user_config.home or f"/home/{user_config.name}") if user_config else "/root"
-    )
+    # Prefer development user config, fall back to production
+    dev_user_config = get_user_config(config, target="development")
+    if dev_user_config:
+        # Development user is configured
+        if dev_user_config.host:
+            # host: true means use actual host home directory
+            container_home = (
+                f"/home/{dev_user_config.name}" if dev_user_config.name else "$(echo ~)"
+            )
+        else:
+            # Fixed values
+            container_home = dev_user_config.home or f"/home/{dev_user_config.name}"
+    else:
+        # No development user config, check production
+        prod_user_config = get_user_config(config, target="production")
+        container_home = (
+            (prod_user_config.home or f"/home/{prod_user_config.name}")
+            if prod_user_config
+            else "/root"
+        )
+
+    # Determine if development uses host user or fixed values
+    use_host_user = True  # Default to host user
+    dev_user_name = None
+    dev_user_uid = None
+    dev_user_gid = None
+    dev_user_home = None
+
+    if dev_user_config:
+        if dev_user_config.host is True:
+            # host: true explicitly set - use host user
+            use_host_user = True
+        elif dev_user_config.host is False or (
+            dev_user_config.name
+            or dev_user_config.uid is not None
+            or dev_user_config.gid is not None
+        ):
+            # Fixed values specified - use those
+            use_host_user = False
+            dev_user_name = dev_user_config.name or "user"
+            dev_user_uid = dev_user_config.uid or 1000
+            dev_user_gid = dev_user_config.gid or 1000
+            dev_user_home = dev_user_config.home or f"/home/{dev_user_name}"
 
     justfile_content = template.render(
         config_hash=config_hash,
@@ -81,6 +117,11 @@ def generate_justfile(
         features=features,
         dev_stage=dev_stage,
         container_home=container_home,
+        use_host_user=use_host_user,
+        dev_user_name=dev_user_name,
+        dev_user_uid=dev_user_uid,
+        dev_user_gid=dev_user_gid,
+        dev_user_home=dev_user_home,
     )
 
     # Generate custom commands if defined

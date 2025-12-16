@@ -63,7 +63,9 @@ def test_switch_user_without_create_in_same_stage():
         "project": {
             "name": "test",
             "workspace": "workspace",
-            "production_user": {"name": "myuser"},
+        },
+        "user": {
+            "production": {"name": "myuser"},
         },
         "stages": {
             "base": {
@@ -93,7 +95,9 @@ def test_switch_user_with_create_in_parent_stage():
         "project": {
             "name": "test",
             "workspace": "workspace",
-            "production_user": {"name": "myuser"},
+        },
+        "user": {
+            "production": {"name": "myuser"},
         },
         "stages": {
             "base": {
@@ -131,7 +135,9 @@ def test_create_user_and_switch_user_both_present():
         "project": {
             "name": "test",
             "workspace": "workspace",
-            "production_user": {"name": "myuser"},
+        },
+        "user": {
+            "production": {"name": "myuser"},
         },
         "stages": {
             "base": {
@@ -161,7 +167,9 @@ def test_no_user_keywords_no_warnings():
         "project": {
             "name": "test",
             "workspace": "workspace",
-            "production_user": {"name": "myuser"},
+        },
+        "user": {
+            "production": {"name": "myuser"},
         },
         "stages": {
             "base": {
@@ -196,7 +204,9 @@ def test_switch_root_no_validation_needed():
         "project": {
             "name": "test",
             "workspace": "workspace",
-            "production_user": {"name": "myuser"},
+        },
+        "user": {
+            "production": {"name": "myuser"},
         },
         "stages": {
             "base": {
@@ -336,7 +346,9 @@ def test_user_defined_but_never_used():
         "project": {
             "name": "test",
             "workspace": "workspace",
-            "production_user": {"name": "appuser"},  # User defined
+        },
+        "user": {
+            "production": {"name": "appuser"},  # User defined
         },
         "stages": {
             "base": {
@@ -375,7 +387,9 @@ def test_user_config_with_only_name():
         "project": {
             "name": "test",
             "workspace": "workspace",
-            "production_user": {"name": "appuser"},  # Only name specified
+        },
+        "user": {
+            "production": {"name": "appuser"},  # Only name specified
         },
         "stages": {
             "base": {
@@ -407,7 +421,9 @@ def test_user_config_with_only_uid():
         "project": {
             "name": "test",
             "workspace": "workspace",
-            "production_user": {
+        },
+        "user": {
+            "production": {
                 "name": "appuser",
                 "uid": 2000,  # Custom uid
                 # gid not specified, should default to 1000
@@ -442,7 +458,9 @@ def test_user_config_with_only_gid():
         "project": {
             "name": "test",
             "workspace": "workspace",
-            "production_user": {
+        },
+        "user": {
+            "production": {
                 "name": "appuser",
                 # uid not specified, should default to 1000
                 "gid": 3000,  # Custom gid
@@ -477,7 +495,9 @@ def test_user_config_with_custom_home():
         "project": {
             "name": "test",
             "workspace": "workspace",
-            "production_user": {
+        },
+        "user": {
+            "production": {
                 "name": "appuser",
                 "uid": 2000,
                 "gid": 3000,
@@ -514,7 +534,9 @@ def test_user_config_default_home_path():
         "project": {
             "name": "test",
             "workspace": "workspace",
-            "production_user": {
+        },
+        "user": {
+            "production": {
                 "name": "appuser",
                 # home not specified, should default to /home/appuser
             },
