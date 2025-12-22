@@ -29,12 +29,16 @@ RUNTIME="{{ backend }}"
 # Build run arguments
 RUN_ARGS=(
 	"--rm"
-	"-it"
 	"--hostname" "${IMAGE_NAME}"
 {% if privileged -%}
 	"--privileged"
 {% endif -%}
 )
+
+# Add TTY flags if stdin is a terminal
+if [[ -t 0 ]]; then
+	RUN_ARGS+=("--interactive" "--tty")
+fi
 
 # Mount workspace
 RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:${WORKDIR}/{{ workspace_name }}:z")

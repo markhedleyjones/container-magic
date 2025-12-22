@@ -106,11 +106,16 @@
     RUN_ARGS+=("-e" "{{ key }}={{ value }}")
     {% endfor %}
     {% endif %}
+
+    # Add TTY flags if available (for real-time output)
+    if [[ -t 1 ]]; then
+        RUN_ARGS+=("--interactive" "--tty")
+    fi
+
     # Image
     RUN_ARGS+=("{{ image_name }}:{{ image_tag }}")
 
-    # Command with substituted arguments
-    RUN_ARGS+=("{{ shell }}" "-c")
+    # Build command string
     COMMAND="{{ command | replace('\"', '\\\"') }}"
     {% for arg_name, arg_spec in args.items() %}
     {% if arg_spec.mount_as %}
