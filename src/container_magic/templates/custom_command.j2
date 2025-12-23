@@ -25,10 +25,21 @@
     {% endif %}
     {% endfor %}
     {% endif %}
+    # Container configuration
+    CONTAINER_NAME="{{ image_name }}-development"
+    IMAGE="{{ image_name }}:{{ image_tag }}"
+
     # Build container arguments
     RUN_ARGS=()
     RUN_ARGS+=("{{ runtime }}" "run")
+    RUN_ARGS+=("--name" "${CONTAINER_NAME}")
     RUN_ARGS+=("--rm")
+
+    {% if runtime == "podman" %}
+    # Podman-specific configuration
+    RUN_ARGS+=("--replace")
+    RUN_ARGS+=("--userns=keep-id")
+    {% endif %}
 
     # Mount workspace
     RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:{{ container_home }}/{{ workspace_name }}:z")
@@ -113,7 +124,7 @@
     fi
 
     # Image
-    RUN_ARGS+=("{{ image_name }}:{{ image_tag }}")
+    RUN_ARGS+=("${IMAGE}")
 
     # Build command string
     COMMAND="{{ command | replace('\"', '\\\"') }}"
@@ -131,7 +142,19 @@
     if [[ -n "${EXTRA_ARGS}" ]]; then
         COMMAND="${COMMAND} ${EXTRA_ARGS}"
     fi
-    RUN_ARGS+=("${COMMAND}")
 
-    # Execute
-    "${RUN_ARGS[@]}"
+    # Check if container already running
+    if ! {{ runtime }} ps --quiet --filter name="${CONTAINER_NAME}" | grep -q .; then
+        # Start new container
+        RUN_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
+        "${RUN_ARGS[@]}"
+    else
+        # Exec into existing container
+        EXEC_ARGS=("{{ runtime }}" "exec")
+        if [[ -t 1 ]]; then
+            EXEC_ARGS+=("--interactive" "--tty")
+        fi
+        EXEC_ARGS+=("${CONTAINER_NAME}")
+        EXEC_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
+        "${EXEC_ARGS[@]}"
+    fi
