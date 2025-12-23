@@ -92,7 +92,9 @@ run *args:
     RUN_ARGS+=("{{ runtime }}" "run")
     RUN_ARGS+=("--name" "${CONTAINER_NAME}")
     RUN_ARGS+=("--rm")
-    RUN_ARGS+=("--net" "host")
+    {% if network %}
+    RUN_ARGS+=("--net" "{{ network }}")
+    {% endif %}
 
     {% if runtime == "podman" %}
     # Podman-specific configuration

@@ -107,6 +107,7 @@ def generate_justfile(
         auto_update=config.project.auto_update,
         runtime=runtime.value,
         privileged=config.runtime.privileged,
+        network=config.runtime.network,
         mount_workspace=True,  # Always mount workspace in development
         shell=shell,
         features=features,
@@ -138,6 +139,7 @@ def generate_justfile(
                 args=command_spec.args,
                 env=merged_env,
                 runtime=runtime.value,
+                network=config.runtime.network,
                 image_name=config.project.name,
                 image_tag="development",
                 shell=shell,

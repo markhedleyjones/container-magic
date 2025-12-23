@@ -33,6 +33,9 @@ RUN_ARGS=(
 {% if privileged -%}
 	"--privileged"
 {% endif -%}
+{% if network -%}
+	"--net" "{{ network }}"
+{% endif -%}
 )
 
 # Add TTY flags if stdin is a terminal

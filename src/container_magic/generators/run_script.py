@@ -56,6 +56,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         shell=shell,
         backend=backend,
         privileged=config.runtime.privileged if config.runtime else False,
+        network=config.runtime.network if config.runtime else None,
         commands=commands_escaped,
     )
 
