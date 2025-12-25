@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.3.0 (2025-12-25)
+
+### Features
+
+- Add smart TTY detection to all command templates
+  ([#3](https://github.com/markhedleyjones/container-magic/pull/3),
+  [`69bc2c2`](https://github.com/markhedleyjones/container-magic/commit/69bc2c276acd9caed7aa01b26d8377fb842ee30e))
+
+
 ## v1.2.0 (2025-12-16)
 
 ### Features
