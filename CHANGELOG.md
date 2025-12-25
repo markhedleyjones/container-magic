@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.4.0 (2025-12-25)
+
+### Features
+
+- Add container reuse to custom commands
+  ([#4](https://github.com/markhedleyjones/container-magic/pull/4),
+  [`64997e4`](https://github.com/markhedleyjones/container-magic/commit/64997e44f99486d79d2a7b244e9c5d13285fe75a))
+
+
 ## v1.3.0 (2025-12-25)
 
 ### Features
