@@ -32,6 +32,16 @@ if ! ${RUNTIME} image inspect "${IMAGE_NAME}:${TAG}" &>/dev/null; then
 	exit 1
 fi
 
+# Build base run arguments (common to all commands)
+BASE_RUN_ARGS=("--rm")
+if [[ -t 0 ]]; then
+	BASE_RUN_ARGS+=("--interactive" "--tty")
+fi
+BASE_RUN_ARGS+=("--hostname" "${IMAGE_NAME}")
+{%- if privileged %}
+BASE_RUN_ARGS+=("--privileged")
+{%- endif %}
+
 {%- if commands %}
 
 # Custom command handlers
@@ -45,14 +55,7 @@ run_{{ command_name }}() {
 	{%- if command_spec.description %}
 	# {{ command_spec.description }}
 	{%- endif %}
-	local RUN_ARGS=(
-		"--rm"
-		"-it"
-		"--hostname" "${IMAGE_NAME}"
-		{%- if privileged %}
-		"--privileged"
-		{%- endif %}
-	)
+	local RUN_ARGS=("${BASE_RUN_ARGS[@]}")
 
 	{%- if command_spec.env %}
 	# Environment variables
@@ -83,15 +86,8 @@ if [ $# -gt 0 ]; then
 fi
 {%- endif %}
 
-# Build run arguments
-RUN_ARGS=(
-	"--rm"
-	"-it"
-	"--hostname" "${IMAGE_NAME}"
-	{%- if privileged %}
-	"--privileged"
-	{%- endif %}
-)
+# Use base run arguments
+RUN_ARGS=("${BASE_RUN_ARGS[@]}")
 
 # Run command or shell
 if [ $# -gt 0 ]; then
