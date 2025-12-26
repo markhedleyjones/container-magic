@@ -133,6 +133,10 @@ class RuntimeConfig(BaseModel):
     privileged: bool = Field(
         default=False, description="Run containers in privileged mode"
     )
+    network: Optional[Literal["host", "bridge", "none"]] = Field(
+        default=None,
+        description="Container network mode (host, bridge, none)",
+    )
     features: List[Literal["display", "gpu", "audio", "aws_credentials"]] = Field(
         default_factory=list, description="Features to enable in containers"
     )

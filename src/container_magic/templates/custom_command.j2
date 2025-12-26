@@ -34,6 +34,9 @@
     RUN_ARGS+=("{{ runtime }}" "run")
     RUN_ARGS+=("--name" "${CONTAINER_NAME}")
     RUN_ARGS+=("--rm")
+    {% if network %}
+    RUN_ARGS+=("--net" "{{ network }}")
+    {% endif %}
 
     {% if runtime == "podman" %}
     # Podman-specific configuration

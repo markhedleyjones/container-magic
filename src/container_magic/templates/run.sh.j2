@@ -41,6 +41,9 @@ BASE_RUN_ARGS+=("--hostname" "${IMAGE_NAME}")
 {%- if privileged %}
 BASE_RUN_ARGS+=("--privileged")
 {%- endif %}
+{%- if network %}
+BASE_RUN_ARGS+=("--net" "{{ network }}")
+{%- endif %}
 
 {%- if commands %}
 
