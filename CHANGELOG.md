@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.5.1 (2025-12-26)
+
+### Bug Fixes
+
+- Resolve CLI output buffering with os.execvp
+  ([#6](https://github.com/markhedleyjones/container-magic/pull/6),
+  [`a98c1ce`](https://github.com/markhedleyjones/container-magic/commit/a98c1ce8c53f28273e2ca601fff7639839d1d46a))
+
+
 ## v1.5.0 (2025-12-26)
 
 ### Features
