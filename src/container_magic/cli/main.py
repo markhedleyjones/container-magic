@@ -1,5 +1,6 @@
 """Main CLI for container-magic."""
 
+import os
 import platform
 import subprocess
 import sys
@@ -311,7 +312,7 @@ def build(path: Path):
         sys.exit(1)
 
     # Call just build
-    result = subprocess.run(["just", "build"], cwd=path)
+    result = subprocess.run(["just", "build"], cwd=path, stdout=None, stderr=None)
     sys.exit(result.returncode)
 
 
@@ -333,7 +334,7 @@ def run(command: Tuple[str, ...], path: Path):
     just_args = ["just", "run"]
     if command:
         just_args.extend(command)
-    result = subprocess.run(just_args, cwd=path)
+    result = subprocess.run(just_args, cwd=path, stdout=None, stderr=None)
     sys.exit(result.returncode)
 
 
@@ -407,7 +408,7 @@ def shell(path: Path):
         sys.exit(1)
 
     # Call just shell
-    result = subprocess.run(["just", "shell"], cwd=path)
+    result = subprocess.run(["just", "shell"], cwd=path, stdout=None, stderr=None)
     sys.exit(result.returncode)
 
 
@@ -458,8 +459,8 @@ def run_main():
         if len(sys.argv) > 1:
             just_args.extend(sys.argv[1:])
 
-    result = subprocess.run(just_args, cwd=project_dir)
-    sys.exit(result.returncode)
+    os.chdir(project_dir)
+    os.execvp("just", just_args)
 
 
 def build_main():
@@ -515,8 +516,8 @@ def build_main():
         sys.exit(1)
 
     # Call just build
-    result = subprocess.run(["just", "build"], cwd=project_dir)
-    sys.exit(result.returncode)
+    os.chdir(project_dir)
+    os.execvp("just", ["just", "build"])
 
 
 if __name__ == "__main__":
