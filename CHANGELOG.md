@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.5.0 (2025-12-26)
+
+### Features
+
+- Add runtime.network configuration option
+  ([#5](https://github.com/markhedleyjones/container-magic/pull/5),
+  [`0454301`](https://github.com/markhedleyjones/container-magic/commit/04543011ab700952e850c0cfa68614c3449403b7))
+
+
 ## v1.4.0 (2025-12-25)
 
 ### Features
