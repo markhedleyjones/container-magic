@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.5.2 (2026-01-04)
+
+### Bug Fixes
+
+- Move TTY flags before image in Justfile run recipe
+  ([#7](https://github.com/markhedleyjones/container-magic/pull/7),
+  [`283d7af`](https://github.com/markhedleyjones/container-magic/commit/283d7af87cd58737c6a6bdf7633e79c6346fe025))
+
+
 ## v1.5.1 (2025-12-26)
 
 ### Bug Fixes
