@@ -188,6 +188,11 @@ run *args:
         RUN_ARGS+=("--workdir={{ container_home }}")
     fi
 
+    # Add TTY flags if available (for real-time output)
+    if [[ -t 1 ]]; then
+        RUN_ARGS+=("--interactive" "--tty")
+    fi
+
     # Image and command
     RUN_ARGS+=("${IMAGE}")
 
@@ -196,11 +201,6 @@ run *args:
     set +u
     COMMAND="{{ '{{args}}' }}"
     set -u
-
-    # Add TTY flags if available (for real-time output)
-    if [[ -t 1 ]]; then
-        RUN_ARGS+=("--interactive" "--tty")
-    fi
 
     if [[ -n "${COMMAND}" ]]; then
         RUN_ARGS+=("{{ shell }}" "-c" "${COMMAND}")

@@ -201,6 +201,45 @@ def test_project_generation(name, template, compact, test_output_dir):
         )
 
 
+def test_justfile_run_command_order(test_output_dir):
+    """Test that Justfile run recipe has correct command structure.
+
+    Validates that container flags (like --interactive, --tty) are added
+    to RUN_ARGS before the image name, not after. This is critical because
+    docker/podman require: `run [flags] IMAGE [command]`
+    """
+    # Use an existing generated project or create one
+    project_dir = test_output_dir / "python"
+    if not project_dir.exists():
+        project_dir.mkdir(parents=True)
+        result = subprocess.run(
+            ["cm", "init", "--here", "python"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"cm init failed: {result.stderr}"
+
+    justfile_content = (project_dir / "Justfile").read_text()
+
+    # Find positions of key patterns in the Justfile
+    image_pattern = 'RUN_ARGS+=("${IMAGE}")'
+    tty_pattern = 'RUN_ARGS+=("--interactive"'
+
+    image_pos = justfile_content.find(image_pattern)
+    tty_pos = justfile_content.find(tty_pattern)
+
+    assert image_pos >= 0, f"Could not find '{image_pattern}' in Justfile"
+    assert tty_pos >= 0, f"Could not find '{tty_pattern}' in Justfile"
+
+    # TTY flags must come before the image
+    assert tty_pos < image_pos, (
+        "TTY flags (--interactive, --tty) must be added to RUN_ARGS BEFORE the image. "
+        f"Found --interactive at position {tty_pos}, IMAGE at position {image_pos}. "
+        "Container runtimes require: `run [flags] IMAGE [command]`"
+    )
+
+
 def test_linter_availability():
     """Display which linters are available (informational)."""
     print("\n=== Available Linters ===")
