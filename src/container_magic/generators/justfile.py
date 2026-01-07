@@ -130,6 +130,11 @@ def generate_justfile(
         for command_name, command_spec in config.commands.items():
             # Escape dollar signs in command so they expand in the container
             command_escaped = command_spec.command.replace("$", r"\$")
+            # Convert multi-line commands to single line with semicolons
+            # This prevents breaking Justfile recipe indentation
+            command_escaped = "; ".join(
+                line for line in command_escaped.splitlines() if line.strip()
+            )
             # Merge stage env with command env (command env takes precedence)
             merged_env = {**stage_env, **(command_spec.env or {})}
             custom_commands_content += "\n" + command_template.render(

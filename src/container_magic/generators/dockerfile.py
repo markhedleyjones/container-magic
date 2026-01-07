@@ -96,6 +96,10 @@ def process_stage_steps(
             ordered_steps.append({"type": "copy_workspace"})
         else:
             # Custom RUN command
+            # Handle multi-line commands by joining with && \
+            if "\n" in step:
+                lines = [line for line in step.splitlines() if line.strip()]
+                step = " && \\\n    ".join(lines)
             ordered_steps.append({"type": "custom", "command": step})
 
     # Validation: Check if switch_user used but no create_user in this or parent stages

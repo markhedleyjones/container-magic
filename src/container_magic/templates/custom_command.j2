@@ -134,10 +134,10 @@
     {% for arg_name, arg_spec in args.items() %}
     {% if arg_spec.mount_as %}
     # Substitute {{ arg_name }} with container path
-    COMMAND="${COMMAND//{{ '{' }}{{ arg_name }}{{ '}' }}/{{ arg_spec.mount_as }}}"
+    COMMAND="${COMMAND//{% raw %}\{{% endraw %}{{ arg_name }}{% raw %}\}{% endraw %}/{{ arg_spec.mount_as }}}"
     {% else %}
     # Substitute {{ arg_name }} with actual value
-    COMMAND="${COMMAND//{{ '{' }}{{ arg_name }}{{ '}' }}/{{ '{{' }}{{ arg_name }}{{ '}}' }}}"
+    COMMAND="${COMMAND//{% raw %}\{{% endraw %}{{ arg_name }}{% raw %}\}{% endraw %}/{{ '{{' }}{{ arg_name }}{{ '}}' }}}"
     {% endif %}
     {% endfor %}
     # Append extra arguments

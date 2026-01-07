@@ -218,6 +218,12 @@ commands:
     standalone: true   # Generates deploy.sh script
 ```
 
+**Command options:**
+- `command` - The command to run (supports multi-line via YAML `|` syntax)
+- `description` - Help text shown in Justfile
+- `env` - Environment variables passed to the container
+- `standalone` - Generate a dedicated `<command>.sh` script
+
 The `standalone` flag (default: `false`) controls script generation:
 - **`standalone: false`** (default) - Command available via `run <command>` and `./run.sh <command>` only
 - **`standalone: true`** - Also generates a dedicated `<command>.sh` script for direct execution
