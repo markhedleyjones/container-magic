@@ -221,8 +221,75 @@ commands:
 **Command options:**
 - `command` - The command to run (supports multi-line via YAML `|` syntax)
 - `description` - Help text shown in Justfile
+- `args` - Positional arguments (see below)
 - `env` - Environment variables passed to the container
 - `standalone` - Generate a dedicated `<command>.sh` script
+
+### Command Arguments
+
+Commands can define positional arguments with type validation and optional file/directory mounting:
+
+```yaml
+commands:
+  process:
+    command: "python process.py {input} {output}"
+    description: "Process input file"
+    args:
+      input:
+        type: file
+        description: "Input file to process"
+      output:
+        type: file
+        default: ""           # Makes this argument optional
+        readonly: false       # Allow writing to this path
+        mount_as: /tmp/out    # Mount at this container path
+```
+
+**Argument options:**
+- `type` - One of: `file`, `directory`, `string`, `int`, `float`
+- `description` - Help text for the argument
+- `default` - Default value (makes the argument optional)
+- `readonly` - For file/directory types: validate existence (default: `true`)
+- `mount_as` - For file/directory types: mount at this container path
+
+**Generated Just recipe:**
+```
+process input output="" *args:
+```
+
+Required arguments come first, followed by optional arguments with their defaults. The `{arg_name}` placeholders in the command are substituted with the actual values (or mount paths if `mount_as` is specified).
+
+**Passing extra flags:**
+
+All commands include `*args` which captures any additional arguments (including flags) and appends them to the command:
+
+```bash
+just process input.txt --verbose --dry-run
+# Runs: python process.py input.txt --verbose --dry-run
+
+just process input.txt output.txt --format=json
+# Runs: python process.py input.txt output.txt --format=json
+```
+
+This allows passing through any flags your underlying command supports without needing to define them in the YAML.
+
+**Example with file mounting:**
+```yaml
+commands:
+  convert:
+    command: "ffmpeg -i {input} {output}"
+    args:
+      input:
+        type: file
+        mount_as: /tmp/input.mp4
+      output:
+        type: file
+        default: ""
+        readonly: false
+        mount_as: /tmp/output.mp4
+```
+
+When `mount_as` is specified, the host file is mounted into the container at that path, and the command uses the container path. This is useful for tools that expect specific paths or when you need to isolate container access.
 
 The `standalone` flag (default: `false`) controls script generation:
 - **`standalone: false`** (default) - Command available via `run <command>` and `./run.sh <command>` only
