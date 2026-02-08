@@ -1,0 +1,48 @@
+site_name: container-magic
+site_url: https://markhedleyjones.github.io/container-magic
+site_description: Rapidly create containerised development environments
+repo_url: https://github.com/markhedleyjones/container-magic
+repo_name: markhedleyjones/container-magic
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - navigation.sections
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Configuration: configuration.md
+  - Build Steps: build-steps.md
+  - Cached Assets: cached-assets.md
+  - User Handling: user-handling.md
+  - Troubleshooting: troubleshooting.md

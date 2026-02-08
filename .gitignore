@@ -22,3 +22,6 @@ test-generated-projects/
 /cm.yaml
 /workspace/
 Justfile
+
+# MkDocs build output
+site/
