@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.7.0 (2026-02-08)
+
+### Features
+
+- **commands**: Add port publishing support
+  ([#10](https://github.com/markhedleyjones/container-magic/pull/10),
+  [`6fa6c02`](https://github.com/markhedleyjones/container-magic/commit/6fa6c024b93b418826245de02aa41733773c451a))
+
+
 ## v1.6.0 (2026-02-08)
 
 ### Continuous Integration
