@@ -63,6 +63,12 @@ run_{{ command_name }}() {
 	RUN_ARGS+=("-e" "{{ key }}={{ value }}")
 	{%- endfor %}
 	{%- endif %}
+	{%- if command_spec.ports %}
+	# Port publishing
+	{%- for port in command_spec.ports %}
+	RUN_ARGS+=("--publish" "{{ port }}")
+	{%- endfor %}
+	{%- endif %}
 
 	${RUNTIME} run "${RUN_ARGS[@]}" \
 		-w "${WORKDIR}" \

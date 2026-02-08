@@ -143,6 +143,7 @@ def generate_justfile(
                 command=command_escaped,
                 args=command_spec.args,
                 env=merged_env,
+                ports=command_spec.ports,
                 runtime=runtime.value,
                 network=config.runtime.network,
                 image_name=config.project.name,

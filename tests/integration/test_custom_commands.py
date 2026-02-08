@@ -433,3 +433,57 @@ commands:
         assert result.returncode == 0, (
             f"Generated build script has syntax error: {result.stderr}"
         )
+
+
+def test_custom_commands_with_ports(temp_project_dir):
+    """Test that port publishing flags are generated in Justfile and run.sh."""
+    # Initialise project
+    result = subprocess.run(
+        ["cm", "init", "--here", "--compact", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm init failed: {result.stderr}"
+
+    # Add custom command with ports
+    config_file = temp_project_dir / "cm.yaml"
+    config_content = config_file.read_text()
+
+    custom_commands = """
+commands:
+  serve:
+    command: "python -m http.server 8000"
+    description: "Start dev server"
+    ports:
+      - "8000:8000"
+      - "8443:443"
+"""
+    config_file.write_text(config_content + custom_commands)
+
+    # Regenerate files
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm update failed: {result.stderr}"
+
+    # Check Justfile has --publish flags
+    justfile_content = (temp_project_dir / "Justfile").read_text()
+    assert '--publish" "8000:8000"' in justfile_content, (
+        "Justfile missing --publish for port 8000"
+    )
+    assert '--publish" "8443:443"' in justfile_content, (
+        "Justfile missing --publish for port 8443"
+    )
+
+    # Check run.sh has --publish flags
+    run_sh_content = (temp_project_dir / "run.sh").read_text()
+    assert '--publish" "8000:8000"' in run_sh_content, (
+        "run.sh missing --publish for port 8000"
+    )
+    assert '--publish" "8443:443"' in run_sh_content, (
+        "run.sh missing --publish for port 8443"
+    )

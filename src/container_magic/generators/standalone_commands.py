@@ -76,6 +76,7 @@ def generate_standalone_command_scripts(
                 privileged=config.runtime.privileged if config.runtime else False,
                 network=config.runtime.network if config.runtime else None,
                 env=command_spec.env,
+                ports=command_spec.ports,
                 command=command_escaped,
                 workspace_name=config.project.workspace,
             )

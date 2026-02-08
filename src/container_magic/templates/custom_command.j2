@@ -137,6 +137,13 @@
     RUN_ARGS+=("-e" "{{ key }}={{ value }}")
     {% endfor %}
     {% endif %}
+    {% if ports %}
+
+    # Port publishing
+    {% for port in ports %}
+    RUN_ARGS+=("--publish" "{{ port }}")
+    {% endfor %}
+    {% endif %}
 
     # Add TTY flags if available (for real-time output)
     if [[ -t 1 ]]; then
