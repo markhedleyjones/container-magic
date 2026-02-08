@@ -52,6 +52,13 @@ RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:${WORKDIR}/{{ workspace_name }}:z")
 RUN_ARGS+=("-e" "{{ key }}={{ value }}")
 {% endfor -%}
 {% endif -%}
+{% if ports -%}
+
+# Port publishing
+{% for port in ports -%}
+RUN_ARGS+=("--publish" "{{ port }}")
+{% endfor -%}
+{% endif -%}
 
 # Check if image exists
 if ! ${RUNTIME} image inspect "${IMAGE_NAME}:${TAG}" >/dev/null 2>&1; then

@@ -233,6 +233,10 @@ class CustomCommand(BaseModel):
     env: Dict[str, str] = Field(
         default_factory=dict, description="Environment variables"
     )
+    ports: List[str] = Field(
+        default_factory=list,
+        description="Ports to publish (host:container format)",
+    )
     standalone: bool = Field(
         default=False,
         description="Generate standalone script for this command",

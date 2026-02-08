@@ -216,6 +216,12 @@ commands:
     command: bash workspace/deploy.sh
     description: Deploy the model
     standalone: true   # Generates deploy.sh script
+
+  serve:
+    command: python -m http.server 8000
+    description: Start dev server
+    ports:
+      - "8000:8000"
 ```
 
 **Command options:**
@@ -223,6 +229,7 @@ commands:
 - `description` - Help text shown in Justfile
 - `args` - Positional arguments (see below)
 - `env` - Environment variables passed to the container
+- `ports` - Ports to publish to the host (`host:container` format, generates `--publish` flags)
 - `standalone` - Generate a dedicated `<command>.sh` script
 
 ### Command Arguments
