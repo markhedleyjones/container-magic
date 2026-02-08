@@ -34,9 +34,6 @@ fi
 
 # Build base run arguments (common to all commands)
 BASE_RUN_ARGS=("--rm")
-if [[ -t 0 ]]; then
-	BASE_RUN_ARGS+=("--interactive" "--tty")
-fi
 BASE_RUN_ARGS+=("--hostname" "${IMAGE_NAME}")
 {%- if privileged %}
 BASE_RUN_ARGS+=("--privileged")
@@ -94,13 +91,16 @@ RUN_ARGS=("${BASE_RUN_ARGS[@]}")
 
 # Run command or shell
 if [ $# -gt 0 ]; then
-	# Run specific command
+	# Run specific command (no TTY flags)
 	${RUNTIME} run "${RUN_ARGS[@]}" \
 		-w "${WORKDIR}/${WORKSPACE_NAME}" \
 		"${IMAGE_NAME}:${TAG}" \
 		"${SHELL}" -c "$*"
 else
-	# Interactive shell
+	# Interactive shell (add TTY flags only if stdin is a TTY)
+	if [[ -t 0 ]]; then
+		RUN_ARGS+=("--interactive" "--tty")
+	fi
 	${RUNTIME} run "${RUN_ARGS[@]}" \
 		-w "${WORKDIR}/${WORKSPACE_NAME}" \
 		"${IMAGE_NAME}:${TAG}" \

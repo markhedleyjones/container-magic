@@ -42,6 +42,7 @@
     # Podman-specific configuration
     RUN_ARGS+=("--replace")
     RUN_ARGS+=("--userns=keep-id")
+    RUN_ARGS+=("--env-host=false")
     {% endif %}
 
     # Mount workspace
@@ -49,11 +50,14 @@
     {% if features.display %}
 
     # Display support (Wayland and X11)
+    {% if runtime == "podman" %}
+    RUN_ARGS+=("--security-opt=label=disable")
+    {% endif %}
     if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
         wayland_socket="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
         RUN_ARGS+=("-e" "WAYLAND_DISPLAY")
         RUN_ARGS+=("-e" "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}")
-        RUN_ARGS+=("-v" "${wayland_socket}:${wayland_socket}:rw")
+        RUN_ARGS+=("-v" "${wayland_socket}:${wayland_socket}")
     fi
     if [[ -n "${DISPLAY:-}" ]]; then
         xsock=/tmp/.X11-unix
@@ -64,8 +68,8 @@
         fi
         RUN_ARGS+=("-e" "DISPLAY")
         RUN_ARGS+=("-e" "XAUTHORITY=${xauth}")
-        RUN_ARGS+=("-v" "${xauth}:${xauth}:rw")
-        RUN_ARGS+=("-v" "${xsock}:${xsock}:rw")
+        RUN_ARGS+=("-v" "${xauth}:${xauth}")
+        RUN_ARGS+=("-v" "${xsock}:${xsock}")
         RUN_ARGS+=("--env" "QT_X11_NO_MITSHM=1")
     fi
     {% endif %}

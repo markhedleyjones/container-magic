@@ -100,6 +100,7 @@ run *args:
     # Podman-specific configuration
     RUN_ARGS+=("--replace")
     RUN_ARGS+=("--userns=keep-id")
+    RUN_ARGS+=("--env-host=false")
     {% endif %}
     {% if privileged %}
 
@@ -114,11 +115,14 @@ run *args:
     {% if features.display %}
 
     # Display support (Wayland and X11)
+    {% if runtime == "podman" %}
+    RUN_ARGS+=("--security-opt=label=disable")
+    {% endif %}
     if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
         wayland_socket="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
         RUN_ARGS+=("-e" "WAYLAND_DISPLAY")
         RUN_ARGS+=("-e" "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}")
-        RUN_ARGS+=("-v" "${wayland_socket}:${wayland_socket}:rw")
+        RUN_ARGS+=("-v" "${wayland_socket}:${wayland_socket}")
     fi
     if [[ -n "${DISPLAY:-}" ]]; then
         xsock=/tmp/.X11-unix
@@ -129,8 +133,8 @@ run *args:
         fi
         RUN_ARGS+=("-e" "DISPLAY")
         RUN_ARGS+=("-e" "XAUTHORITY=${xauth}")
-        RUN_ARGS+=("-v" "${xauth}:${xauth}:rw")
-        RUN_ARGS+=("-v" "${xsock}:${xsock}:rw")
+        RUN_ARGS+=("-v" "${xauth}:${xauth}")
+        RUN_ARGS+=("-v" "${xsock}:${xsock}")
         RUN_ARGS+=("--env" "QT_X11_NO_MITSHM=1")
     fi
     {% endif %}
@@ -188,19 +192,17 @@ run *args:
         RUN_ARGS+=("--workdir={{ container_home }}")
     fi
 
-    # Add TTY flags if available (for real-time output)
-    if [[ -t 1 ]]; then
-        RUN_ARGS+=("--interactive" "--tty")
-    fi
-
-    # Image and command
-    RUN_ARGS+=("${IMAGE}")
-
-    # Execute command or shell
+    # Determine command before adding image (flags must precede image)
     # Note: Just passes args via {{args}} - we need set +u to allow undefined variables in user commands
     set +u
     COMMAND="{{ '{{args}}' }}"
     set -u
+
+    if [[ -z "${COMMAND}" ]] && [[ -t 0 ]]; then
+        RUN_ARGS+=("--interactive" "--tty")
+    fi
+
+    RUN_ARGS+=("${IMAGE}")
 
     if [[ -n "${COMMAND}" ]]; then
         RUN_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
@@ -214,13 +216,15 @@ run *args:
     else
         # Use exec instead for running container
         EXEC_ARGS=("{{ runtime }}" "exec")
-        if [[ -t 1 ]]; then
-            EXEC_ARGS+=("--interactive" "--tty")
-        fi
         EXEC_ARGS+=("${CONTAINER_NAME}")
         if [[ -n "${COMMAND}" ]]; then
             EXEC_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
         else
+            # Interactive mode: add TTY flags only when running interactive shell
+            if [[ -t 0 ]]; then
+                # Insert TTY flags before container name
+                EXEC_ARGS=("{{ runtime }}" "exec" "--interactive" "--tty" "${CONTAINER_NAME}")
+            fi
             EXEC_ARGS+=("{{ shell }}")
         fi
         "${EXEC_ARGS[@]}"

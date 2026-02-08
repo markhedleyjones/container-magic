@@ -86,7 +86,9 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
                 fi && \
                 adduser -D -u ${USER_UID} -G ${USER_GID} -h ${USER_HOME} ${USER_NAME}; \
             fi \
-        fi \
+        fi && \
+        # Ensure home directory ownership (may have been created by WORKDIR)
+        chown ${USER_UID}:${USER_GID} ${USER_HOME}; \
     fi
 {% else %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
@@ -108,7 +110,9 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
                 fi && \
                 useradd --uid ${USER_UID} --gid ${USER_GID} --home-dir ${USER_HOME} --create-home ${USER_NAME}; \
             fi \
-        fi \
+        fi && \
+        # Ensure home directory ownership (may have been created by WORKDIR)
+        chown ${USER_UID}:${USER_GID} ${USER_HOME}; \
     fi
 {% endif %}
 {% elif step.type == "switch_user" %}
