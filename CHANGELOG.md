@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.8.0 (2026-02-08)
+
+### Features
+
+- **steps**: Add user-aware copy steps and become_user/become_root aliases
+  ([#11](https://github.com/markhedleyjones/container-magic/pull/11),
+  [`dda2059`](https://github.com/markhedleyjones/container-magic/commit/dda20596cd03dd507520383ccb5beb4ba1e14a57))
+
+
 ## v1.7.0 (2026-02-08)
 
 ### Features
