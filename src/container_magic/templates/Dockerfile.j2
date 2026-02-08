@@ -137,6 +137,12 @@ COPY --chown=${USER_UID}:${USER_GID} {{ workspace_name }} ${WORKSPACE}
 {% else %}
 COPY {{ workspace_name }} ${WORKSPACE}
 {% endif %}
+{% elif step.type == "copy" %}
+{% if step.chown %}
+COPY --chown=${USER_UID}:${USER_GID} {{ step.args }}
+{% else %}
+COPY {{ step.args }}
+{% endif %}
 {% elif step.type == "custom" %}
 {% if step.command.startswith('COPY ') or step.command.startswith('ADD ') or step.command.startswith('ENV ') or step.command.startswith('WORKDIR ') or step.command.startswith('USER ') or step.command.startswith('LABEL ') or step.command.startswith('EXPOSE ') or step.command.startswith('VOLUME ') or step.command.startswith('RUN ') %}
 {{ step.command }}

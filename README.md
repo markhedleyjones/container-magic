@@ -595,11 +595,13 @@ stages:
 
 ---
 
-#### 4. `switch_user`
+#### 4. `become_user`
 
-Switches the current user context from root to the configured non-root user.
+Switches the current user context from root to the configured non-root user. Also sets the user context for subsequent `copy` steps.
 
-**Requires:** `create_user` step in same or parent stage, `production_user` defined
+**Requires:** `create_user` step in same or parent stage, user config defined
+
+**Alias:** `switch_user` (deprecated, still works)
 
 **Example:**
 ```yaml
@@ -608,9 +610,8 @@ stages:
     from: base
     steps:
       - create_user
-      - switch_user
-      - COPY app /app
-      - RUN chown -R ${USER_NAME}:${USER_NAME} /app
+      - become_user
+      - copy app /app
 ```
 
 **Generated Dockerfile:** Sets `USER user`
@@ -619,20 +620,22 @@ stages:
 
 ---
 
-#### 5. `switch_root`
+#### 5. `become_root`
 
-Switches user context back to root (if needed after `switch_user`).
+Switches user context back to root (if needed after `become_user`).
 
-**Requires:** `switch_user` step executed previously
+**Requires:** `become_user` step executed previously
+
+**Alias:** `switch_root` (deprecated, still works)
 
 **Example:**
 ```yaml
 stages:
   production:
     steps:
-      - switch_user
+      - become_user
       - RUN echo "running as user"
-      - switch_root
+      - become_root
       - RUN echo "back to root"
 ```
 
@@ -680,6 +683,67 @@ stages:
 - Automatic default step for production stage if not specified
 - Uses `WORKSPACE` environment variable (default: `/root/workspace`)
 - If `create_user` step is used, automatically applies `--chown` with the user's UID/GID to set proper file ownership
+
+---
+
+#### 8. `copy`
+
+User-context-aware file copy. Behaves like Docker's `COPY` but automatically adds `--chown=${USER_UID}:${USER_GID}` when `become_user` is active. This follows the container-magic convention: lowercase = smart abstraction, uppercase = raw Dockerfile passthrough.
+
+**Example:**
+```yaml
+stages:
+  base:
+    from: python:3.11-slim
+    steps:
+      - create_user
+      - become_user
+      - copy app /app
+      - copy config.yaml /etc/app/config.yaml
+```
+
+**Generated Dockerfile:**
+```dockerfile
+COPY --chown=${USER_UID}:${USER_GID} app /app
+COPY --chown=${USER_UID}:${USER_GID} config.yaml /etc/app/config.yaml
+```
+
+If the `copy` step appears before `become_user` or after `become_root`, it generates a plain `COPY` without `--chown`. User context is inherited from parent stages — if a parent ends with `become_user`, child stages start with user context active.
+
+**Use case:** Copy files into the image with correct ownership, without manually adding `--chown` flags.
+
+---
+
+#### 9. `copy_as_user`
+
+Copies files with user ownership regardless of the current user context. Always adds `--chown=${USER_UID}:${USER_GID}`.
+
+**Example:**
+```yaml
+steps:
+  - create_user
+  - copy_as_user config/app.conf /home/appuser/.config/
+  - become_user
+```
+
+**Use case:** Set up user-owned files while still running as root, before switching context.
+
+---
+
+#### 10. `copy_as_root`
+
+Copies files with root ownership regardless of the current user context. Never adds `--chown`.
+
+**Example:**
+```yaml
+steps:
+  - create_user
+  - become_user
+  - copy_as_root config/system.conf /etc/app/
+  - copy app /home/appuser/app
+```
+
+**Use case:** Copy root-owned system files without needing to switch context back and forth. Equivalent to uppercase `COPY` but keeps your steps in the container-magic vocabulary.
 
 ---
 
@@ -755,9 +819,8 @@ stages:
     from: base
     steps:
       - create_user
-      - switch_user
-      - COPY app /app
-      - RUN chown -R ${USER_NAME}:${USER_NAME} /app
+      - become_user
+      - copy app /app
 ```
 
 **Downloading during different build stages:**
@@ -818,7 +881,7 @@ stages:
 - `RUN` - Execute commands
 - `ENV` - Set environment variables
 - `WORKDIR` - Change working directory
-- `COPY` / `ADD` - Copy files
+- `COPY` / `ADD` - Copy files (uppercase passes through as-is; use lowercase `copy` for automatic `--chown` when running as non-root)
 - `EXPOSE` - Expose ports
 - `LABEL` - Add metadata
 - Any other valid Dockerfile instruction
@@ -898,10 +961,10 @@ steps = ["copy_workspace"]  # If not overridden
 ### Step Ordering Rules
 
 1. **Steps execute in order** - Left to right, top to bottom
-2. **User creation before switching** - `create_user` must come before `switch_user`
+2. **User creation before switching** - `create_user` must come before `become_user`
 3. **Packages before custom commands** - Install system/pip packages before using them
 4. **Assets before commands** - Copy cached assets before commands that use them
-5. **User switching for security** - Switch to non-root after setup, switch back if needed for privileged ops
+5. **User switching for security** - Switch to non-root after setup, use `copy_as_root` or `become_root` if needed for privileged ops
 
 **Common approach:**
 ```yaml
@@ -910,9 +973,8 @@ steps:
   - install_pip_packages
   - copy_cached_assets
   - create_user
-  - switch_user
-  - COPY app /app
-  - RUN chown -R ${USER_NAME}:${USER_NAME} /app
+  - become_user
+  - copy app /app
 ```
 
 ---
@@ -944,7 +1006,7 @@ stages:
       pip: [gunicorn]
     steps:
       - create_user
-      - switch_user
+      - become_user
       - copy_workspace
 ```
 
@@ -988,9 +1050,9 @@ Container-magic validates your step configuration:
 
 | Rule | Error | Solution |
 |------|-------|----------|
-| `switch_user` without `create_user` | Warning | Add `create_user` step before `switch_user` |
-| `create_user` without `production_user` | Error | Define `project.production_user` in config |
-| `switch_user` without `production_user` | Error | Define `project.production_user` in config |
+| `become_user` without `create_user` | Warning | Add `create_user` step before `become_user` |
+| `create_user` without user config | Error | Define `user.production` in config |
+| `become_user` without user config | Error | Define `user.production` in config |
 | `cached_assets` without `copy_cached_assets` | Warning | Add `copy_cached_assets` step to use assets |
 
 ---
@@ -1037,13 +1099,12 @@ steps:
 
 **Q: Permission denied when running as non-root**
 
-A: Ensure files are owned by the application user:
+A: Use lowercase `copy` instead of uppercase `COPY` — it automatically sets ownership via `--chown` when `become_user` is active:
 ```yaml
 steps:
   - create_user
-  - switch_user
-  - COPY app /app
-  - RUN chown -R ${USER_NAME}:${USER_NAME} /app
+  - become_user
+  - copy app /app
 ```
 
 ## Contributing

@@ -197,7 +197,7 @@ class StageConfig(BaseModel):
     )
     steps: Optional[List[str]] = Field(
         default=None,
-        description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user, switch_user, switch_root, copy_cached_assets, copy_workspace",
+        description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user, become_user, become_root, copy, copy_as_user, copy_as_root, copy_cached_assets, copy_workspace (aliases: switch_user, switch_root)",
         alias="build_steps",  # Support old name for backwards compatibility
     )
 
@@ -423,7 +423,7 @@ class ContainerMagicConfig(BaseModel):
             ),
             (
                 "    steps:",
-                "    # Build steps: install_system_packages, install_pip_packages, create_user, switch_user, copy_cached_assets, copy_workspace\n    steps:",
+                "    # Build steps: install_system_packages, install_pip_packages, create_user, become_user, become_root, copy, copy_as_user, copy_as_root, copy_cached_assets, copy_workspace\n    steps:",
             ),
             (
                 "  production:",
