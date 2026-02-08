@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.5.3 (2026-02-08)
+
+### Bug Fixes
+
+- Handle multi-line commands and argument substitution
+  ([`57ac829`](https://github.com/markhedleyjones/container-magic/commit/57ac829bbfe91965ab506929a5cc7a9b965a6bcb))
+
+- Podman compatibility (env isolation, X11 access, TTY flags)
+  ([`7e56ddb`](https://github.com/markhedleyjones/container-magic/commit/7e56ddb18b910c428ae59ca90d9d9695c2b57aa1))
+
+
 ## v1.5.2 (2026-01-04)
 
 ### Bug Fixes
