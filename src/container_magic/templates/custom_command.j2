@@ -1,5 +1,5 @@
 {% if description %}# {{ description }}
-{% endif %}{{ command_name }}{% for arg_name in args.keys() %} {{ arg_name }}{% endfor %} *args:
+{% endif %}{{ command_name }}{% for arg_name, arg_spec in args.items() %}{% if arg_spec.default is none %} {{ arg_name }}{% endif %}{% endfor %}{% for arg_name, arg_spec in args.items() %}{% if arg_spec.default is not none %} {{ arg_name }}="{{ arg_spec.default | default('', true) }}"{% endif %}{% endfor %} *args:
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -7,6 +7,10 @@
     # Validate input arguments (readonly=true)
     {% for arg_name, arg_spec in args.items() %}
     {% if arg_spec.type in ["file", "directory"] and arg_spec.readonly %}
+    {% if arg_spec.default is not none %}
+    # Optional argument - only validate if provided
+    if [[ -n "{{ '{{' }}{{ arg_name }}{{ '}}' }}" ]]; then
+    {% endif %}
     if [[ ! -e "{{ '{{' }}{{ arg_name }}{{ '}}' }}" ]]; then
         echo "Error: {{ arg_name }} does not exist: {{ '{{' }}{{ arg_name }}{{ '}}' }}"
         exit 1
@@ -20,6 +24,9 @@
     if [[ ! -d "{{ '{{' }}{{ arg_name }}{{ '}}' }}" ]]; then
         echo "Error: {{ arg_name }} is not a directory: {{ '{{' }}{{ arg_name }}{{ '}}' }}"
         exit 1
+    fi
+    {% endif %}
+    {% if arg_spec.default is not none %}
     fi
     {% endif %}
     {% endif %}
@@ -109,12 +116,18 @@
     {% for arg_name, arg_spec in args.items() %}
     {% if arg_spec.type in ["file", "directory"] and arg_spec.mount_as %}
     # Mount {{ arg_name }}
+    {% if arg_spec.default is not none %}
+    if [[ -n "{{ '{{' }}{{ arg_name }}{{ '}}' }}" ]]; then
+    {% endif %}
     {% if arg_spec.readonly %}
     RUN_ARGS+=("-v" "{{ '{{' }}{{ arg_name }}{{ '}}' }}:{{ arg_spec.mount_as }}:ro,z")
     {% else %}
     # Ensure parent directory exists for output
     mkdir -p "$(dirname "{{ '{{' }}{{ arg_name }}{{ '}}' }}")"
     RUN_ARGS+=("-v" "{{ '{{' }}{{ arg_name }}{{ '}}' }}:{{ arg_spec.mount_as }}:rw,z")
+    {% endif %}
+    {% if arg_spec.default is not none %}
+    fi
     {% endif %}
     {% endif %}
     {% endfor %}
@@ -137,8 +150,16 @@
     COMMAND="{{ command | replace('\"', '\\\"') }}"
     {% for arg_name, arg_spec in args.items() %}
     {% if arg_spec.mount_as %}
-    # Substitute {{ arg_name }} with container path
+    # Substitute {{ arg_name }} with container path (or empty if optional and not provided)
+    {% if arg_spec.default is not none %}
+    if [[ -n "{{ '{{' }}{{ arg_name }}{{ '}}' }}" ]]; then
+        COMMAND="${COMMAND//{% raw %}\{{% endraw %}{{ arg_name }}{% raw %}\}{% endraw %}/{{ arg_spec.mount_as }}}"
+    else
+        COMMAND="${COMMAND//{% raw %}\{{% endraw %}{{ arg_name }}{% raw %}\}{% endraw %}/}"
+    fi
+    {% else %}
     COMMAND="${COMMAND//{% raw %}\{{% endraw %}{{ arg_name }}{% raw %}\}{% endraw %}/{{ arg_spec.mount_as }}}"
+    {% endif %}
     {% else %}
     # Substitute {{ arg_name }} with actual value
     COMMAND="${COMMAND//{% raw %}\{{% endraw %}{{ arg_name }}{% raw %}\}{% endraw %}/{{ '{{' }}{{ arg_name }}{{ '}}' }}}"
