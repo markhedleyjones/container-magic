@@ -70,16 +70,16 @@ stages:
 
 ## Documentation
 
-Full documentation is available at **[markhedleyjones.github.io/container-magic](https://markhedleyjones.github.io/container-magic/)**.
+Full documentation is available at **[markhedleyjones.com/container-magic](https://markhedleyjones.com/container-magic/)**.
 
 | Page | Contents |
 |------|----------|
-| [Getting Started](https://markhedleyjones.github.io/container-magic/getting-started/) | Installation, first project, workflow, project structure |
-| [Configuration](https://markhedleyjones.github.io/container-magic/configuration/) | Full YAML reference — project, runtime, user, stages, commands |
-| [Build Steps](https://markhedleyjones.github.io/container-magic/build-steps/) | All 10 built-in steps, custom commands, defaults, ordering |
-| [Cached Assets](https://markhedleyjones.github.io/container-magic/cached-assets/) | Asset downloading, caching, and cache management |
-| [User Handling](https://markhedleyjones.github.io/container-magic/user-handling/) | Dev vs prod users, copy ownership, permissions |
-| [Troubleshooting](https://markhedleyjones.github.io/container-magic/troubleshooting/) | Common issues and solutions |
+| [Getting Started](https://markhedleyjones.com/container-magic/getting-started/) | Installation, first project, workflow, project structure |
+| [Configuration](https://markhedleyjones.com/container-magic/configuration/) | Full YAML reference — project, runtime, user, stages, commands |
+| [Build Steps](https://markhedleyjones.com/container-magic/build-steps/) | All 10 built-in steps, custom commands, defaults, ordering |
+| [Cached Assets](https://markhedleyjones.com/container-magic/cached-assets/) | Asset downloading, caching, and cache management |
+| [User Handling](https://markhedleyjones.com/container-magic/user-handling/) | Dev vs prod users, copy ownership, permissions |
+| [Troubleshooting](https://markhedleyjones.com/container-magic/troubleshooting/) | Common issues and solutions |
 
 ## Contributing
 
