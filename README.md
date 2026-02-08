@@ -176,6 +176,23 @@ runtime:
     - audio          # PulseAudio/PipeWire
 ```
 
+### User
+
+```yaml
+user:
+  development:
+    host: true              # Use your host UID/GID at build time
+  production:
+    name: appuser           # Required: username
+    uid: 1000               # Optional (default: 1000)
+    gid: 1000               # Optional (default: 1000)
+    home: /home/appuser     # Optional (default: /home/${name})
+```
+
+The `development` target with `host: true` captures your actual UID/GID when building, so file permissions match your host user. The `production` target defines a fixed user baked into the image.
+
+If no `user` section is defined, containers run as root.
+
 ### Stages
 
 ```yaml
@@ -432,14 +449,14 @@ This means:
 The standalone production scripts use the user configuration from your `cm.yaml`:
 
 ```yaml
-project:
-  production_user:
-    name: user         # This user is baked into the image
+user:
+  production:
+    name: appuser      # This user is baked into the image
     uid: 1000
     gid: 1000
 ```
 
-If no `production_user` is defined, **the container runs as root** (`root` user with UID 0).
+If no `user.production` is defined, **the container runs as root** (`root` user with UID 0).
 
 **Note:** When no user is configured:
 - The `run.sh` script still works correctly
@@ -551,7 +568,7 @@ stages:
 
 Creates a non-root user account for running the application.
 
-**Condition:** Only created if `production_user` is defined in config (with required `name` field)
+**Requires:** `user.production` defined in config (with at least `name` field)
 
 **Field Defaults:**
 - `uid`: 1000 (if not specified)
@@ -560,38 +577,18 @@ Creates a non-root user account for running the application.
 
 **Example:**
 ```yaml
-project:
-  production_user:
-    name: user
-    uid: 1000
-    gid: 1000
-    home: /home/user
+user:
+  production:
+    name: appuser
 
 stages:
-  production:
-    from: base
+  base:
+    from: python:3.11-slim
     steps:
-      - create_user
+      - create_user  # Creates user with uid=1000, gid=1000, home=/home/appuser
 ```
 
-Minimal example (using defaults):
-```yaml
-project:
-  production_user:
-    name: user  # Only required field
-
-stages:
-  production:
-    steps:
-      - create_user  # Creates user with uid=1000, gid=1000, home=/home/user
-```
-
-**Generated Dockerfile:** Creates user and group with specified IDs
-
-**Notes:**
-- User UID/GID are passed as build arguments to ensure consistency across builds
-- Automatically skips creation if user is "root"
-- If any field is defined (name, uid, gid, or home), the user will be created
+**Generated Dockerfile:** Creates user and group with specified IDs, skips if user is "root"
 
 ---
 
@@ -797,11 +794,10 @@ cm cache clear   # Clear all cached assets
 ```yaml
 project:
   name: ml-service
-  production_user:
-    name: user
-    uid: 1000
-    gid: 1000
-    home: /home/user
+
+user:
+  production:
+    name: appuser
 
 stages:
   base:
@@ -942,7 +938,7 @@ If you don't specify `steps`, container-magic applies defaults based on the stag
 steps = [
     "install_system_packages",
     "install_pip_packages",
-    "create_user",  # Only if production_user configured
+    "create_user",  # Only if user.production configured
 ]
 ```
 
@@ -1033,10 +1029,7 @@ stages:
 stages:
   base:
     from: node:18-alpine
-    packages:
-      npm: [npm-check-updates]
     steps:
-      - install_system_packages
       - ENV NODE_ENV=production
       - ENV PATH=/app/node_modules/.bin:$PATH
       - RUN npm install --global yarn
@@ -1059,32 +1052,24 @@ Container-magic validates your step configuration:
 
 ### Troubleshooting Steps
 
-**Q: "Error: create_user step requires production_user to be configured"**
+**Q: "Error: uses 'create_user' or 'become_user' but production.user is not defined"**
 
-A: Add `production_user` to your config:
+A: Add a `user.production` section to your config:
 ```yaml
-project:
-  name: my-app
-  production_user:
-    name: user
-    uid: 1000
-    gid: 1000
-    home: /home/user
+user:
+  production:
+    name: appuser
 ```
 
-**Q: Custom RUN step not executing**
+**Q: Custom step not producing expected output**
 
-A: Verify step syntax - must start with Dockerfile command:
+A: Steps that don't match a built-in keyword or Dockerfile instruction are automatically wrapped with `RUN`. Both of these are equivalent:
 ```yaml
-# ✓ Correct
 steps:
-  - RUN apt-get install something
-  - ENV VAR=value
-
-# ✗ Incorrect (missing command keyword)
-steps:
-  - apt-get install something
+  - RUN apt-get install -y something     # explicit RUN
+  - apt-get install -y something         # RUN is prepended automatically
 ```
+For other Dockerfile instructions (`ENV`, `COPY`, `WORKDIR`, etc.), use the uppercase keyword explicitly.
 
 **Q: Build takes too long when downloading assets**
 
