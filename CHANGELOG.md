@@ -2,6 +2,21 @@
 
 <!-- version list -->
 
+## v1.6.0 (2026-02-08)
+
+### Continuous Integration
+
+- Use RELEASE_TOKEN for semantic-release to bypass branch protection
+  ([#9](https://github.com/markhedleyjones/container-magic/pull/9),
+  [`9dc4727`](https://github.com/markhedleyjones/container-magic/commit/9dc47275837c4fb8b587d8c5829d962bda0787a3))
+
+### Features
+
+- **commands**: Add optional positional arguments support
+  ([#8](https://github.com/markhedleyjones/container-magic/pull/8),
+  [`a6a2d03`](https://github.com/markhedleyjones/container-magic/commit/a6a2d035f0407a22a0feafb589d1306b054aed31))
+
+
 ## v1.5.3 (2026-02-08)
 
 ### Bug Fixes
