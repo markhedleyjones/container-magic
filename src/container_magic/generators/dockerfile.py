@@ -32,6 +32,52 @@ def get_user_config(
     return None
 
 
+def _parent_ends_as_user(
+    stage_name: str,
+    stages_dict: Dict[str, StageConfig],
+) -> bool:
+    """Check if the parent stage hierarchy ends with user context active.
+
+    Walks up the stage tree via `frm` references. For each stage, looks at the
+    last become_user/become_root step. Returns True if the nearest explicit
+    switch is become_user, False otherwise.
+    """
+    visited: set = set()
+    current = stages_dict.get(stage_name)
+    if current is None:
+        return False
+
+    # Start from the current stage's parent
+    parent_name = current.frm
+    while parent_name in stages_dict:
+        if parent_name in visited:
+            break
+        visited.add(parent_name)
+
+        parent = stages_dict[parent_name]
+        steps = parent.steps
+
+        # If parent has explicit steps, scan for last switch
+        if steps is not None:
+            last_switch = None
+            for step in steps:
+                if step in ("switch_user", "become_user"):
+                    last_switch = "user"
+                elif step in ("switch_root", "become_root"):
+                    last_switch = "root"
+            if last_switch is not None:
+                return last_switch == "user"
+
+        # No explicit steps — if FROM a Docker image, no user context
+        if ":" in parent.frm or "/" in parent.frm:
+            return False
+
+        # FROM another stage — keep walking up
+        parent_name = parent.frm
+
+    return False
+
+
 def process_stage_steps(
     stage: StageConfig,
     stage_name: str,
@@ -71,8 +117,11 @@ def process_stage_steps(
 
     # Track what we find in steps
     has_create_user = False
-    has_switch_user = False
+    has_become_user = False
     has_copy_cached_assets = False
+
+    # Track whether user context is active (for lowercase copy chown)
+    user_is_active = _parent_ends_as_user(stage_name, stages_dict)
 
     # Process steps into ordered sections
     ordered_steps = []
@@ -84,16 +133,26 @@ def process_stage_steps(
         elif step == "create_user":
             ordered_steps.append({"type": "create_user"})
             has_create_user = True
-        elif step == "switch_user":
+        elif step in ("switch_user", "become_user"):
             ordered_steps.append({"type": "switch_user"})
-            has_switch_user = True
-        elif step == "switch_root":
+            has_become_user = True
+            user_is_active = True
+        elif step in ("switch_root", "become_root"):
             ordered_steps.append({"type": "switch_root"})
+            user_is_active = False
         elif step == "copy_cached_assets":
             ordered_steps.append({"type": "cached_assets"})
             has_copy_cached_assets = True
         elif step == "copy_workspace":
             ordered_steps.append({"type": "copy_workspace"})
+        elif step.startswith("copy_as_user "):
+            ordered_steps.append({"type": "copy", "args": step[13:], "chown": True})
+        elif step.startswith("copy_as_root "):
+            ordered_steps.append({"type": "copy", "args": step[13:], "chown": False})
+        elif step.startswith("copy "):
+            ordered_steps.append(
+                {"type": "copy", "args": step[5:], "chown": user_is_active}
+            )
         else:
             # Custom RUN command
             # Handle multi-line commands by joining with && \
@@ -102,8 +161,8 @@ def process_stage_steps(
                 step = " && \\\n    ".join(lines)
             ordered_steps.append({"type": "custom", "command": step})
 
-    # Validation: Check if switch_user used but no create_user in this or parent stages
-    if has_switch_user and not has_create_user:
+    # Validation: Check if become_user used but no create_user in this or parent stages
+    if has_become_user and not has_create_user:
         # Walk up the stage hierarchy to find if any parent has create_user
         user_created = False
         current_stage_name = stage_name
@@ -139,15 +198,15 @@ def process_stage_steps(
 
         if not user_created:
             print(
-                f"⚠️  Warning: Stage '{stage_name}' uses 'switch_user' but no 'create_user' found in this stage or parent stages",
+                f"⚠️  Warning: Stage '{stage_name}' uses 'become_user' but no 'create_user' found in this stage or parent stages",
                 file=sys.stderr,
             )
-            print("   The switch_user step may fail at build time.", file=sys.stderr)
+            print("   The become_user step may fail at build time.", file=sys.stderr)
 
-    # Validation: Check if create_user or switch_user used but production.user not defined
-    if (has_create_user or has_switch_user) and not has_explicit_user_config:
+    # Validation: Check if create_user or become_user used but production.user not defined
+    if (has_create_user or has_become_user) and not has_explicit_user_config:
         raise ValueError(
-            f"Stage '{stage_name}' uses 'create_user' or 'switch_user' but production.user is not defined. "
+            f"Stage '{stage_name}' uses 'create_user' or 'become_user' but production.user is not defined. "
             "Define production.user in your configuration."
         )
 
@@ -201,7 +260,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
     if "development" not in stages:
         from container_magic.core.config import StageConfig
 
-        stages["development"] = StageConfig(frm="base", steps=["switch_user"])
+        stages["development"] = StageConfig(frm="base", steps=["become_user"])
 
     # Add default production stage if missing
     if "production" not in stages:

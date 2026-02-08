@@ -84,7 +84,7 @@ def test_switch_user_without_create_in_same_stage():
         output_path = Path(tmpdir) / "Dockerfile"
         stderr = capture_stderr(generate_dockerfile, config, output_path)
 
-        assert "'base' uses 'switch_user'" in stderr
+        assert "'base' uses 'become_user'" in stderr
         assert "no 'create_user' found" in stderr
         assert "may fail at build time" in stderr
 
@@ -336,7 +336,7 @@ def test_explicit_switch_user_without_user_config_raises_error():
         with pytest.raises(ValueError) as excinfo:
             generate_dockerfile(config, output_path)
 
-        assert "switch_user" in str(excinfo.value)
+        assert "become_user" in str(excinfo.value)
         assert "production.user is not defined" in str(excinfo.value)
 
 
@@ -561,3 +561,494 @@ def test_user_config_default_home_path():
         assert "USER_HOME=/home/appuser" in dockerfile_content
         assert "Warning" not in stderr
         assert "Error" not in stderr
+
+
+# --- Tests for lowercase `copy` step ---
+
+
+def test_copy_after_switch_user_gets_chown():
+    """Lowercase copy after switch_user should get --chown."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",
+                    "switch_user",
+                    "copy docs/Gemfile /tmp/",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        assert "COPY --chown=${USER_UID}:${USER_GID} docs/Gemfile /tmp/" in content
+
+
+def test_copy_before_switch_user_no_chown():
+    """Lowercase copy before switch_user should not get --chown."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "copy app /app",
+                    "create_user",
+                    "switch_user",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        # Should have plain COPY without --chown
+        assert "COPY app /app" in content
+        assert "--chown" not in content.split("COPY app /app")[0].split("\n")[-1]
+
+
+def test_copy_after_switch_root_no_chown():
+    """Lowercase copy after switch_root should not get --chown."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",
+                    "switch_user",
+                    "switch_root",
+                    "copy app /app",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        # Find the COPY line for app - should not have --chown
+        for line in content.splitlines():
+            if "COPY" in line and "app /app" in line:
+                assert "--chown" not in line
+                break
+        else:
+            pytest.fail("COPY app /app not found in Dockerfile")
+
+
+def test_copy_inherits_user_from_parent():
+    """Lowercase copy in child stage should inherit user context from parent ending with switch_user."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",
+                    "switch_user",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {
+                "from": "base",
+                "steps": [
+                    "copy app /app",
+                ],
+            },
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        assert "COPY --chown=${USER_UID}:${USER_GID} app /app" in content
+
+
+def test_copy_parent_ends_with_switch_root():
+    """Lowercase copy in child stage should not get --chown if parent ends with switch_root."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",
+                    "switch_user",
+                    "switch_root",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {
+                "from": "base",
+                "steps": [
+                    "copy app /app",
+                ],
+            },
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        for line in content.splitlines():
+            if "COPY" in line and "app /app" in line:
+                assert "--chown" not in line
+                break
+        else:
+            pytest.fail("COPY app /app not found in Dockerfile")
+
+
+def test_uppercase_copy_unchanged():
+    """Uppercase COPY (custom passthrough) should not get --chown even after switch_user."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",
+                    "switch_user",
+                    "COPY app /app",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        # The uppercase COPY should pass through as-is (custom type)
+        assert "COPY app /app" in content
+        # Should NOT have --chown added
+        for line in content.splitlines():
+            if "COPY app /app" in line:
+                assert "--chown" not in line
+                break
+
+
+def test_multiple_copy_steps_mixed_context():
+    """Multiple copy steps should each reflect their position relative to user context changes."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "copy config /etc/config",
+                    "create_user",
+                    "switch_user",
+                    "copy app /home/appuser/app",
+                    "switch_root",
+                    "copy sysconfig /etc/sysconfig",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+
+        # First copy: before switch_user → no --chown
+        for line in content.splitlines():
+            if "config /etc/config" in line:
+                assert "--chown" not in line
+                break
+        else:
+            pytest.fail("COPY config /etc/config not found")
+
+        # Second copy: after switch_user → has --chown
+        assert "COPY --chown=${USER_UID}:${USER_GID} app /home/appuser/app" in content
+
+        # Third copy: after switch_root → no --chown
+        for line in content.splitlines():
+            if "sysconfig /etc/sysconfig" in line:
+                assert "--chown" not in line
+                break
+        else:
+            pytest.fail("COPY sysconfig /etc/sysconfig not found")
+
+
+# --- Tests for become_user / become_root aliases ---
+
+
+def test_become_user_alias_works():
+    """become_user should work identically to switch_user."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": ["create_user", "become_user"],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        assert "USER ${USER_NAME}" in content
+
+
+def test_become_root_alias_works():
+    """become_root should work identically to switch_root."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": ["create_user", "become_user", "become_root"],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        assert "USER root" in content
+
+
+def test_become_user_sets_copy_context():
+    """copy after become_user should get --chown."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",
+                    "become_user",
+                    "copy app /app",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        assert "COPY --chown=${USER_UID}:${USER_GID} app /app" in content
+
+
+def test_become_root_clears_copy_context():
+    """copy after become_root should not get --chown."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",
+                    "become_user",
+                    "become_root",
+                    "copy app /app",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        for line in content.splitlines():
+            if "COPY" in line and "app /app" in line:
+                assert "--chown" not in line
+                break
+        else:
+            pytest.fail("COPY app /app not found in Dockerfile")
+
+
+def test_parent_ends_with_become_user_inherits():
+    """Child stage should inherit user context from parent ending with become_user."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": ["create_user", "become_user"],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {
+                "from": "base",
+                "steps": ["copy app /app"],
+            },
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        assert "COPY --chown=${USER_UID}:${USER_GID} app /app" in content
+
+
+# --- Tests for copy_as_user / copy_as_root ---
+
+
+def test_copy_as_user_always_adds_chown():
+    """copy_as_user should add --chown even in root context."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",
+                    "copy_as_user app /app",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        assert "COPY --chown=${USER_UID}:${USER_GID} app /app" in content
+
+
+def test_copy_as_root_never_adds_chown():
+    """copy_as_root should not add --chown even in user context."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",
+                    "become_user",
+                    "copy_as_root config/sys.conf /etc/app/",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        for line in content.splitlines():
+            if "COPY" in line and "config/sys.conf" in line:
+                assert "--chown" not in line
+                break
+        else:
+            pytest.fail("COPY config/sys.conf not found in Dockerfile")
+
+
+def test_copy_variants_mixed():
+    """All copy variants should work together correctly."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "python:3-slim",
+                "steps": [
+                    "create_user",
+                    "copy_as_user early /home/appuser/early",
+                    "become_user",
+                    "copy app /home/appuser/app",
+                    "copy_as_root config /etc/config",
+                    "COPY raw /raw",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+
+        # copy_as_user in root context → --chown
+        assert (
+            "COPY --chown=${USER_UID}:${USER_GID} early /home/appuser/early" in content
+        )
+
+        # copy in user context → --chown
+        assert "COPY --chown=${USER_UID}:${USER_GID} app /home/appuser/app" in content
+
+        # copy_as_root in user context → no --chown
+        for line in content.splitlines():
+            if "config /etc/config" in line:
+                assert "--chown" not in line
+                break
+        else:
+            pytest.fail("COPY config /etc/config not found")
+
+        # Uppercase COPY → raw passthrough, no --chown
+        for line in content.splitlines():
+            if "raw /raw" in line:
+                assert "--chown" not in line
+                break
+        else:
+            pytest.fail("COPY raw /raw not found")
