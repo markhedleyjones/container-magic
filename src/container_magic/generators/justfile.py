@@ -107,10 +107,12 @@ def generate_justfile(
         auto_update=config.project.auto_update,
         runtime=runtime.value,
         privileged=config.runtime.privileged,
-        network=config.runtime.network,
+        network=config.runtime.network_mode,
         mount_workspace=True,  # Always mount workspace in development
         shell=shell,
         features=features,
+        volumes=config.runtime.volumes,
+        devices=config.runtime.devices,
         dev_stage=dev_stage,
         container_home=container_home,
         use_host_user=use_host_user,
@@ -145,13 +147,15 @@ def generate_justfile(
                 env=merged_env,
                 ports=command_spec.ports,
                 runtime=runtime.value,
-                network=config.runtime.network,
+                network=config.runtime.network_mode,
                 image_name=config.project.name,
                 image_tag="development",
                 shell=shell,
                 workspace_name=config.project.workspace,
                 container_home=container_home,
                 features=features,
+                volumes=config.runtime.volumes,
+                devices=config.runtime.devices,
             )
 
     with open(output_path, "w") as f:
