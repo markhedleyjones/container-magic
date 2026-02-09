@@ -49,6 +49,15 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
             cmd_copy.command = cmd_spec.command.replace("$", r"\$")
             commands_escaped[cmd_name] = cmd_copy
 
+    # Build feature flags
+    runtime_features = config.runtime.features if config.runtime else []
+    features = {
+        "display": "display" in runtime_features,
+        "gpu": "gpu" in runtime_features,
+        "audio": "audio" in runtime_features,
+        "aws_credentials": "aws_credentials" in runtime_features,
+    }
+
     content = template.render(
         project_name=config.project.name,
         workspace_name=workspace_name,
@@ -56,7 +65,10 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         shell=shell,
         backend=backend,
         privileged=config.runtime.privileged if config.runtime else False,
-        network=config.runtime.network if config.runtime else None,
+        network=config.runtime.network_mode if config.runtime else None,
+        features=features,
+        volumes=config.runtime.volumes if config.runtime else [],
+        devices=config.runtime.devices if config.runtime else [],
         commands=commands_escaped,
     )
 

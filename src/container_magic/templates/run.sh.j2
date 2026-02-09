@@ -41,6 +41,75 @@ BASE_RUN_ARGS+=("--privileged")
 {%- if network %}
 BASE_RUN_ARGS+=("--net" "{{ network }}")
 {%- endif %}
+{%- if volumes %}
+
+# Additional bind mounts
+{%- for volume in volumes %}
+BASE_RUN_ARGS+=("-v" "{{ volume }}")
+{%- endfor %}
+{%- endif %}
+{%- if devices %}
+
+# Device passthrough
+{%- for device in devices %}
+BASE_RUN_ARGS+=("--device" "{{ device }}")
+{%- endfor %}
+{%- endif %}
+{%- if features.display %}
+
+# Display support (Wayland and X11)
+if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+	wayland_socket="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
+	BASE_RUN_ARGS+=("-e" "WAYLAND_DISPLAY")
+	BASE_RUN_ARGS+=("-e" "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}")
+	BASE_RUN_ARGS+=("-v" "${wayland_socket}:${wayland_socket}")
+fi
+if [[ -n "${DISPLAY:-}" ]]; then
+	xsock=/tmp/.X11-unix
+	xauth=/tmp/.docker.xauth
+	touch "$xauth"
+	if [[ -f "$HOME/.Xauthority" ]]; then
+		xauth nlist "${DISPLAY}" | sed -e 's/^..../ffff/' | xauth -f "${xauth}" nmerge -
+	fi
+	BASE_RUN_ARGS+=("-e" "DISPLAY")
+	BASE_RUN_ARGS+=("-e" "XAUTHORITY=${xauth}")
+	BASE_RUN_ARGS+=("-v" "${xauth}:${xauth}")
+	BASE_RUN_ARGS+=("-v" "${xsock}:${xsock}")
+	BASE_RUN_ARGS+=("--env" "QT_X11_NO_MITSHM=1")
+fi
+{%- endif %}
+{%- if features.gpu %}
+
+# GPU support
+if [[ -d /dev/dri ]]; then
+	BASE_RUN_ARGS+=("--device" "/dev/dri:/dev/dri")
+fi
+if command -v nvidia-smi >/dev/null 2>&1; then
+	BASE_RUN_ARGS+=("-e" "NVIDIA_DRIVER_CAPABILITIES=all")
+	if [[ "${RUNTIME}" == "docker" ]]; then
+		BASE_RUN_ARGS+=("--gpus=all")
+	elif [[ "${RUNTIME}" == "podman" ]]; then
+		BASE_RUN_ARGS+=("--device" "nvidia.com/gpu=all")
+		BASE_RUN_ARGS+=("--annotation=run.oci.keep_original_groups=1")
+		BASE_RUN_ARGS+=("--security-opt=label=disable")
+	fi
+fi
+{%- endif %}
+{%- if features.audio %}
+
+# Audio support (PulseAudio/PipeWire)
+if [[ -S "/run/user/$(id -u)/pulse/native" ]]; then
+	BASE_RUN_ARGS+=("-v" "/run/user/$(id -u)/pulse/native:/run/user/$(id -u)/pulse/native")
+	BASE_RUN_ARGS+=("-e" "PULSE_SERVER=unix:/run/user/$(id -u)/pulse/native")
+fi
+{%- endif %}
+{%- if features.aws_credentials %}
+
+# AWS credentials
+if [[ -d "$HOME/.aws" ]]; then
+	BASE_RUN_ARGS+=("-v" "$HOME/.aws:${WORKDIR}/.aws:z")
+fi
+{%- endif %}
 
 {%- if commands %}
 

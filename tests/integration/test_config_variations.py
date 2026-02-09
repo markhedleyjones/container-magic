@@ -24,6 +24,7 @@ CONFIG_FIXTURES = [
     "with_gpu_features.yaml",
     "with_cached_assets.yaml",
     "with_custom_stage.yaml",
+    "with_mounts.yaml",
 ]
 
 
@@ -462,6 +463,31 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
         ],
         capture_output=True,
     )
+
+
+def test_volumes_and_devices_appear_in_generated_files(fixtures_dir, temp_project):
+    """Test that runtime volumes and devices appear in Justfile and run.sh."""
+    fixture_path = fixtures_dir / "with_mounts.yaml"
+    config_path = temp_project / "cm.yaml"
+    shutil.copy(fixture_path, config_path)
+
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm update failed:\n{result.stderr}"
+
+    justfile = (temp_project / "Justfile").read_text()
+    assert '"-v" "/tmp/test-data:/data:ro"' in justfile
+    assert '"-v" "/var/log/app:/logs"' in justfile
+    assert '"--device" "/dev/ttyUSB0"' in justfile
+
+    run_sh = (temp_project / "run.sh").read_text()
+    assert '"-v" "/tmp/test-data:/data:ro"' in run_sh
+    assert '"-v" "/var/log/app:/logs"' in run_sh
+    assert '"--device" "/dev/ttyUSB0"' in run_sh
 
 
 def test_linter_availability():
