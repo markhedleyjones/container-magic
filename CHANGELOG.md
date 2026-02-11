@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.11.0 (2026-02-11)
+
+### Continuous Integration
+
+- Fix duplicate PyPI publish on release commits
+  ([`0227b07`](https://github.com/markhedleyjones/container-magic/commit/0227b07b3c23fa0d5650290e20423de8595d8187))
+
+### Documentation
+
+- Remove stale auto_update example, add AWS credentials to features list
+  ([`bdd61de`](https://github.com/markhedleyjones/container-magic/commit/bdd61de8536f7aa55fd3f4c13b8f2c451e6114a3))
+
+### Features
+
+- Explicit system package manager fields (apt, apk, dnf)
+  ([`86ad39b`](https://github.com/markhedleyjones/container-magic/commit/86ad39b53f4d7c72460d31dbeabca0fbab4bfff0))
+
+
 ## v1.10.0 (2026-02-11)
 
 ### Features
