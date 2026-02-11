@@ -1,0 +1,33 @@
+# Test config with additional volumes and devices
+project:
+  name: test-mounts
+  workspace: workspace
+
+user:
+  production:
+    name: appuser
+    uid: 1000
+    gid: 1000
+
+runtime:
+  backend: auto
+  features:
+    - display
+  volumes:
+    - /tmp/test-data:/data:ro
+    - /var/log/app:/logs
+  devices:
+    - /dev/ttyUSB0
+
+stages:
+  base:
+    from: python:3-slim
+    packages:
+      apt:
+        - curl
+
+  development:
+    from: base
+
+  production:
+    from: base

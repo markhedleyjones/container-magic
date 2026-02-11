@@ -1,5 +1,7 @@
 """Tests for configuration schema and validation."""
 
+import warnings
+
 import pytest
 from pydantic import ValidationError
 
@@ -51,6 +53,9 @@ def test_default_values():
     assert config.runtime.backend == "auto"
     assert config.runtime.privileged is False
     assert config.runtime.features == []
+    assert config.runtime.volumes == []
+    assert config.runtime.devices == []
+    assert config.runtime.network_mode is None
 
 
 def test_config_with_features():
@@ -65,9 +70,86 @@ def test_config_with_features():
         },
     )
 
-    assert "display" in config.runtime.features
-    assert "gpu" in config.runtime.features
-    assert "audio" in config.runtime.features
+    assert config.runtime.features == ["display", "gpu", "audio"]
+
+
+def test_config_with_volumes():
+    """Test configuration with volumes."""
+    config = ContainerMagicConfig(
+        project={"name": "test"},
+        runtime={"volumes": ["/tmp/data:/data:ro", "/var/log:/logs"]},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+    )
+
+    assert config.runtime.volumes == ["/tmp/data:/data:ro", "/var/log:/logs"]
+
+
+def test_config_with_devices():
+    """Test configuration with devices."""
+    config = ContainerMagicConfig(
+        project={"name": "test"},
+        runtime={"devices": ["/dev/ttyUSB0", "/dev/video0:/dev/video0:rw"]},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+    )
+
+    assert config.runtime.devices == ["/dev/ttyUSB0", "/dev/video0:/dev/video0:rw"]
+
+
+def test_invalid_volume_format():
+    """Test that invalid volume strings are rejected."""
+    with pytest.raises(ValidationError, match="Invalid volume format"):
+        ContainerMagicConfig(
+            project={"name": "test"},
+            runtime={"volumes": ["no-colon"]},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+
+def test_invalid_volume_empty_parts():
+    """Test that volume strings with empty host or container are rejected."""
+    with pytest.raises(ValidationError, match="Invalid volume format"):
+        ContainerMagicConfig(
+            project={"name": "test"},
+            runtime={"volumes": [":/container"]},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+
+def test_deprecated_network_migration():
+    """Test that runtime.network migrates to runtime.network_mode with warning."""
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        config = ContainerMagicConfig(
+            project={"name": "test"},
+            runtime={"network": "host"},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+    assert config.runtime.network_mode == "host"
+    assert config.runtime.network is None
+    deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+    assert len(deprecation_warnings) == 1
+    assert "network_mode" in str(deprecation_warnings[0].message)
 
 
 def test_config_with_packages():

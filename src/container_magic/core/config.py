@@ -1,6 +1,7 @@
 """Configuration schema and validation for container-magic."""
 
 import sys
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
@@ -133,13 +134,59 @@ class RuntimeConfig(BaseModel):
     privileged: bool = Field(
         default=False, description="Run containers in privileged mode"
     )
-    network: Optional[Literal["host", "bridge", "none"]] = Field(
+    network_mode: Optional[Literal["host", "bridge", "none"]] = Field(
         default=None,
         description="Container network mode (host, bridge, none)",
     )
     features: List[Literal["display", "gpu", "audio", "aws_credentials"]] = Field(
         default_factory=list, description="Features to enable in containers"
     )
+    volumes: List[str] = Field(
+        default_factory=list,
+        description="Additional bind mounts (host:container[:options])",
+    )
+    devices: List[str] = Field(
+        default_factory=list,
+        description="Host devices to pass through (host_path:container_path[:permissions])",
+    )
+    # Deprecated: use network_mode instead
+    network: Optional[Literal["host", "bridge", "none"]] = Field(default=None)
+
+    @field_validator("volumes")
+    @classmethod
+    def validate_volume_format(cls, v):
+        """Validate volume strings have at least host:container."""
+        for volume in v:
+            parts = volume.split(":")
+            if len(parts) < 2 or not parts[0] or not parts[1]:
+                raise ValueError(
+                    f"Invalid volume format '{volume}': must be host:container[:options]"
+                )
+        return v
+
+    @field_validator("devices")
+    @classmethod
+    def validate_device_format(cls, v):
+        """Validate device strings are non-empty."""
+        for device in v:
+            if not device.strip():
+                raise ValueError("Device path must not be empty")
+        return v
+
+    @model_validator(mode="after")
+    def migrate_deprecated_fields(self) -> "RuntimeConfig":
+        """Migrate deprecated runtime fields."""
+        if self.network is not None:
+            if self.network:
+                warnings.warn(
+                    "runtime.network is deprecated, use runtime.network_mode instead",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                if self.network_mode is None:
+                    self.network_mode = self.network
+            self.network = None
+        return self
 
 
 class PackagesConfig(BaseModel):
@@ -397,8 +444,20 @@ class ContainerMagicConfig(BaseModel):
                 "  # Run containers in privileged mode (for hardware access)\n  privileged:",
             ),
             (
+                "  network_mode:",
+                "  # Container network mode: host, bridge, or none\n  network_mode:",
+            ),
+            (
                 "  features:",
                 "  # Features to enable: display, gpu, audio, aws_credentials\n  features:",
+            ),
+            (
+                "  volumes:",
+                "  # Additional bind mounts (host:container[:options])\n  volumes:",
+            ),
+            (
+                "  devices:",
+                "  # Host devices to pass through (/dev/ttyUSB0, etc.)\n  devices:",
             ),
             ("stages:", "# Build stages - each stage builds on the previous\nstages:"),
             ("  base:", "  # Base stage - foundation for all other stages\n  base:"),

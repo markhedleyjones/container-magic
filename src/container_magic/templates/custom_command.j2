@@ -54,6 +54,20 @@
 
     # Mount workspace
     RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:{{ container_home }}/{{ workspace_name }}:z")
+    {% if volumes %}
+
+    # Additional bind mounts
+    {% for volume in volumes %}
+    RUN_ARGS+=("-v" "{{ volume }}")
+    {% endfor %}
+    {% endif %}
+    {% if devices %}
+
+    # Device passthrough
+    {% for device in devices %}
+    RUN_ARGS+=("--device" "{{ device }}")
+    {% endfor %}
+    {% endif %}
     {% if features.display %}
 
     # Display support (Wayland and X11)

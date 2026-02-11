@@ -65,6 +65,15 @@ def generate_standalone_command_scripts(
             # Escape dollar signs in command so they expand in the container
             command_escaped = command_spec.command.replace("$", r"\$")
 
+            # Build feature flags
+            runtime_features = config.runtime.features if config.runtime else []
+            features = {
+                "display": "display" in runtime_features,
+                "gpu": "gpu" in runtime_features,
+                "audio": "audio" in runtime_features,
+                "aws_credentials": "aws_credentials" in runtime_features,
+            }
+
             # Generate standalone script
             content = template.render(
                 command_name=command_name,
@@ -74,7 +83,10 @@ def generate_standalone_command_scripts(
                 shell=shell,
                 backend=backend,
                 privileged=config.runtime.privileged if config.runtime else False,
-                network=config.runtime.network if config.runtime else None,
+                network=config.runtime.network_mode if config.runtime else None,
+                features=features,
+                volumes=config.runtime.volumes if config.runtime else [],
+                devices=config.runtime.devices if config.runtime else [],
                 env=command_spec.env,
                 ports=command_spec.ports,
                 command=command_escaped,
