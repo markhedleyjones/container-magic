@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.10.0 (2026-02-11)
+
+### Features
+
+- Default auto_update to true and add DO NOT EDIT warnings
+  ([`2bfc015`](https://github.com/markhedleyjones/container-magic/commit/2bfc015ab1302fcbdd66c2f723976e38c39ebf51))
+
+
 ## v1.9.0 (2026-02-11)
 
 ### Continuous Integration
