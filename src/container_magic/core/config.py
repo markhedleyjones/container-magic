@@ -118,7 +118,7 @@ class ProjectConfig(BaseModel):
     name: str = Field(description="Project name")
     workspace: str = Field(default="workspace", description="Workspace directory name")
     auto_update: bool = Field(
-        default=False,
+        default=True,
         description="Automatically regenerate files when config changes",
     )
 
@@ -341,6 +341,11 @@ class ContainerMagicConfig(BaseModel):
             compact: If False, include helpful comments (default: True)
         """
         data = self.model_dump(exclude_none=True, by_alias=True)
+
+        # Remove auto_update from output when it matches the default (True)
+        # It's noise in the config — users only need it when opting out
+        if data.get("project", {}).get("auto_update") is True:
+            data["project"].pop("auto_update", None)
 
         # Custom YAML dumper that adds blank lines between top-level sections
         class BlankLineDumper(yaml.SafeDumper):
