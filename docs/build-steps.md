@@ -218,34 +218,103 @@ steps:
 
 ## Custom Dockerfile Commands
 
-Any string that doesn't match a built-in keyword is treated as a custom Dockerfile command.
+Any string that doesn't match a built-in keyword is treated as a custom Dockerfile command. Each custom step becomes one Dockerfile instruction and therefore one Docker layer.
+
+### Implicit RUN Wrapping
+
+If a step starts with an **uppercase Dockerfile instruction** (`RUN`, `ENV`, `COPY`, `WORKDIR`, `ADD`, `EXPOSE`, `LABEL`, `USER`, `VOLUME`), it passes through to the Dockerfile as-is. Otherwise, container-magic automatically wraps the step with `RUN`:
 
 ```yaml
-stages:
-  base:
-    from: ubuntu:24.04
-    packages:
-      apt:
-        - python3
-        - python3-pip
-    steps:
-      - install_system_packages
-      - install_pip_packages
-      - RUN pip install --break-system-packages requests
-      - ENV APP_MODE=production
-      - WORKDIR /app
-      - LABEL maintainer="you@example.com"
+steps:
+  # These pass through as-is (uppercase Dockerfile instruction)
+  - RUN pip install requests
+  - ENV APP_MODE=production
+  - WORKDIR /app
+  - LABEL maintainer="you@example.com"
+
+  # These are automatically wrapped with RUN
+  - pip install requests          # → RUN pip install requests
+  - apt-get update                # → RUN apt-get update
+  - echo "hello"                  # → RUN echo "hello"
 ```
 
-**Supported Dockerfile instructions:**
+This means you can write steps concisely — just write the command and container-magic adds the `RUN` for you.
 
-- `RUN` — Execute commands
-- `ENV` — Set environment variables
-- `WORKDIR` — Change working directory
-- `COPY` / `ADD` — Copy files (uppercase passes through as-is; use lowercase `copy` for automatic `--chown`)
-- `EXPOSE` — Expose ports
-- `LABEL` — Add metadata
-- Any other valid Dockerfile instruction
+### Multi-line Steps
+
+Use a YAML `|` block to combine multiple commands into a **single `RUN` instruction** (and therefore a single Docker layer). Lines are automatically joined with `&& \`:
+
+```yaml
+steps:
+  - install_system_packages
+  - |
+    mkdir -p /opt/my_project/src
+    cd /opt/my_project/src
+    git clone --depth 1 https://github.com/example/repo.git
+    cd repo
+    cmake -B build
+    cmake --build build
+    cmake --install build
+```
+
+**Generated Dockerfile:**
+
+```dockerfile
+RUN mkdir -p /opt/my_project/src && \
+    cd /opt/my_project/src && \
+    git clone --depth 1 https://github.com/example/repo.git && \
+    cd repo && \
+    cmake -B build && \
+    cmake --build build && \
+    cmake --install build
+```
+
+This is particularly useful when commands share shell state — `cd` changes, sourced environments, and shell variables all persist across lines because everything runs in a single shell invocation. No need for a `bash -c '...'` wrapper.
+
+**Example — building a ROS2 workspace:**
+
+```yaml
+steps:
+  - install_system_packages
+  - |
+    mkdir -p /opt/ros_ws/src
+    cd /opt/ros_ws/src
+    git clone --depth 1 https://github.com/example/ros_package.git
+    cd /opt/ros_ws
+    . /opt/ros/jazzy/setup.sh
+    colcon build
+```
+
+The `. /opt/ros/jazzy/setup.sh` (source) sets up the ROS environment, and `colcon build` on the next line can use it — because they're in the same `RUN`.
+
+### Single-line vs Multi-line: Docker Layer Caching
+
+Each step becomes one Docker layer. This gives you explicit control over caching:
+
+**Separate steps** — each gets its own layer with independent caching:
+
+```yaml
+steps:
+  - apt-get update                              # Layer 1
+  - apt-get install -y cuda-toolkit-12-6        # Layer 2 (cached if layer 1 unchanged)
+  - dpkg -i /tmp/some-package.deb               # Layer 3 (cached if layers 1-2 unchanged)
+```
+
+If only the third step changes, Docker reuses the cached layers for the first two. Good for iterating on later steps during development.
+
+**Combined step** — everything in one layer, rebuilt together:
+
+```yaml
+steps:
+  - |
+    apt-get update
+    apt-get install -y cuda-toolkit-12-6
+    dpkg -i /tmp/some-package.deb
+```
+
+If anything changes, the entire layer rebuilds. Good for related commands that should always run together (like cloning a repo and building it).
+
+**Rule of thumb:** combine commands that are logically one operation (clone + build, download + install). Keep unrelated operations as separate steps for better cache granularity.
 
 ### Variable Substitution
 
