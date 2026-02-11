@@ -155,7 +155,6 @@ stages:
 project:
   name: ml-training
   workspace: workspace
-  auto_update: true
 
 runtime:
   features:

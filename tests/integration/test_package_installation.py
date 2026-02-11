@@ -222,7 +222,7 @@ stages:
   base:
     from: alpine:latest
     packages:
-      apt: [curl]
+      apk: [curl]
   development:
     from: base
   production:

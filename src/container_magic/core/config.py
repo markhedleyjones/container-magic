@@ -194,7 +194,15 @@ class PackagesConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    apt: List[str] = Field(default_factory=list, description="APT packages to install")
+    apt: Optional[List[str]] = Field(
+        default=None, description="APT packages to install"
+    )
+    apk: Optional[List[str]] = Field(
+        default=None, description="APK packages to install"
+    )
+    dnf: Optional[List[str]] = Field(
+        default=None, description="DNF packages to install"
+    )
     pip: List[str] = Field(
         default_factory=list, description="Python pip packages to install"
     )
@@ -347,6 +355,18 @@ class ContainerMagicConfig(BaseModel):
         if data.get("project", {}).get("auto_update") is True:
             data["project"].pop("auto_update", None)
 
+        # Strip empty system package lists only when a populated one exists,
+        # so configs with e.g. apt: [curl] don't also show apk: [] and dnf: [].
+        # When all are empty (e.g. scaffolds), keep them to hint which field to use.
+        for stage_data in data.get("stages", {}).values():
+            packages = stage_data.get("packages", {})
+            sys_pkg_fields = ("apt", "apk", "dnf")
+            has_populated = any(packages.get(f) for f in sys_pkg_fields)
+            if has_populated:
+                for pkg_mgr in sys_pkg_fields:
+                    if pkg_mgr in packages and packages[pkg_mgr] == []:
+                        del packages[pkg_mgr]
+
         # Custom YAML dumper that adds blank lines between top-level sections
         class BlankLineDumper(yaml.SafeDumper):
             def increase_indent(self, flow=False, indentless=False):
@@ -473,7 +493,15 @@ class ContainerMagicConfig(BaseModel):
             ("    packages:", "    # Packages to install\n    packages:"),
             (
                 "      apt:",
-                "      # System packages (apt/apk/dnf depending on base image)\n      apt:",
+                "      # System packages (apt-get install)\n      apt:",
+            ),
+            (
+                "      apk:",
+                "      # System packages (apk add)\n      apk:",
+            ),
+            (
+                "      dnf:",
+                "      # System packages (dnf install)\n      dnf:",
             ),
             ("      pip:", "      # Python packages\n      pip:"),
             ("    env:", "    # Environment variables\n    env:"),
