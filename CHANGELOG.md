@@ -2,6 +2,37 @@
 
 <!-- version list -->
 
+## v1.9.0 (2026-02-11)
+
+### Continuous Integration
+
+- Add GitHub Pages deployment for docs
+  ([#15](https://github.com/markhedleyjones/container-magic/pull/15),
+  [`3c0b858`](https://github.com/markhedleyjones/container-magic/commit/3c0b858a5de3d90621f94a5c90469b0ff63ad259))
+
+- Skip PyPI publish when no release is created
+  ([#14](https://github.com/markhedleyjones/container-magic/pull/14),
+  [`29b2a41`](https://github.com/markhedleyjones/container-magic/commit/29b2a412b4984d0cfa90ff1cbf7a358fd83283a5))
+
+### Documentation
+
+- Add MkDocs Material documentation site
+  ([#13](https://github.com/markhedleyjones/container-magic/pull/13),
+  [`c6031c7`](https://github.com/markhedleyjones/container-magic/commit/c6031c79c8c8e6541e1958ed24e50eda7709fcb3))
+
+- Fix incorrect config paths and wrong troubleshooting info in README
+  ([#12](https://github.com/markhedleyjones/container-magic/pull/12),
+  [`153128c`](https://github.com/markhedleyjones/container-magic/commit/153128ca9560117538d0800cf3fbf14915eabbb4))
+
+### Features
+
+- Add runtime.volumes and runtime.devices, rename network to network_mode
+  ([`d9b8a0c`](https://github.com/markhedleyjones/container-magic/commit/d9b8a0c30917ee381960b728adf8dbcc30668c87))
+
+- Wire features, volumes, and devices into run.sh and standalone scripts
+  ([`8512c02`](https://github.com/markhedleyjones/container-magic/commit/8512c02f5a3ee4268b4c2bb721431e527de52fd7))
+
+
 ## v1.8.0 (2026-02-08)
 
 ### Features
