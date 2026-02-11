@@ -41,7 +41,8 @@ jobs:
 
   release:
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore(release)')
+
     runs-on: ubuntu-latest
     concurrency: release
     permissions:
@@ -79,7 +80,6 @@ jobs:
           if semantic-release version; then
             if git diff --name-only HEAD~1 HEAD | grep -q pyproject.toml; then
               echo "released=true" >> "$GITHUB_OUTPUT"
-              semantic-release publish
             else
               echo "released=false" >> "$GITHUB_OUTPUT"
             fi
