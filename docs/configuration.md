@@ -8,8 +8,9 @@ Container-magic is configured through a single YAML file (`cm.yaml` or `containe
 project:
   name: my-project      # Required: image name
   workspace: workspace  # Required: directory with your code
-  auto_update: true     # Optional: auto-regenerate on config changes
 ```
+
+Generated files are automatically regenerated when your config changes. To disable this, set `auto_update: false`.
 
 ## Runtime
 
@@ -17,10 +18,17 @@ project:
 runtime:
   backend: auto      # docker, podman, or auto
   privileged: false  # privileged mode
+  network_mode: host # host, bridge, or none (optional)
   features:
-    - gpu            # NVIDIA GPU
-    - display        # X11/Wayland
-    - audio          # PulseAudio/PipeWire
+    - gpu              # NVIDIA GPU
+    - display          # X11/Wayland
+    - audio            # PulseAudio/PipeWire
+    - aws_credentials  # AWS credential forwarding
+  volumes:
+    - /host/path:/container/path        # bind mount
+    - /host/path:/container/path:ro     # read-only bind mount
+  devices:
+    - /dev/video0:/dev/video0           # device passthrough
 ```
 
 ## User
@@ -67,6 +75,20 @@ stages:
   production:
     from: base
 ```
+
+The package field name determines which package manager is used: `apt` → `apt-get install`, `apk` → `apk add`, `dnf` → `dnf install`. Use the field that matches your base image:
+
+```yaml
+# Alpine
+packages:
+  apk: [curl, git]
+
+# Fedora / CentOS
+packages:
+  dnf: [curl, git]
+```
+
+`cm init` scaffolds the correct field automatically based on the base image you specify.
 
 !!! tip "Inline lists"
     Package lists can also be written inline for brevity: `pip: [pytest, black, mypy]`. Both styles are valid YAML — use whichever is clearer for the length of your list.

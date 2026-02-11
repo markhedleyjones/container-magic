@@ -305,7 +305,9 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
             {
                 "name": stage_name,
                 "from": base_image,
-                "apt_packages": stage_config.packages.apt,
+                "apt_packages": stage_config.packages.apt or [],
+                "apk_packages": stage_config.packages.apk or [],
+                "dnf_packages": stage_config.packages.dnf or [],
                 "pip_packages": stage_config.packages.pip,
                 "env_vars": stage_config.env,
                 "cached_assets": cached_assets_data,

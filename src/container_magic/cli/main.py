@@ -18,6 +18,7 @@ from container_magic.generators.run_script import generate_run_script
 from container_magic.generators.standalone_commands import (
     generate_standalone_command_scripts,
 )
+from container_magic.core.templates import detect_package_manager
 
 
 def update_gitignore(path: Path):
@@ -193,6 +194,11 @@ def init(
     # Create default config with base, development, and production stages
     # If no tag specified, append :latest
     base_image = f"{template}:latest" if ":" not in template else template
+
+    # Scaffold the correct package manager field based on the base image
+    pkg_mgr = detect_package_manager(base_image)
+    packages = {pkg_mgr: [], "pip": []}
+
     config = ContainerMagicConfig(
         project={
             "name": name,
@@ -203,7 +209,11 @@ def init(
             "production": {"name": "user"},
         },
         stages={
-            "base": {"from": base_image, "steps": ["create_user"]},
+            "base": {
+                "from": base_image,
+                "packages": packages,
+                "steps": ["create_user"],
+            },
             "development": {"from": "base", "steps": ["become_user"]},
             "production": {"from": "base"},
         },

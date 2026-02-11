@@ -6,9 +6,9 @@ The `steps` field in each stage defines how the image is constructed. Container-
 
 ### 1. `install_system_packages`
 
-Installs system packages using the distribution's package manager (APT, APK, or DNF).
+Installs system packages. Each field maps directly to its package manager — `packages.apt` runs `apt-get install`, `packages.apk` runs `apk add`, `packages.dnf` runs `dnf install`. Use the field that matches your base image.
 
-**Requires:** `packages.apt`, `packages.apk`, or `packages.dnf` defined
+**Requires:** At least one of `packages.apt`, `packages.apk`, or `packages.dnf` defined
 
 ```yaml
 stages:
@@ -23,7 +23,37 @@ stages:
       - install_system_packages
 ```
 
-**Generated Dockerfile:** Runs `apt-get update && apt-get install` (with cleanup)
+For Alpine images, use `apk:` instead of `apt:`:
+
+```yaml
+stages:
+  base:
+    from: alpine:latest
+    packages:
+      apk:
+        - curl
+        - git
+    steps:
+      - install_system_packages
+```
+
+For Fedora/CentOS images, use `dnf:`:
+
+```yaml
+stages:
+  base:
+    from: fedora:latest
+    packages:
+      dnf:
+        - curl
+        - git
+    steps:
+      - install_system_packages
+```
+
+Each populated field generates its own install command independently. `cm init` scaffolds the correct field based on the base image.
+
+**Generated Dockerfile:** Runs the install command for each populated field (e.g., `apt-get update && apt-get install` with cleanup)
 
 ---
 

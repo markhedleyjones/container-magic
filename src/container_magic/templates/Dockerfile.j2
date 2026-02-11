@@ -36,23 +36,25 @@ ENV {{ key }}={{ value }}
 {% endif %}
 {% for step in stage.ordered_steps %}
 {% if step.type == "system_packages" %}
-# Install system packages
 {% if stage.apt_packages %}
-{% if stage.package_manager == "apt" %}
+# Install system packages (apt)
 RUN apt-get update && \
     apt-get install --yes --no-install-recommends{% for package in stage.apt_packages %} \
         {{ package }}{% endfor %} && \
     rm -rf /var/lib/apt/lists/*
-{% elif stage.package_manager == "apk" %}
-RUN apk add --no-cache{% for package in stage.apt_packages %} \
+{% endif %}
+{% if stage.apk_packages %}
+# Install system packages (apk)
+RUN apk add --no-cache{% for package in stage.apk_packages %} \
         {{ package }}{% endfor %}
 
-{% elif stage.package_manager == "dnf" %}
-RUN dnf install -y{% for package in stage.apt_packages %} \
+{% endif %}
+{% if stage.dnf_packages %}
+# Install system packages (dnf)
+RUN dnf install -y{% for package in stage.dnf_packages %} \
         {{ package }}{% endfor %} && \
     dnf clean all
 
-{% endif %}
 {% endif %}
 {% elif step.type == "pip_packages" %}
 # Install Python pip packages
