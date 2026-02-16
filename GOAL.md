@@ -85,7 +85,7 @@ Consolidate user management into a single, consistent approach that works everyw
    - **If exact match** (same name + uid + gid): skip creation
    - **If UID taken by different user**: rename existing user to configured name
      - Debian: `usermod -l newname oldname`
-     - Alpine: `deluser oldname && adduser -u uid -G gid newname`
+     - Alpine: `deluser oldname && adduser -u uid -G name newname`
    - **If neither**: create new user with specified values
    - Build args used throughout base stage and inherited by all derived stages
 
@@ -198,7 +198,7 @@ Consolidate user management into a single, consistent approach that works everyw
 2. **User Renaming in Dockerfile** (most complex):
    - Before creating user, detect if uid/gid already exist
    - Debian/Ubuntu: `usermod -l newname oldname`
-   - Alpine: `deluser oldname && adduser -u {uid} -G {gid} newname`
+   - Alpine: `deluser oldname && adduser -u {uid} -G {name} newname`
    - Skip creation if exact match (name + uid + gid already exists)
 
 3. **Validation Rules Implemented**:

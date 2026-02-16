@@ -1001,6 +1001,42 @@ def test_copy_as_root_never_adds_chown():
             pytest.fail("COPY config/sys.conf not found in Dockerfile")
 
 
+def test_alpine_child_stage_uses_adduser():
+    """Child stage inheriting from Alpine base should use adduser -D, not useradd, and -G with group name."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "base": {
+                "from": "alpine:3.19",
+                "steps": ["create_user"],
+            },
+            "development": {
+                "from": "base",
+                "steps": ["become_user"],
+            },
+            "production": {
+                "from": "base",
+                "steps": ["become_user"],
+            },
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+
+        # Should use Alpine-style adduser, not useradd
+        assert "adduser -D" in content
+        assert "useradd" not in content
+
+        # BusyBox adduser -G takes a group name, not a numeric GID
+        assert "-G ${USER_NAME}" in content
+        assert "-G ${USER_GID}" not in content
+
+
 def test_copy_variants_mixed():
     """All copy variants should work together correctly."""
     config_dict = {

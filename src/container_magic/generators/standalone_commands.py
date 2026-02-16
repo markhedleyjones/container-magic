@@ -6,7 +6,7 @@ from typing import List
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.config import ContainerMagicConfig
-from container_magic.core.templates import detect_shell
+from container_magic.core.templates import detect_shell, resolve_base_image
 from container_magic.generators.dockerfile import get_user_config
 
 
@@ -44,7 +44,9 @@ def generate_standalone_command_scripts(
     if not base_stage:
         raise ValueError("No base stage defined in configuration")
 
-    shell = base_stage.shell or detect_shell(base_stage.frm)
+    shell = base_stage.shell or detect_shell(
+        resolve_base_image(base_stage.frm, config.stages)
+    )
 
     # Determine backend
     backend = config.runtime.backend if config.runtime else "auto"

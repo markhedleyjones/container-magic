@@ -59,7 +59,7 @@ All updated from old `project.production_user` to new top-level `user.production
    - Check if uid/gid exist in base image
    - Rename if needed (ubuntu→ros use case)
    - Debian: `usermod -l newname oldname`
-   - Alpine: `deluser oldname && adduser -u uid -G gid newname`
+   - Alpine: `deluser oldname && adduser -u uid -G name newname`
    - Skip creation if exact match
 
 2. `Justfile.j2`, `build.sh.j2`, `run.sh.j2` - Conditional user args

@@ -7,7 +7,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.core.runtime import get_runtime
-from container_magic.core.templates import detect_shell
+from container_magic.core.templates import detect_shell, resolve_base_image
 from container_magic.generators.dockerfile import get_user_config
 
 
@@ -50,7 +50,9 @@ def generate_justfile(
     dev_stage_config = config.stages[dev_stage]
 
     # Auto-detect shell if not specified in stage
-    shell = dev_stage_config.shell or detect_shell(dev_stage_config.frm)
+    shell = dev_stage_config.shell or detect_shell(
+        resolve_base_image(dev_stage_config.frm, config.stages)
+    )
 
     # Build feature flags for run command
     features = {
