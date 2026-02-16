@@ -16,6 +16,7 @@ from container_magic.core.templates import (
     detect_package_manager,
     detect_shell,
     detect_user_creation_style,
+    resolve_base_image,
 )
 
 
@@ -277,11 +278,12 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
         # Auto-detect package manager and shell if not specified
         # For non-base stages, try to detect from their base image
         base_image = stage_config.frm
+        resolved_image = resolve_base_image(base_image, stages)
         package_manager = stage_config.package_manager or detect_package_manager(
-            base_image
+            resolved_image
         )
-        shell = stage_config.shell or detect_shell(base_image)
-        user_creation_style = detect_user_creation_style(base_image)
+        shell = stage_config.shell or detect_shell(resolved_image)
+        user_creation_style = detect_user_creation_style(resolved_image)
 
         # Process build steps
         has_explicit_user = user_cfg is not None

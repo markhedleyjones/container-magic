@@ -6,6 +6,7 @@ from pathlib import Path
 from jinja2 import Environment, PackageLoader
 
 from container_magic.core.config import ContainerMagicConfig
+from container_magic.core.templates import detect_shell, resolve_base_image
 from container_magic.generators.dockerfile import get_user_config
 
 
@@ -39,7 +40,9 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     # Determine shell from production or base stage
     prod_stage = "production" if "production" in config.stages else "base"
     stage_config = config.stages[prod_stage]
-    shell = stage_config.shell or "bash"
+    shell = stage_config.shell or detect_shell(
+        resolve_base_image(stage_config.frm, config.stages)
+    )
 
     # Escape dollar signs in command strings so they expand in the container
     commands_escaped = {}

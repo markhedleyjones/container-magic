@@ -78,13 +78,13 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
                 echo "Renaming user ${EXISTING_USER} to ${USER_NAME}"; \
                 deluser "${EXISTING_USER}"; \
                 addgroup -g ${USER_GID} ${USER_NAME} 2>/dev/null || true; \
-                adduser -D -u ${USER_UID} -G ${USER_GID} -h ${USER_HOME} ${USER_NAME}; \
+                adduser -D -u ${USER_UID} -G ${USER_NAME} -h ${USER_HOME} ${USER_NAME}; \
             else \
                 # Create new user
                 if ! getent group ${USER_GID} >/dev/null 2>&1; then \
                     addgroup -g ${USER_GID} ${USER_NAME}; \
                 fi && \
-                adduser -D -u ${USER_UID} -G ${USER_GID} -h ${USER_HOME} ${USER_NAME}; \
+                adduser -D -u ${USER_UID} -G ${USER_NAME} -h ${USER_HOME} ${USER_NAME}; \
             fi \
         fi && \
         # Ensure home directory ownership (may have been created by WORKDIR)
