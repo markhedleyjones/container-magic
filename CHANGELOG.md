@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.11.1 (2026-02-16)
+
+### Bug Fixes
+
+- Resolve base image chain for detection, fix Alpine adduser -G
+  ([`966a810`](https://github.com/markhedleyjones/container-magic/commit/966a810f98c10fc45f7c8475ceedb76e428bb301))
+
+### Testing
+
+- Add build tests for Alpine, Debian, and Fedora base images
+  ([`d3ee018`](https://github.com/markhedleyjones/container-magic/commit/d3ee018aca092d2600ab8408566c64b7c2f7ec80))
+
+
 ## v1.11.0 (2026-02-11)
 
 ### Continuous Integration
