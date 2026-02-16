@@ -32,12 +32,36 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/ -v --tb=short
+          pytest tests/ -v --tb=short -m "not slow"
 
       - name: Check code formatting
         if: matrix.python-version == '3.12'
         run: |
           ruff check src/ tests/
+
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Install just
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
+      - name: Run build tests
+        run: |
+          pytest tests/integration/test_build_images.py -v --tb=short
 
   release:
     needs: test
