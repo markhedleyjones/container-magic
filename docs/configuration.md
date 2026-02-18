@@ -19,6 +19,7 @@ runtime:
   backend: auto      # docker, podman, or auto
   privileged: false  # privileged mode
   network_mode: host # host, bridge, or none (optional)
+  ipc: shareable     # IPC namespace mode (optional)
   features:
     - gpu              # NVIDIA GPU
     - display          # X11/Wayland
@@ -30,6 +31,29 @@ runtime:
   devices:
     - /dev/video0:/dev/video0           # device passthrough
 ```
+
+### IPC Namespace
+
+The `ipc` field sets the IPC namespace mode for containers (`--ipc` flag). Common values:
+
+- `shareable` — allow other containers to share this container's IPC namespace
+- `container:<name>` — join another container's IPC namespace
+- `host` — use the host's IPC namespace
+- `private` — container's own private IPC namespace (default)
+
+Per-command overrides are supported via the `ipc` field on individual commands.
+
+### Detached Mode
+
+Containers can be started in the background:
+
+- **Justfile:** `just run --detach <command>` or `just run -d <command>`
+- **run.sh:** `./run.sh --detach <command>` or `./run.sh -d <command>`
+
+To stop a detached container:
+
+- **Justfile:** `just stop`
+- **run.sh:** `./run.sh --stop`
 
 ## User
 
