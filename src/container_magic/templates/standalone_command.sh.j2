@@ -76,6 +76,7 @@ RUN_ARGS+=("--device" "{{ device }}")
 {% if features.display %}
 
 # Display support (Wayland and X11)
+XHOST_CLEANUP=false
 if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
 	wayland_socket="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
 	RUN_ARGS+=("-e" "WAYLAND_DISPLAY")
@@ -84,16 +85,37 @@ if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
 fi
 if [[ -n "${DISPLAY:-}" ]]; then
 	xsock=/tmp/.X11-unix
+{% if backend == "auto" -%}
+	if [[ "${RUNTIME}" == "podman" ]]; then
+		xauth=/tmp/.docker.xauth
+		touch "$xauth"
+		if [[ -f "$HOME/.Xauthority" ]]; then
+			xauth nlist "${DISPLAY}" | sed -e 's/^..../ffff/' | xauth -f "${xauth}" nmerge -
+		fi
+		RUN_ARGS+=("-e" "XAUTHORITY=${xauth}")
+		RUN_ARGS+=("-v" "${xauth}:${xauth}")
+	else
+		xhost +local: >/dev/null 2>&1
+		XHOST_CLEANUP=true
+	fi
+{% elif backend == "podman" -%}
 	xauth=/tmp/.docker.xauth
 	touch "$xauth"
 	if [[ -f "$HOME/.Xauthority" ]]; then
 		xauth nlist "${DISPLAY}" | sed -e 's/^..../ffff/' | xauth -f "${xauth}" nmerge -
 	fi
-	RUN_ARGS+=("-e" "DISPLAY")
 	RUN_ARGS+=("-e" "XAUTHORITY=${xauth}")
 	RUN_ARGS+=("-v" "${xauth}:${xauth}")
+{% else -%}
+	xhost +local: >/dev/null 2>&1
+	XHOST_CLEANUP=true
+{% endif -%}
+	RUN_ARGS+=("-e" "DISPLAY")
 	RUN_ARGS+=("-v" "${xsock}:${xsock}")
 	RUN_ARGS+=("--env" "QT_X11_NO_MITSHM=1")
+fi
+if [[ "${XHOST_CLEANUP}" == true ]]; then
+	trap 'xhost -local: >/dev/null 2>&1' EXIT
 fi
 {% endif -%}
 {% if features.gpu %}

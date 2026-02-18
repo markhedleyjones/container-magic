@@ -32,6 +32,28 @@ if ! ${RUNTIME} image inspect "${IMAGE_NAME}:${TAG}" &>/dev/null; then
 	exit 1
 fi
 
+# Handle --stop (stop named container and exit)
+if [[ "${1:-}" == "--stop" ]]; then
+	${RUNTIME} stop "${IMAGE_NAME}" 2>/dev/null || true
+{%- if features.display %}
+{%- if backend == "auto" %}
+	if [[ "${RUNTIME}" != "podman" ]]; then
+		xhost -local: >/dev/null 2>&1 || true
+	fi
+{%- elif backend != "podman" %}
+	xhost -local: >/dev/null 2>&1 || true
+{%- endif %}
+{%- endif %}
+	exit 0
+fi
+
+# Parse --detach/-d flag (first argument only)
+DETACH=false
+if [[ "${1:-}" == "--detach" ]] || [[ "${1:-}" == "-d" ]]; then
+	DETACH=true
+	shift
+fi
+
 # Build base run arguments (common to all commands)
 BASE_RUN_ARGS=("--rm")
 BASE_RUN_ARGS+=("--hostname" "${IMAGE_NAME}")
@@ -66,6 +88,7 @@ BASE_RUN_ARGS+=("--device" "{{ device }}")
 {%- if features.display %}
 
 # Display support (Wayland and X11)
+XHOST_CLEANUP=false
 if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
 	wayland_socket="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
 	BASE_RUN_ARGS+=("-e" "WAYLAND_DISPLAY")
@@ -74,16 +97,37 @@ if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
 fi
 if [[ -n "${DISPLAY:-}" ]]; then
 	xsock=/tmp/.X11-unix
+{%- if backend == "auto" %}
+	if [[ "${RUNTIME}" == "podman" ]]; then
+		xauth=/tmp/.docker.xauth
+		touch "$xauth"
+		if [[ -f "$HOME/.Xauthority" ]]; then
+			xauth nlist "${DISPLAY}" | sed -e 's/^..../ffff/' | xauth -f "${xauth}" nmerge -
+		fi
+		BASE_RUN_ARGS+=("-e" "XAUTHORITY=${xauth}")
+		BASE_RUN_ARGS+=("-v" "${xauth}:${xauth}")
+	else
+		xhost +local: >/dev/null 2>&1
+		XHOST_CLEANUP=true
+	fi
+{%- elif backend == "podman" %}
 	xauth=/tmp/.docker.xauth
 	touch "$xauth"
 	if [[ -f "$HOME/.Xauthority" ]]; then
 		xauth nlist "${DISPLAY}" | sed -e 's/^..../ffff/' | xauth -f "${xauth}" nmerge -
 	fi
-	BASE_RUN_ARGS+=("-e" "DISPLAY")
 	BASE_RUN_ARGS+=("-e" "XAUTHORITY=${xauth}")
 	BASE_RUN_ARGS+=("-v" "${xauth}:${xauth}")
+{%- else %}
+	xhost +local: >/dev/null 2>&1
+	XHOST_CLEANUP=true
+{%- endif %}
+	BASE_RUN_ARGS+=("-e" "DISPLAY")
 	BASE_RUN_ARGS+=("-v" "${xsock}:${xsock}")
 	BASE_RUN_ARGS+=("--env" "QT_X11_NO_MITSHM=1")
+fi
+if [[ "${XHOST_CLEANUP}" == true ]] && [[ "${DETACH}" != true ]]; then
+	trap 'xhost -local: >/dev/null 2>&1' EXIT
 fi
 {%- endif %}
 {%- if features.gpu %}
@@ -172,20 +216,35 @@ fi
 # Use base run arguments
 RUN_ARGS=("${BASE_RUN_ARGS[@]}")
 
-# Run command or shell
-if [ $# -gt 0 ]; then
-	# Run specific command (no TTY flags)
-	${RUNTIME} run "${RUN_ARGS[@]}" \
-		-w "${WORKDIR}/${WORKSPACE_NAME}" \
-		"${IMAGE_NAME}:${TAG}" \
-		"${SHELL}" -c "$*"
-else
-	# Interactive shell (add TTY flags only if stdin is a TTY)
-	if [[ -t 0 ]]; then
-		RUN_ARGS+=("--interactive" "--tty")
+if [[ "${DETACH}" == true ]]; then
+	RUN_ARGS+=("--detach")
+	if [ $# -gt 0 ]; then
+		${RUNTIME} run "${RUN_ARGS[@]}" \
+			-w "${WORKDIR}/${WORKSPACE_NAME}" \
+			"${IMAGE_NAME}:${TAG}" \
+			"${SHELL}" -c "$*"
+	else
+		${RUNTIME} run "${RUN_ARGS[@]}" \
+			-w "${WORKDIR}/${WORKSPACE_NAME}" \
+			"${IMAGE_NAME}:${TAG}" \
+			"${SHELL}"
 	fi
-	${RUNTIME} run "${RUN_ARGS[@]}" \
-		-w "${WORKDIR}/${WORKSPACE_NAME}" \
-		"${IMAGE_NAME}:${TAG}" \
-		"${SHELL}"
+else
+	# Run command or shell
+	if [ $# -gt 0 ]; then
+		# Run specific command (no TTY flags)
+		${RUNTIME} run "${RUN_ARGS[@]}" \
+			-w "${WORKDIR}/${WORKSPACE_NAME}" \
+			"${IMAGE_NAME}:${TAG}" \
+			"${SHELL}" -c "$*"
+	else
+		# Interactive shell (add TTY flags only if stdin is a TTY)
+		if [[ -t 0 ]]; then
+			RUN_ARGS+=("--interactive" "--tty")
+		fi
+		${RUNTIME} run "${RUN_ARGS[@]}" \
+			-w "${WORKDIR}/${WORKSPACE_NAME}" \
+			"${IMAGE_NAME}:${TAG}" \
+			"${SHELL}"
+	fi
 fi
