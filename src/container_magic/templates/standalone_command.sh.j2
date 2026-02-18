@@ -10,6 +10,7 @@
 set -euo pipefail
 
 IMAGE_NAME="{{ project_name }}"
+CONTAINER_NAME="{{ project_name }}-{{ command_name }}"
 TAG="latest"
 WORKDIR="{{ workdir }}"
 SHELL="{{ shell }}"
@@ -32,6 +33,7 @@ RUNTIME="{{ backend }}"
 RUN_ARGS=(
 	"--rm"
 	"--hostname" "${IMAGE_NAME}"
+	"--name" "${CONTAINER_NAME}"
 {% if privileged -%}
 	"--privileged"
 {% endif -%}
@@ -39,7 +41,17 @@ RUN_ARGS=(
 	"--net" "{{ network }}"
 {% endif -%}
 )
+{% if backend == "auto" %}
 
+# Replace existing container with same name (podman)
+if [[ "${RUNTIME}" == "podman" ]]; then
+	RUN_ARGS+=("--replace")
+fi
+{% elif backend == "podman" %}
+
+# Replace existing container with same name
+RUN_ARGS+=("--replace")
+{% endif %}
 # Add TTY flags if stdin is a terminal
 if [[ -t 0 ]]; then
 	RUN_ARGS+=("--interactive" "--tty")

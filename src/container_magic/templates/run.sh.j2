@@ -35,6 +35,14 @@ fi
 # Build base run arguments (common to all commands)
 BASE_RUN_ARGS=("--rm")
 BASE_RUN_ARGS+=("--hostname" "${IMAGE_NAME}")
+BASE_RUN_ARGS+=("--name" "${IMAGE_NAME}")
+{%- if backend == "auto" %}
+if [[ "${RUNTIME}" == "podman" ]]; then
+	BASE_RUN_ARGS+=("--replace")
+fi
+{%- elif backend == "podman" %}
+BASE_RUN_ARGS+=("--replace")
+{%- endif %}
 {%- if privileged %}
 BASE_RUN_ARGS+=("--privileged")
 {%- endif %}

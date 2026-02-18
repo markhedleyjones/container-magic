@@ -33,7 +33,7 @@
     {% endfor %}
     {% endif %}
     # Container configuration
-    CONTAINER_NAME="{{ image_name }}-development"
+    CONTAINER_NAME="{{ image_name }}-{{ command_name }}"
     IMAGE="{{ image_name }}:{{ image_tag }}"
 
     # Build container arguments
