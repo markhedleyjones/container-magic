@@ -93,6 +93,8 @@ def generate_standalone_command_scripts(
                 ports=command_spec.ports,
                 command=command_escaped,
                 workspace_name=config.project.workspace,
+                ipc=command_spec.ipc
+                or (config.runtime.ipc if config.runtime else None),
             )
 
             script_path.write_text(content)

@@ -122,6 +122,7 @@ def generate_justfile(
         dev_user_uid=dev_user_uid,
         dev_user_gid=dev_user_gid,
         dev_user_home=dev_user_home,
+        ipc=config.runtime.ipc if config.runtime else None,
     )
 
     # Generate custom commands if defined
@@ -158,6 +159,8 @@ def generate_justfile(
                 features=features,
                 volumes=config.runtime.volumes,
                 devices=config.runtime.devices,
+                ipc=command_spec.ipc
+                or (config.runtime.ipc if config.runtime else None),
             )
 
     with open(output_path, "w") as f:

@@ -34,6 +34,9 @@ RUN_ARGS=(
 	"--rm"
 	"--hostname" "${IMAGE_NAME}"
 	"--name" "${CONTAINER_NAME}"
+{% if ipc -%}
+	"--ipc" "{{ ipc }}"
+{% endif -%}
 {% if privileged -%}
 	"--privileged"
 {% endif -%}

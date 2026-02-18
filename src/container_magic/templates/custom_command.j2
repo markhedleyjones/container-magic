@@ -41,6 +41,9 @@
     RUN_ARGS+=("{{ runtime }}" "run")
     RUN_ARGS+=("--name" "${CONTAINER_NAME}")
     RUN_ARGS+=("--rm")
+    {% if ipc %}
+    RUN_ARGS+=("--ipc" "{{ ipc }}")
+    {% endif %}
     {% if network %}
     RUN_ARGS+=("--net" "{{ network }}")
     {% endif %}

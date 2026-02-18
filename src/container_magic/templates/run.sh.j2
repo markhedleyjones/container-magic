@@ -65,6 +65,9 @@ fi
 {%- elif backend == "podman" %}
 BASE_RUN_ARGS+=("--replace")
 {%- endif %}
+{%- if ipc %}
+BASE_RUN_ARGS+=("--ipc" "{{ ipc }}")
+{%- endif %}
 {%- if privileged %}
 BASE_RUN_ARGS+=("--privileged")
 {%- endif %}
