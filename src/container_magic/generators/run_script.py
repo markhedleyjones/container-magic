@@ -73,6 +73,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         volumes=config.runtime.volumes if config.runtime else [],
         devices=config.runtime.devices if config.runtime else [],
         commands=commands_escaped,
+        ipc=config.runtime.ipc if config.runtime else None,
     )
 
     run_script = project_dir / "run.sh"

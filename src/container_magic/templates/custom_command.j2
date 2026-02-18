@@ -33,7 +33,7 @@
     {% endfor %}
     {% endif %}
     # Container configuration
-    CONTAINER_NAME="{{ image_name }}-development"
+    CONTAINER_NAME="{{ image_name }}-{{ command_name }}"
     IMAGE="{{ image_name }}:{{ image_tag }}"
 
     # Build container arguments
@@ -41,6 +41,9 @@
     RUN_ARGS+=("{{ runtime }}" "run")
     RUN_ARGS+=("--name" "${CONTAINER_NAME}")
     RUN_ARGS+=("--rm")
+    {% if ipc %}
+    RUN_ARGS+=("--ipc" "{{ ipc }}")
+    {% endif %}
     {% if network %}
     RUN_ARGS+=("--net" "{{ network }}")
     {% endif %}
@@ -74,6 +77,7 @@
     {% if runtime == "podman" %}
     RUN_ARGS+=("--security-opt=label=disable")
     {% endif %}
+    XHOST_CLEANUP=false
     if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
         wayland_socket="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
         RUN_ARGS+=("-e" "WAYLAND_DISPLAY")
@@ -82,16 +86,24 @@
     fi
     if [[ -n "${DISPLAY:-}" ]]; then
         xsock=/tmp/.X11-unix
+    {% if runtime == "podman" %}
         xauth=/tmp/.docker.xauth
-        touch $xauth
+        touch "$xauth"
         if [[ -f "$HOME/.Xauthority" ]]; then
             xauth nlist "${DISPLAY}" | sed -e 's/^..../ffff/' | xauth -f "${xauth}" nmerge -
         fi
-        RUN_ARGS+=("-e" "DISPLAY")
         RUN_ARGS+=("-e" "XAUTHORITY=${xauth}")
         RUN_ARGS+=("-v" "${xauth}:${xauth}")
+    {% else %}
+        xhost +local: >/dev/null 2>&1
+        XHOST_CLEANUP=true
+    {% endif %}
+        RUN_ARGS+=("-e" "DISPLAY")
         RUN_ARGS+=("-v" "${xsock}:${xsock}")
         RUN_ARGS+=("--env" "QT_X11_NO_MITSHM=1")
+    fi
+    if [[ "${XHOST_CLEANUP}" == true ]]; then
+        trap 'xhost -local: >/dev/null 2>&1' EXIT
     fi
     {% endif %}
     {% if features.gpu %}

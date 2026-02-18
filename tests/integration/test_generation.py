@@ -226,13 +226,15 @@ def test_justfile_run_command_order(test_output_dir):
     image_pattern = 'RUN_ARGS+=("${IMAGE}")'
     tty_pattern = 'RUN_ARGS+=("--interactive"'
 
-    image_pos = justfile_content.find(image_pattern)
+    # Use rfind for IMAGE to match the foreground (non-detach) path —
+    # the detach path intentionally omits TTY flags.
+    image_pos = justfile_content.rfind(image_pattern)
     tty_pos = justfile_content.find(tty_pattern)
 
     assert image_pos >= 0, f"Could not find '{image_pattern}' in Justfile"
     assert tty_pos >= 0, f"Could not find '{tty_pattern}' in Justfile"
 
-    # TTY flags must come before the image
+    # TTY flags must come before the image in the foreground path
     assert tty_pos < image_pos, (
         "TTY flags (--interactive, --tty) must be added to RUN_ARGS BEFORE the image. "
         f"Found --interactive at position {tty_pos}, IMAGE at position {image_pos}. "

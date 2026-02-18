@@ -149,6 +149,10 @@ class RuntimeConfig(BaseModel):
         default_factory=list,
         description="Host devices to pass through (host_path:container_path[:permissions])",
     )
+    ipc: Optional[str] = Field(
+        default=None,
+        description="IPC namespace mode (e.g. shareable, container:<name>, host, private)",
+    )
     # Deprecated: use network_mode instead
     network: Optional[Literal["host", "bridge", "none"]] = Field(default=None)
 
@@ -295,6 +299,10 @@ class CustomCommand(BaseModel):
     standalone: bool = Field(
         default=False,
         description="Generate standalone script for this command",
+    )
+    ipc: Optional[str] = Field(
+        default=None,
+        description="IPC namespace mode override (e.g. container:<name>)",
     )
 
 
@@ -483,6 +491,10 @@ class ContainerMagicConfig(BaseModel):
             (
                 "  devices:",
                 "  # Host devices to pass through (/dev/ttyUSB0, etc.)\n  devices:",
+            ),
+            (
+                "  ipc:",
+                "  # IPC namespace mode: shareable, container:<name>, host, private\n  ipc:",
             ),
             ("stages:", "# Build stages - each stage builds on the previous\nstages:"),
             ("  base:", "  # Base stage - foundation for all other stages\n  base:"),

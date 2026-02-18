@@ -80,6 +80,21 @@ run *args:
     #!/usr/bin/env bash
     set -euo pipefail
 
+    # Parse --detach/-d flag (first argument only)
+    DETACH=false
+    set +u
+    COMMAND="{{ '{{args}}' }}"
+    set -u
+    FIRST_WORD="${COMMAND%% *}"
+    if [[ "${FIRST_WORD}" == "--detach" ]] || [[ "${FIRST_WORD}" == "-d" ]]; then
+        DETACH=true
+        if [[ "${COMMAND}" == "${FIRST_WORD}" ]]; then
+            COMMAND=""
+        else
+            COMMAND="${COMMAND#* }"
+        fi
+    fi
+
     # Container configuration
     CONTAINER_NAME="{{ project_name }}-development"
     IMAGE="{{ project_name }}:development"
@@ -89,6 +104,9 @@ run *args:
     RUN_ARGS+=("{{ runtime }}" "run")
     RUN_ARGS+=("--name" "${CONTAINER_NAME}")
     RUN_ARGS+=("--rm")
+    {% if ipc %}
+    RUN_ARGS+=("--ipc" "{{ ipc }}")
+    {% endif %}
     {% if network %}
     RUN_ARGS+=("--net" "{{ network }}")
     {% endif %}
@@ -129,6 +147,7 @@ run *args:
     {% if runtime == "podman" %}
     RUN_ARGS+=("--security-opt=label=disable")
     {% endif %}
+    XHOST_CLEANUP=false
     if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
         wayland_socket="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
         RUN_ARGS+=("-e" "WAYLAND_DISPLAY")
@@ -137,16 +156,24 @@ run *args:
     fi
     if [[ -n "${DISPLAY:-}" ]]; then
         xsock=/tmp/.X11-unix
+    {% if runtime == "podman" %}
         xauth=/tmp/.docker.xauth
-        touch $xauth
+        touch "$xauth"
         if [[ -f "$HOME/.Xauthority" ]]; then
             xauth nlist "${DISPLAY}" | sed -e 's/^..../ffff/' | xauth -f "${xauth}" nmerge -
         fi
-        RUN_ARGS+=("-e" "DISPLAY")
         RUN_ARGS+=("-e" "XAUTHORITY=${xauth}")
         RUN_ARGS+=("-v" "${xauth}:${xauth}")
+    {% else %}
+        xhost +local: >/dev/null 2>&1
+        XHOST_CLEANUP=true
+    {% endif %}
+        RUN_ARGS+=("-e" "DISPLAY")
         RUN_ARGS+=("-v" "${xsock}:${xsock}")
         RUN_ARGS+=("--env" "QT_X11_NO_MITSHM=1")
+    fi
+    if [[ "${XHOST_CLEANUP}" == true ]] && [[ "${DETACH}" != true ]]; then
+        trap 'xhost -local: >/dev/null 2>&1' EXIT
     fi
     {% endif %}
     {% if features.gpu %}
@@ -203,47 +230,60 @@ run *args:
         RUN_ARGS+=("--workdir={{ container_home }}")
     fi
 
-    # Determine command before adding image (flags must precede image)
-    # Note: Just passes args via {{args}} - we need set +u to allow undefined variables in user commands
-    set +u
-    COMMAND="{{ '{{args}}' }}"
-    set -u
-
-    if [[ -z "${COMMAND}" ]] && [[ -t 0 ]]; then
-        RUN_ARGS+=("--interactive" "--tty")
-    fi
-
-    RUN_ARGS+=("${IMAGE}")
-
-    if [[ -n "${COMMAND}" ]]; then
-        RUN_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
-    else
-        RUN_ARGS+=("{{ shell }}")
-    fi
-
-    # Check if container already running
-    if ! {{ runtime }} ps --quiet --filter name="${CONTAINER_NAME}" | grep -q .; then
+    if [[ "${DETACH}" == true ]]; then
+        RUN_ARGS+=("--detach")
+        RUN_ARGS+=("${IMAGE}")
+        if [[ -n "${COMMAND}" ]]; then
+            RUN_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
+        else
+            RUN_ARGS+=("{{ shell }}")
+        fi
         "${RUN_ARGS[@]}"
     else
-        # Use exec instead for running container
-        EXEC_ARGS=("{{ runtime }}" "exec")
-        EXEC_ARGS+=("${CONTAINER_NAME}")
-        if [[ -n "${COMMAND}" ]]; then
-            EXEC_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
-        else
-            # Interactive mode: add TTY flags only when running interactive shell
-            if [[ -t 0 ]]; then
-                # Insert TTY flags before container name
-                EXEC_ARGS=("{{ runtime }}" "exec" "--interactive" "--tty" "${CONTAINER_NAME}")
-            fi
-            EXEC_ARGS+=("{{ shell }}")
+        if [[ -z "${COMMAND}" ]] && [[ -t 0 ]]; then
+            RUN_ARGS+=("--interactive" "--tty")
         fi
-        "${EXEC_ARGS[@]}"
+
+        RUN_ARGS+=("${IMAGE}")
+
+        if [[ -n "${COMMAND}" ]]; then
+            RUN_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
+        else
+            RUN_ARGS+=("{{ shell }}")
+        fi
+
+        # Check if container already running
+        if ! {{ runtime }} ps --quiet --filter name="${CONTAINER_NAME}" | grep -q .; then
+            "${RUN_ARGS[@]}"
+        else
+            # Use exec instead for running container
+            EXEC_ARGS=("{{ runtime }}" "exec")
+            EXEC_ARGS+=("${CONTAINER_NAME}")
+            if [[ -n "${COMMAND}" ]]; then
+                EXEC_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
+            else
+                # Interactive mode: add TTY flags only when running interactive shell
+                if [[ -t 0 ]]; then
+                    # Insert TTY flags before container name
+                    EXEC_ARGS=("{{ runtime }}" "exec" "--interactive" "--tty" "${CONTAINER_NAME}")
+                fi
+                EXEC_ARGS+=("{{ shell }}")
+            fi
+            "${EXEC_ARGS[@]}"
+        fi
     fi
 
 # Open interactive shell
 shell: _check-config
     @just run
+
+# Stop development container
+stop:
+    #!/usr/bin/env bash
+    {{ runtime }} stop {{ project_name }}-development 2>/dev/null || true
+    {% if features.display and runtime == "docker" %}
+    xhost -local: >/dev/null 2>&1 || true
+    {% endif %}
 
 # Stop and remove containers
 clean:
