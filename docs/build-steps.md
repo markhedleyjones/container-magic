@@ -244,6 +244,48 @@ steps:
 
 **Use case:** Copy root-owned system files without needing to switch context back and forth. Equivalent to uppercase `COPY` but keeps your steps in the container-magic vocabulary.
 
+### Copying from other stages (`--from=`)
+
+All three copy variants support Docker's `--from=<stage>` syntax for copying artefacts between stages that don't inherit from each other. This is useful for multi-stage builds where a heavy builder stage compiles dependencies and a lightweight runtime stage copies only the installed artefacts:
+
+```yaml
+stages:
+  builder:
+    from: ubuntu:24.04
+    packages:
+      apt: [build-essential, cmake]
+    steps:
+      - install_system_packages
+      - /tmp/build_deps.sh
+
+  base:
+    from: ubuntu:24.04
+    steps:
+      - install_system_packages
+      - copy_as_root --from=builder /usr/local/lib /usr/local/lib
+      - copy_as_root --from=builder /usr/local/include /usr/local/include
+      - ldconfig
+```
+
+**Generated Dockerfile:**
+
+```dockerfile
+COPY --from=builder /usr/local/lib /usr/local/lib
+COPY --from=builder /usr/local/include /usr/local/include
+```
+
+With `copy_as_user`, `--chown` is added automatically:
+
+```yaml
+- copy_as_user --from=builder /opt/app /home/appuser/app
+```
+
+```dockerfile
+COPY --chown=${USER_UID}:${USER_GID} --from=builder /opt/app /home/appuser/app
+```
+
+The `--from=` argument should reference a stage name defined in the same `cm.yaml`. The stage doesn't need to be a parent — it can be any stage in the build.
+
 ---
 
 ## Custom Dockerfile Commands

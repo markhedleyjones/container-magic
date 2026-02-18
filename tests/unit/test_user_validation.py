@@ -1088,3 +1088,104 @@ def test_copy_variants_mixed():
                 break
         else:
             pytest.fail("COPY raw /raw not found")
+
+
+# --- Tests for --from= in copy steps ---
+
+
+def test_copy_as_root_with_from():
+    """copy_as_root --from=builder passes through as COPY --from=builder without --chown."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "builder": {
+                "from": "ubuntu:24.04",
+                "steps": ["install_system_packages"],
+            },
+            "base": {
+                "from": "ubuntu:24.04",
+                "steps": [
+                    "install_system_packages",
+                    "copy_as_root --from=builder /usr/local/lib /usr/local/lib",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        assert "COPY --from=builder /usr/local/lib /usr/local/lib" in content
+
+
+def test_copy_as_user_with_from():
+    """copy_as_user --from=builder passes through with --chown prepended."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "builder": {
+                "from": "ubuntu:24.04",
+                "steps": ["install_system_packages"],
+            },
+            "base": {
+                "from": "ubuntu:24.04",
+                "steps": [
+                    "create_user",
+                    "copy_as_user --from=builder /opt/app /home/appuser/app",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        # --chown comes first, then --from passes through in args
+        assert (
+            "COPY --chown=${USER_UID}:${USER_GID} --from=builder /opt/app /home/appuser/app"
+            in content
+        )
+
+
+def test_copy_with_from_in_user_context():
+    """copy --from=builder in user context passes through with --chown prepended."""
+    config_dict = {
+        "project": {"name": "test", "workspace": "workspace"},
+        "user": {"production": {"name": "appuser"}},
+        "stages": {
+            "builder": {
+                "from": "ubuntu:24.04",
+                "steps": [],
+            },
+            "base": {
+                "from": "ubuntu:24.04",
+                "steps": [
+                    "create_user",
+                    "become_user",
+                    "copy --from=builder /opt/bin /home/appuser/bin",
+                ],
+            },
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config = ContainerMagicConfig(**config_dict)
+
+    with TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "Dockerfile"
+        capture_stderr(generate_dockerfile, config, output_path)
+        content = output_path.read_text()
+        assert (
+            "COPY --chown=${USER_UID}:${USER_GID} --from=builder /opt/bin /home/appuser/bin"
+            in content
+        )
