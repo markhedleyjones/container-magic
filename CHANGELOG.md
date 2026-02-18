@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v1.12.0 (2026-02-18)
+
+### Features
+
+- **runtime**: Add detached mode and fix X11 auth for Docker
+  ([`61b47a1`](https://github.com/markhedleyjones/container-magic/commit/61b47a1eeee8227830f36fad14b7a17e4edb4446))
+
+- **runtime**: Add IPC namespace sharing
+  ([`9296e34`](https://github.com/markhedleyjones/container-magic/commit/9296e3471adc6fdc8cfa2c9651aaa013634a9d13))
+
+- **runtime**: Add named containers to run scripts
+  ([`bc96dda`](https://github.com/markhedleyjones/container-magic/commit/bc96ddae31bd610d388f007077af0b84e7514c17))
+
+
 ## v1.11.1 (2026-02-16)
 
 ### Bug Fixes
