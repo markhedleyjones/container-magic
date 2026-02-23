@@ -147,12 +147,27 @@ def process_stage_steps(
         elif step == "copy_workspace":
             ordered_steps.append({"type": "copy_workspace"})
         elif step.startswith("copy_as_user "):
-            ordered_steps.append({"type": "copy", "args": step[13:], "chown": True})
+            args = step[13:].strip()
+            if not args:
+                raise ValueError(
+                    f"Stage '{stage_name}': 'copy_as_user' requires arguments (source and destination)."
+                )
+            ordered_steps.append({"type": "copy", "args": args, "chown": True})
         elif step.startswith("copy_as_root "):
-            ordered_steps.append({"type": "copy", "args": step[13:], "chown": False})
+            args = step[13:].strip()
+            if not args:
+                raise ValueError(
+                    f"Stage '{stage_name}': 'copy_as_root' requires arguments (source and destination)."
+                )
+            ordered_steps.append({"type": "copy", "args": args, "chown": False})
         elif step.startswith("copy "):
+            args = step[5:].strip()
+            if not args:
+                raise ValueError(
+                    f"Stage '{stage_name}': 'copy' requires arguments (source and destination)."
+                )
             ordered_steps.append(
-                {"type": "copy", "args": step[5:], "chown": user_is_active}
+                {"type": "copy", "args": args, "chown": user_is_active}
             )
         else:
             # Custom RUN command

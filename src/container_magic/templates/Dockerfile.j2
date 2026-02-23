@@ -31,7 +31,7 @@ WORKDIR ${USER_HOME}
 
 # Environment variables
 {% for key, value in stage.env_vars.items() %}
-ENV {{ key }}={{ value }}
+ENV {{ key }}="{{ value }}"
 {% endfor %}
 {% endif %}
 {% for step in stage.ordered_steps %}
@@ -144,7 +144,7 @@ COPY --chown=${USER_UID}:${USER_GID} {{ step.args }}
 COPY {{ step.args }}
 {% endif %}
 {% elif step.type == "custom" %}
-{% if step.command.startswith('COPY ') or step.command.startswith('ADD ') or step.command.startswith('ENV ') or step.command.startswith('WORKDIR ') or step.command.startswith('USER ') or step.command.startswith('LABEL ') or step.command.startswith('EXPOSE ') or step.command.startswith('VOLUME ') or step.command.startswith('RUN ') %}
+{% if step.command.startswith('ADD ') or step.command.startswith('ARG ') or step.command.startswith('CMD ') or step.command.startswith('COPY ') or step.command.startswith('ENTRYPOINT ') or step.command.startswith('ENV ') or step.command.startswith('EXPOSE ') or step.command.startswith('FROM ') or step.command.startswith('HEALTHCHECK ') or step.command.startswith('LABEL ') or step.command.startswith('RUN ') or step.command.startswith('SHELL ') or step.command.startswith('STOPSIGNAL ') or step.command.startswith('USER ') or step.command.startswith('VOLUME ') or step.command.startswith('WORKDIR ') %}
 {{ step.command }}
 {% else %}
 RUN {{ step.command }}
