@@ -23,5 +23,8 @@ test-generated-projects/
 /workspace/
 Justfile
 
+# Claude Code
+CLAUDE.md
+
 # MkDocs build output
 site/
