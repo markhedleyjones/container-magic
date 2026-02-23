@@ -332,8 +332,12 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
                 "shell": shell,
                 "user_creation_style": user_creation_style,
                 "user": user_name,
-                "user_uid": (user_cfg.uid or 1000) if user_cfg else 0,
-                "user_gid": (user_cfg.gid or 1000) if user_cfg else 0,
+                "user_uid": (user_cfg.uid if user_cfg.uid is not None else 1000)
+                if user_cfg
+                else 0,
+                "user_gid": (user_cfg.gid if user_cfg.gid is not None else 1000)
+                if user_cfg
+                else 0,
                 "user_home": (user_cfg.home or f"/home/{user_cfg.name}")
                 if user_cfg
                 else "/root",
