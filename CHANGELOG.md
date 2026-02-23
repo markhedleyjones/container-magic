@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.12.3 (2026-02-23)
+
+### Bug Fixes
+
+- User config validation, home path in run.sh, UID/GID 0, steps alias
+  ([`b00f2dd`](https://github.com/markhedleyjones/container-magic/commit/b00f2dd122c8d06028c35f4739d130f915e840fa))
+
+
 ## v1.12.2 (2026-02-23)
 
 ### Bug Fixes
