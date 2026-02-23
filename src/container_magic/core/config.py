@@ -96,6 +96,17 @@ class UserTargetConfig(BaseModel):
                 )
         return self
 
+    @model_validator(mode="after")
+    def validate_name_required(self) -> "UserTargetConfig":
+        """Validate that name is provided when host is not true."""
+        if self.host is not True and self.name is None:
+            if self.uid is not None or self.gid is not None or self.home is not None:
+                raise ValueError(
+                    "user name is required when uid, gid, or home is specified. "
+                    "Add name: <username> to your user configuration"
+                )
+        return self
+
 
 class UserConfig(BaseModel):
     """Top-level user configuration for different targets."""
@@ -257,7 +268,7 @@ class StageConfig(BaseModel):
     steps: Optional[List[str]] = Field(
         default=None,
         description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user, become_user, become_root, copy, copy_as_user, copy_as_root, copy_cached_assets, copy_workspace (aliases: switch_user, switch_root)",
-        alias="build_steps",  # Support old name for backwards compatibility
+        validation_alias="build_steps",  # Accept old name for backwards compatibility
     )
 
 

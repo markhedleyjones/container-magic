@@ -35,7 +35,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     if production_user == "root":
         workdir = "/root"
     else:
-        workdir = f"/home/{production_user}"
+        workdir = user_cfg.home or f"/home/{production_user}"
 
     # Determine shell from production or base stage
     prod_stage = "production" if "production" in config.stages else "base"
