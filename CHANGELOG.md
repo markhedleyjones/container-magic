@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.12.2 (2026-02-23)
+
+### Bug Fixes
+
+- **template**: Quote ENV values, expand instruction passthrough, validate copy args
+  ([`7b0dbc2`](https://github.com/markhedleyjones/container-magic/commit/7b0dbc2517e6f0218b23f53123a69b1c416ef437))
+
+### Chores
+
+- Add CLAUDE.md to .gitignore
+  ([`ee9488b`](https://github.com/markhedleyjones/container-magic/commit/ee9488bfb78f6cdb58778dbd571765cce31e5658))
+
+
 ## v1.12.1 (2026-02-23)
 
 ### Bug Fixes
