@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.12.1 (2026-02-23)
+
+### Bug Fixes
+
+- **template**: Emit workspace ARG/ENV in every stage, not just the first
+  ([`ebae5d7`](https://github.com/markhedleyjones/container-magic/commit/ebae5d70861edccb1f69f863516389181b239896))
+
+
 ## v1.12.0 (2026-02-18)
 
 ### Features
