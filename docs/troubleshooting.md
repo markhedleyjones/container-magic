@@ -51,7 +51,7 @@ Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://pe
 
 ## "Error: uses 'create_user' or 'become_user' but production.user is not defined"
 
-Add a `user.production` section to your config:
+Add a `user` section with a `production` entry to your config:
 
 ```yaml
 user:

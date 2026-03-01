@@ -27,7 +27,7 @@ The generated files are committed to your repository, so anyone can use your pro
 
 ```bash
 pip install container-magic
-cm init python my-project
+cm init python:3.11 my-project
 cd my-project
 just build
 just run python --version

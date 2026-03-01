@@ -27,7 +27,7 @@ The Dockerfile and standalone scripts are committed to your repository, so anyon
 pip install container-magic
 
 # Create a new project
-cm init python my-project
+cm init python:3.11 my-project
 cd my-project
 
 # Build the container

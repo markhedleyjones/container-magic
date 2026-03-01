@@ -28,15 +28,15 @@ The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `p
 
 ```bash
 # Build the container
-just build
+just build         # or: cm build
 
 # Run commands inside the container
 just run python --version
 just run bash -c "echo Hello from container"
-just run  # starts an interactive shell
+just run           # starts an interactive shell
 ```
 
-`just` works from anywhere in your project by searching upward for the Justfile.
+`just` works from anywhere in your project by searching upward for the Justfile. The `cm build`, `cm run`, and `cm shell` commands are convenience wrappers that call the corresponding Justfile recipes.
 
 !!! tip "The `run` alias"
     Container-magic also provides `build` and `run` shell aliases. The `run` alias adds automatic working directory translation — the container's working directory matches your position in the repository:
@@ -81,15 +81,36 @@ cm init --here <image>        # Initialise in current dir
 cm init --compact <image>     # Use cm.yaml instead of container-magic.yaml
 
 # Regenerate files after editing YAML
-cm update
+cm update                     # Or: cm generate (alias)
 
-# Development (via Justfile)
-just build
-just run <command>
+# Build and run (wrappers around just build / just run)
+cm build
+cm run <command>
+cm shell                      # Interactive shell in container
 
-# Production (standalone scripts)
-./build.sh
-./run.sh <command>
+# Cache management
+cm cache list                 # List cached assets with size and URL
+cm cache path                 # Show cache directory location
+cm cache clear                # Clear all cached assets
+```
+
+### Development (via Justfile)
+
+```bash
+just build                    # Build development image
+just build-production         # Build production image
+just run <command>            # Run command in container
+just shell                    # Interactive shell
+just stop                     # Stop running container
+just clean                    # Remove development container
+just clean-images             # Remove built images
+```
+
+### Production (standalone scripts)
+
+```bash
+./build.sh                    # Build production image
+./run.sh <command>            # Run command in container
 ```
 
 ## Development vs Production
