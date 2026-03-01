@@ -172,7 +172,7 @@
     {% endif %}
 
     # Add TTY flags if available (for real-time output)
-    if [[ -t 1 ]]; then
+    if [[ -t 0 ]]; then
         RUN_ARGS+=("--interactive" "--tty")
     fi
 
@@ -205,14 +205,14 @@
     fi
 
     # Check if container already running
-    if ! {{ runtime }} ps --quiet --filter name="${CONTAINER_NAME}" | grep -q .; then
+    if ! {{ runtime }} ps --quiet --filter name="^${CONTAINER_NAME}$" | grep -q .; then
         # Start new container
         RUN_ARGS+=("{{ shell }}" "-c" "${COMMAND}")
         "${RUN_ARGS[@]}"
     else
         # Exec into existing container
         EXEC_ARGS=("{{ runtime }}" "exec")
-        if [[ -t 1 ]]; then
+        if [[ -t 0 ]]; then
             EXEC_ARGS+=("--interactive" "--tty")
         fi
         EXEC_ARGS+=("${CONTAINER_NAME}")
