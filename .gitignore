@@ -25,6 +25,7 @@ Justfile
 
 # Claude Code
 CLAUDE.md
+REVIEW.md
 
 # MkDocs build output
 site/

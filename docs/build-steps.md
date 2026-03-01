@@ -393,7 +393,7 @@ If anything changes, the entire layer rebuilds. Good for related commands that s
 You can reference container-magic variables in custom steps:
 
 - `${WORKSPACE}` — Workspace directory path
-- `${WORKDIR}` — Working directory
+- `${WORKDIR}` — User home directory (e.g. `/home/appuser`)
 - `${USER_NAME}` — Non-root user name (if configured)
 - `${USER_UID}` / `${USER_GID}` — User IDs
 

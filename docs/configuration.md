@@ -10,7 +10,7 @@ project:
   workspace: workspace  # Required: directory with your code
 ```
 
-Generated files are automatically regenerated when your config changes. To disable this, set `auto_update: false`.
+Generated files are automatically regenerated when your config changes. To disable this, set `auto_update: false` under `project:`.
 
 ## Runtime
 
@@ -42,6 +42,10 @@ The `ipc` field sets the IPC namespace mode for containers (`--ipc` flag). Commo
 - `private` — container's own private IPC namespace (default)
 
 Per-command overrides are supported via the `ipc` field on individual commands.
+
+### Container Names
+
+Development containers are named `<project-name>-development` and production containers are named `<project-name>`. If a container with the same name is already running, `just run` will exec into the existing container instead of starting a new one. Use `just stop` to stop a running container and `just clean` to remove it.
 
 ### Detached Mode
 
@@ -100,7 +104,12 @@ stages:
     from: base
 ```
 
-The package field name determines which package manager is used: `apt` → `apt-get install`, `apk` → `apk add`, `dnf` → `dnf install`. Use the field that matches your base image:
+Each stage also supports:
+
+- `package_manager` - Override the auto-detected package manager (`apt`, `apk`, or `dnf`). Normally inferred from the base image.
+- `shell` - Override the default shell for the stage. Normally inferred from the base image.
+
+The package field name determines which package manager is used: `apt` uses `apt-get install`, `apk` uses `apk add`, `dnf` uses `dnf install`. Use the field that matches your base image:
 
 ```yaml
 # Alpine
@@ -153,6 +162,7 @@ commands:
 | `args` | Positional arguments (see below) |
 | `env` | Environment variables passed to the container |
 | `ports` | Ports to publish (`host:container` format, generates `--publish` flags) |
+| `ipc` | IPC namespace mode override for this command (e.g. `host`, `shareable`) |
 | `standalone` | Generate a dedicated `<command>.sh` script |
 
 The `standalone` flag (default: `false`) controls script generation:
