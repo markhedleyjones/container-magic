@@ -30,7 +30,7 @@ _check-config force="":
         auto_update_off=$(grep -E '^\s*auto_update:\s*false' "$config_file" || echo "")
 
         if [ -n "$auto_update_off" ]; then
-            if [ "{{ force }}" != "--force" ]; then
+            if [ "{{ '{{force}}' }}" != "--force" ]; then
                 echo "⚠️  $config_file has changed since last generation"
                 echo "   Run 'cm update' to regenerate Justfile and Dockerfile"
                 echo "   Or use --force to build anyway"
@@ -253,7 +253,7 @@ run *args:
         fi
 
         # Check if container already running
-        if ! {{ runtime }} ps --quiet --filter name="${CONTAINER_NAME}" | grep -q .; then
+        if ! {{ runtime }} ps --quiet --filter name="^${CONTAINER_NAME}$" | grep -q .; then
             "${RUN_ARGS[@]}"
         else
             # Use exec instead for running container
