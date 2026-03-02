@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.12.5 (2026-03-02)
+
+### Bug Fixes
+
+- **ci**: Replace flaky just installation with setup-just action
+  ([`bbb3b9c`](https://github.com/markhedleyjones/container-magic/commit/bbb3b9c7097b758d62629fbea427ce873b27a450))
+
+
 ## v1.12.4 (2026-03-02)
 
 ### Bug Fixes
