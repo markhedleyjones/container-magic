@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.12.4 (2026-03-02)
+
+### Bug Fixes
+
+- **templates**: Jinja2 force variable, Podman name filter, TTY detection
+  ([`deca695`](https://github.com/markhedleyjones/container-magic/commit/deca69511afd0027645b570bda07b9448febf41a))
+
+### Documentation
+
+- Fix documentation gaps and inaccuracies
+  ([`514aa1f`](https://github.com/markhedleyjones/container-magic/commit/514aa1f3e17c42c2b2c1c0106e927add89ea4844))
+
+
 ## v1.12.3 (2026-02-23)
 
 ### Bug Fixes
