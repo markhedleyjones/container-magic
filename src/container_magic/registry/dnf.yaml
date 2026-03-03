@@ -1,0 +1,3 @@
+install:
+  flags: "-y"
+  cleanup: "dnf clean all"

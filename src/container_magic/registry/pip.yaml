@@ -1,0 +1,2 @@
+install:
+  flags: "--no-cache-dir"

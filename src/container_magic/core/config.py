@@ -3,7 +3,7 @@
 import sys
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -265,9 +265,9 @@ class StageConfig(BaseModel):
         default_factory=list,
         description="Assets to download and cache on host, then copy into image",
     )
-    steps: Optional[List[str]] = Field(
+    steps: Optional[List[Union[str, Dict[str, Any]]]] = Field(
         default=None,
-        description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user, become_user, become_root, copy, copy_as_user, copy_as_root, copy_cached_assets, copy_workspace (aliases: switch_user, switch_root)",
+        description="Ordered list of build steps: bare strings for keywords or Dockerfile passthrough, dicts for structured commands (run, copy, env, or command builder syntax)",
         validation_alias="build_steps",  # Accept old name for backwards compatibility
     )
 
@@ -342,6 +342,10 @@ class ContainerMagicConfig(BaseModel):
     stages: Dict[str, StageConfig]
     commands: Dict[str, CustomCommand] = Field(
         default_factory=dict, description="Custom command definitions"
+    )
+    command_registry: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Per-project command registry overrides for structured step syntax",
     )
     build_script: BuildScriptConfig = Field(default_factory=BuildScriptConfig)
 
@@ -538,7 +542,7 @@ class ContainerMagicConfig(BaseModel):
             ),
             (
                 "    steps:",
-                "    # Build steps: install_system_packages, install_pip_packages, create_user, become_user, become_root, copy, copy_as_user, copy_as_root, copy_cached_assets, copy_workspace\n    steps:",
+                "    # Build steps: create_user, become_user, become_root, copy_workspace, copy_cached_assets, or structured dicts (run, copy, env, apt-get, pip, etc.)\n    steps:",
             ),
             (
                 "  production:",
