@@ -238,7 +238,7 @@ def process_stage_steps(
 
         elif step_type == "run":
             command = parsed["command"]
-            if "\n" in command:
+            if "\n" in command and "&& \\" not in command:
                 lines = [line for line in command.splitlines() if line.strip()]
                 command = " && \\\n    ".join(lines)
             ordered_steps.append({"type": "custom", "command": command})

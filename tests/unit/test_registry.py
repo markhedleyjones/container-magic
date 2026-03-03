@@ -8,6 +8,7 @@ class TestBuiltinRegistry:
         registry = load_registry()
         entry = lookup(registry, "apt-get", "install")
         assert entry is not None
+        assert "apt-get update" in entry.setup
         assert "-y" in entry.flags
         assert "--no-install-recommends" in entry.flags
         assert "rm -rf /var/lib/apt/lists/*" in entry.cleanup
@@ -111,6 +112,7 @@ class TestProjectOverrides:
 class TestRegistryEntry:
     def test_defaults(self):
         entry = RegistryEntry()
+        assert entry.setup == ""
         assert entry.flags == ""
         assert entry.cleanup == ""
 

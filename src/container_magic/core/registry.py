@@ -15,14 +15,15 @@ _REGISTRY_DIR = Path(__file__).parent.parent / "registry"
 
 
 class RegistryEntry:
-    """A single registry entry with optional flags and cleanup."""
+    """A single registry entry with optional setup, flags and cleanup."""
 
-    def __init__(self, flags: str = "", cleanup: str = ""):
+    def __init__(self, setup: str = "", flags: str = "", cleanup: str = ""):
+        self.setup = setup
         self.flags = flags
         self.cleanup = cleanup
 
     def __repr__(self):
-        return f"RegistryEntry(flags={self.flags!r}, cleanup={self.cleanup!r})"
+        return f"RegistryEntry(setup={self.setup!r}, flags={self.flags!r}, cleanup={self.cleanup!r})"
 
 
 def _load_builtin_registry() -> Dict[str, Dict[str, RegistryEntry]]:
@@ -43,6 +44,7 @@ def _load_builtin_registry() -> Dict[str, Dict[str, RegistryEntry]]:
             if not isinstance(entry_data, dict):
                 continue
             registry[tool_name][subcommand] = RegistryEntry(
+                setup=entry_data.get("setup", ""),
                 flags=entry_data.get("flags", ""),
                 cleanup=entry_data.get("cleanup", ""),
             )

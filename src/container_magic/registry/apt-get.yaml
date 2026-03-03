@@ -1,3 +1,4 @@
 install:
+  setup: "apt-get update"
   flags: "-y --no-install-recommends"
   cleanup: "rm -rf /var/lib/apt/lists/*"
