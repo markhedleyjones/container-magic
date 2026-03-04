@@ -31,6 +31,10 @@ KEYWORDS = {
     "become_user",
     "become_root",
     "copy_workspace",
+}
+
+# Deprecated keywords that still parse but emit warnings
+_DEPRECATED_KEYWORDS = {
     "copy_cached_assets",
 }
 
@@ -138,16 +142,27 @@ def build_command(
         if registry_entry.flags:
             segments.append(registry_entry.flags)
         if isinstance(args_value, list):
-            for item in args_value:
-                segments.append(quote_arg(str(item)))
+            if len(args_value) > 1:
+                base = " ".join(segments)
+                items = " \\\n        ".join(
+                    quote_arg(str(item)) for item in args_value
+                )
+                command = f"{base} \\\n        {items}"
+            else:
+                for item in args_value:
+                    segments.append(quote_arg(str(item)))
+                command = " ".join(segments)
         elif isinstance(args_value, str):
             segments.append(args_value)
+            command = " ".join(segments)
         elif isinstance(args_value, dict):
             flatten_command(args_value, segments)
+            command = " ".join(segments)
         elif args_value is not None:
             segments.append(str(args_value))
-
-        command = " ".join(segments)
+            command = " ".join(segments)
+        else:
+            command = " ".join(segments)
         if registry_entry.setup:
             command = f"{registry_entry.setup} && \\\n    {command}"
         if registry_entry.cleanup:
@@ -196,9 +211,26 @@ def classify_bare_string(step: str) -> Dict[str, Any]:
     if stripped in KEYWORDS:
         return {"type": "keyword", "keyword": stripped}
 
+    # Deprecated keywords
+    if stripped in _DEPRECATED_KEYWORDS:
+        warnings.warn(
+            f"Step '{stripped}' is deprecated. "
+            "Move assets to project.assets and use copy: steps instead.",
+            DeprecationWarning,
+            stacklevel=4,
+        )
+        return {"type": "keyword", "keyword": stripped}
+
     # Accepted aliases (hyphens, switch_user/switch_root) - no deprecation
     if stripped in _KEYWORD_ALIASES:
         canonical = _KEYWORD_ALIASES[stripped]
+        if canonical in _DEPRECATED_KEYWORDS:
+            warnings.warn(
+                f"Step '{stripped}' is deprecated. "
+                "Move assets to project.assets and use copy: steps instead.",
+                DeprecationWarning,
+                stacklevel=4,
+            )
         return {"type": "keyword", "keyword": canonical}
 
     # v1 step keywords
@@ -217,7 +249,12 @@ def classify_bare_string(step: str) -> Dict[str, Any]:
 
     # Check if it looks like an unknown keyword (lowercase, no spaces, no special chars)
     if re.match(r"^[a-z][a-z0-9_-]*$", stripped):
-        all_known = KEYWORDS | set(_KEYWORD_ALIASES.keys()) | _V1_STEP_KEYWORDS
+        all_known = (
+            KEYWORDS
+            | _DEPRECATED_KEYWORDS
+            | set(_KEYWORD_ALIASES.keys())
+            | _V1_STEP_KEYWORDS
+        )
         matches = difflib.get_close_matches(stripped, all_known, n=3, cutoff=0.6)
         if matches:
             suggestion = f" Did you mean: {', '.join(matches)}?"

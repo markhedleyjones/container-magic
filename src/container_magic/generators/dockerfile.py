@@ -3,11 +3,11 @@
 import sys
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from container_magic.core.cache import get_asset_cache_path
+from container_magic.core.cache import build_asset_map, get_asset_cache_path
 from container_magic.core.config import (
     ContainerMagicConfig,
     StageConfig,
@@ -143,6 +143,60 @@ def _has_create_user_in_hierarchy(
     return False
 
 
+def _stage_needs_user_args(ordered_steps: List[Dict], has_non_root_user: bool) -> bool:
+    """Check if a stage's steps require user-related ARGs.
+
+    Returns True if any step references user ARGs (USER_UID, USER_GID, etc.):
+    - create_user or switch_user steps
+    - copy steps with --chown
+    - copy_workspace when a non-root user is configured
+    """
+    for step in ordered_steps:
+        if step["type"] in ("create_user", "switch_user"):
+            return True
+        if step["type"] == "copy" and step.get("chown"):
+            return True
+        if step["type"] == "copy_workspace" and has_non_root_user:
+            return True
+    return False
+
+
+def _merge_consecutive_env_steps(ordered_steps: List[Dict]) -> List[Dict]:
+    """Merge consecutive env steps into single steps with combined vars."""
+    if not ordered_steps:
+        return ordered_steps
+
+    merged = []
+    for step in ordered_steps:
+        if step["type"] == "env" and merged and merged[-1]["type"] == "env":
+            merged[-1] = {
+                "type": "env",
+                "vars": {**merged[-1]["vars"], **step["vars"]},
+            }
+        else:
+            merged.append(step)
+    return merged
+
+
+def _resolve_copy_source(args: str, asset_map: Dict[str, str]) -> str:
+    """Rewrite copy source if it matches an asset filename.
+
+    The args string is "source dest" (possibly with extra flags).
+    If the first non-flag token matches an asset filename, replace it
+    with the cache path.
+    """
+    parts = args.split()
+    if not parts:
+        return args
+
+    source = parts[0]
+    if source in asset_map:
+        parts[0] = asset_map[source]
+        return " ".join(parts)
+
+    return args
+
+
 def process_stage_steps(
     stage: StageConfig,
     stage_name: str,
@@ -152,16 +206,21 @@ def process_stage_steps(
     has_explicit_user_config: bool,
     workspace_name: str,
     registry: Dict = None,
-) -> Tuple[List[Dict], bool, List[Dict]]:
+    asset_map: Dict[str, str] = None,
+) -> List[Dict]:
     """Process build steps for a stage.
 
     Handles both v1 (flat string) and v2 (structured dict) step syntax.
+    When asset_map is provided, copy sources matching asset filenames are
+    rewritten to their cache paths.
 
     Returns:
-        (ordered_steps, has_copy_cached_assets, cached_assets_data)
+        ordered_steps list
     """
     if registry is None:
         registry = load_registry()
+    if asset_map is None:
+        asset_map = {}
 
     # Default build order if not specified
     if stage.steps is None:
@@ -181,7 +240,6 @@ def process_stage_steps(
 
     has_create_user = False
     has_become_user = False
-    has_copy_cached_assets = False
 
     user_is_active = _parent_ends_as_user(stage_name, stages_dict)
 
@@ -209,8 +267,18 @@ def process_stage_steps(
             elif keyword == "copy_workspace":
                 ordered_steps.append({"type": "copy_workspace"})
             elif keyword == "copy_cached_assets":
-                ordered_steps.append({"type": "cached_assets"})
-                has_copy_cached_assets = True
+                # Backwards compat: expand to individual copy steps from
+                # the deprecated stage.cached_assets list
+                for asset in stage.cached_assets:
+                    asset_dir, asset_file = get_asset_cache_path(project_dir, asset.url)
+                    rel_path = asset_file.relative_to(project_dir)
+                    ordered_steps.append(
+                        {
+                            "type": "copy",
+                            "args": f"{rel_path} {asset.dest}",
+                            "chown": user_is_active,
+                        }
+                    )
 
         elif step_type == "v1_keyword":
             keyword = parsed["keyword"]
@@ -223,12 +291,12 @@ def process_stage_steps(
             chown = parsed["chown"]
             if chown == "context":
                 chown = user_is_active
-            ordered_steps.append(
-                {"type": "copy", "args": parsed["args"], "chown": chown}
-            )
+            args = _resolve_copy_source(parsed["args"], asset_map)
+            ordered_steps.append({"type": "copy", "args": args, "chown": chown})
 
         elif step_type == "copy_v2":
             for args in parsed["args_list"]:
+                args = _resolve_copy_source(args, asset_map)
                 ordered_steps.append(
                     {"type": "copy", "args": args, "chown": user_is_active}
                 )
@@ -265,28 +333,28 @@ def process_stage_steps(
             "Define production.user in your configuration."
         )
 
-    # Warn if cached_assets defined but copy_cached_assets not in steps
-    if stage.cached_assets and not has_copy_cached_assets:
-        print(
-            f"\u26a0\ufe0f  Warning: Stage '{stage_name}' has cached_assets but 'copy_cached_assets' not in steps",
-            file=sys.stderr,
+    # Warn if deprecated cached_assets defined but copy_cached_assets not in steps
+    if stage.cached_assets:
+        has_copy_cached = any(
+            step == "copy_cached_assets" or step == "copy-cached-assets"
+            for step in (stage.steps or [])
+            if isinstance(step, str)
         )
-        print(
-            "   Assets will be downloaded but not copied into the image.",
-            file=sys.stderr,
-        )
-        print("   Add 'copy_cached_assets' to steps to use them.", file=sys.stderr)
+        if not has_copy_cached:
+            print(
+                f"\u26a0\ufe0f  Warning: Stage '{stage_name}' has cached_assets but 'copy_cached_assets' not in steps",
+                file=sys.stderr,
+            )
+            print(
+                "   Assets will be downloaded but not copied into the image.",
+                file=sys.stderr,
+            )
+            print(
+                "   Add 'copy_cached_assets' to steps to use them.",
+                file=sys.stderr,
+            )
 
-    # Prepare cached assets data
-    cached_assets_data = []
-    for asset in stage.cached_assets:
-        asset_dir, asset_file = get_asset_cache_path(project_dir, asset.url)
-        rel_path = asset_file.relative_to(project_dir)
-        cached_assets_data.append(
-            {"source": str(rel_path), "dest": asset.dest, "url": asset.url}
-        )
-
-    return ordered_steps, has_copy_cached_assets, cached_assets_data
+    return ordered_steps
 
 
 def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None:
@@ -319,6 +387,10 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
         project_overrides=config.command_registry if config.command_registry else None
     )
 
+    # Build asset map from project-level assets
+    project_dir = output_path.parent
+    asset_map = build_asset_map(project_dir, config.project.assets)
+
     stages_data = []
     for stage_name, stage_config in stages.items():
         base_image = stage_config.frm
@@ -331,29 +403,34 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
 
         has_explicit_user = user_cfg is not None
         user_name = user_cfg.name if user_cfg else "root"
-        ordered_steps, has_copy_cached_assets, cached_assets_data = process_stage_steps(
+        ordered_steps = process_stage_steps(
             stage_config,
             stage_name,
-            output_path.parent,
+            project_dir,
             stages,
             user_name,
             has_explicit_user,
             config.project.workspace,
             registry,
+            asset_map,
         )
 
-        needs_user_args = user_cfg is not None and user_cfg.name != "root"
+        ordered_steps = _merge_consecutive_env_steps(ordered_steps)
+
+        has_non_root_user = user_cfg is not None and user_cfg.name != "root"
+        needs_user_args = _stage_needs_user_args(ordered_steps, has_non_root_user)
+        from_is_image = ":" in base_image or "/" in base_image
 
         stages_data.append(
             {
                 "name": stage_name,
                 "from": base_image,
+                "from_is_image": from_is_image,
                 "apt_packages": stage_config.packages.apt or [],
                 "apk_packages": stage_config.packages.apk or [],
                 "dnf_packages": stage_config.packages.dnf or [],
                 "pip_packages": stage_config.packages.pip,
                 "env_vars": stage_config.env,
-                "cached_assets": cached_assets_data,
                 "package_manager": package_manager,
                 "shell": shell,
                 "user_creation_style": user_creation_style,

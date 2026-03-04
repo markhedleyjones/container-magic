@@ -1,0 +1,34 @@
+# Test config with project-level assets (new syntax)
+project:
+  name: test-assets
+  workspace: workspace
+  assets:
+    - https://httpbin.org/uuid
+    - test-model.bin: https://example.com/download?file=model&v=2
+
+user:
+  production:
+    name: modeluser
+    uid: 1000
+    gid: 1000
+
+stages:
+  base:
+    from: python:3-slim
+    packages:
+      pip:
+        - requests
+    env:
+      MODEL_PATH: /models
+    steps:
+      - install_system_packages
+      - install_pip_packages
+      - create_user
+      - copy: uuid /models/uuid.json
+      - copy: test-model.bin /models/model.bin
+
+  development:
+    from: base
+
+  production:
+    from: base

@@ -121,6 +121,68 @@ class UserConfig(BaseModel):
     )
 
 
+class AssetItem(BaseModel):
+    """Normalised asset entry (filename + URL)."""
+
+    filename: str
+    url: str
+
+
+def _parse_asset_items(raw_assets: list) -> List[AssetItem]:
+    """Parse raw asset list into normalised AssetItem objects.
+
+    Each item is either:
+    - A bare URL string (filename auto-derived from URL path)
+    - A single-key dict where the key is the filename and the value is the URL
+    """
+    from container_magic.core.cache import extract_filename_from_url
+
+    items: List[AssetItem] = []
+    seen_filenames: Dict[str, int] = {}
+
+    for i, entry in enumerate(raw_assets):
+        if isinstance(entry, str):
+            url = entry
+            if not url.startswith(("http://", "https://")):
+                raise ValueError(
+                    f"project.assets[{i}]: URL must start with http:// or https://, got '{url}'"
+                )
+            filename = extract_filename_from_url(url)
+            if not filename or filename == "asset":
+                raise ValueError(
+                    f"project.assets[{i}]: cannot derive filename from URL '{url}'. "
+                    "Use explicit naming: {{ my-file.bin: {url} }}"
+                )
+        elif isinstance(entry, dict):
+            if len(entry) != 1:
+                raise ValueError(
+                    f"project.assets[{i}]: named asset must be a single-key dict "
+                    f"(filename: url), got {len(entry)} keys"
+                )
+            filename, url = next(iter(entry.items()))
+            if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+                raise ValueError(
+                    f"project.assets[{i}]: URL must start with http:// or https://, got '{url}'"
+                )
+            if not filename:
+                raise ValueError(f"project.assets[{i}]: filename must not be empty")
+        else:
+            raise ValueError(
+                f"project.assets[{i}]: must be a URL string or a {{filename: url}} dict, "
+                f"got {type(entry).__name__}"
+            )
+
+        if filename in seen_filenames:
+            raise ValueError(
+                f"project.assets[{i}]: duplicate filename '{filename}' "
+                f"(first seen at index {seen_filenames[filename]})"
+            )
+        seen_filenames[filename] = i
+        items.append(AssetItem(filename=filename, url=url))
+
+    return items
+
+
 class ProjectConfig(BaseModel):
     """Project configuration."""
 
@@ -132,6 +194,18 @@ class ProjectConfig(BaseModel):
         default=True,
         description="Automatically regenerate files when config changes",
     )
+    assets: List[AssetItem] = Field(
+        default_factory=list,
+        description="Assets to download and cache (URLs or {filename: url} dicts)",
+    )
+
+    @field_validator("assets", mode="before")
+    @classmethod
+    def parse_assets(cls, v):
+        """Parse raw asset list into AssetItem objects."""
+        if not v:
+            return []
+        return _parse_asset_items(v)
 
 
 class RuntimeConfig(BaseModel):
@@ -263,8 +337,22 @@ class StageConfig(BaseModel):
     )
     cached_assets: List[CachedAsset] = Field(
         default_factory=list,
-        description="Assets to download and cache on host, then copy into image",
+        description="Deprecated: use project.assets instead",
     )
+
+    @field_validator("cached_assets", mode="after")
+    @classmethod
+    def warn_cached_assets_deprecated(cls, v):
+        """Emit deprecation warning when cached_assets is used on a stage."""
+        if v:
+            warnings.warn(
+                "stages.<stage>.cached_assets is deprecated. "
+                "Move assets to project.assets and use copy: steps instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return v
+
     steps: Optional[List[Union[str, Dict[str, Any]]]] = Field(
         default=None,
         description="Ordered list of build steps: bare strings for keywords or Dockerfile passthrough, dicts for structured commands (run, copy, env, or command builder syntax)",
@@ -377,6 +465,24 @@ class ContainerMagicConfig(BaseModel):
         # It's noise in the config — users only need it when opting out
         if data.get("project", {}).get("auto_update") is True:
             data["project"].pop("auto_update", None)
+
+        # Serialise assets back to YAML-friendly format (list of URLs / {name: url} dicts)
+        raw_assets = data.get("project", {}).get("assets", [])
+        if raw_assets:
+            from container_magic.core.cache import extract_filename_from_url
+
+            yaml_assets = []
+            for item in raw_assets:
+                url = item["url"]
+                filename = item["filename"]
+                auto_name = extract_filename_from_url(url)
+                if filename == auto_name:
+                    yaml_assets.append(url)
+                else:
+                    yaml_assets.append({filename: url})
+            data["project"]["assets"] = yaml_assets
+        else:
+            data["project"].pop("assets", None)
 
         # Strip empty system package lists only when a populated one exists,
         # so configs with e.g. apt: [curl] don't also show apk: [] and dnf: [].

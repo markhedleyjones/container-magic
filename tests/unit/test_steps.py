@@ -94,7 +94,9 @@ class TestBuildCommand:
 
         entry = RegistryEntry(flags="-y --no-install-recommends")
         result = build_command("apt-get", {"install": ["ffmpeg", "curl"]}, entry)
-        assert "apt-get install -y --no-install-recommends ffmpeg curl" in result
+        assert "apt-get install -y --no-install-recommends" in result
+        assert "ffmpeg" in result
+        assert "curl" in result
 
     def test_with_registry_cleanup(self):
         from container_magic.core.registry import RegistryEntry
@@ -336,10 +338,9 @@ class TestParseStep:
         )
         assert result["type"] == "run"
         assert "apt-get update" in result["command"]
-        assert (
-            "apt-get install -y --no-install-recommends ffmpeg curl"
-            in result["command"]
-        )
+        assert "apt-get install -y --no-install-recommends" in result["command"]
+        assert "ffmpeg" in result["command"]
+        assert "curl" in result["command"]
         assert "rm -rf /var/lib/apt/lists/*" in result["command"]
 
     def test_apk_add_full_pipeline(self):
@@ -348,7 +349,9 @@ class TestParseStep:
             self.registry,
         )
         assert result["type"] == "run"
-        assert "apk add --no-cache curl git" in result["command"]
+        assert "apk add --no-cache" in result["command"]
+        assert "curl" in result["command"]
+        assert "git" in result["command"]
 
     def test_dnf_install_full_pipeline(self):
         result = parse_step(
@@ -356,5 +359,7 @@ class TestParseStep:
             self.registry,
         )
         assert result["type"] == "run"
-        assert "dnf install -y curl git" in result["command"]
+        assert "dnf install -y" in result["command"]
+        assert "curl" in result["command"]
+        assert "git" in result["command"]
         assert "dnf clean all" in result["command"]

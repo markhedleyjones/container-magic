@@ -5,9 +5,12 @@ import json
 import shutil
 import urllib.parse
 from pathlib import Path
-from typing import List, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import requests
+
+if TYPE_CHECKING:
+    from container_magic.core.config import AssetItem
 
 
 def get_cache_dir(project_dir: Path) -> Path:
@@ -16,8 +19,8 @@ def get_cache_dir(project_dir: Path) -> Path:
 
 
 def url_to_hash(url: str) -> str:
-    """Convert URL to SHA256 hash for cache directory naming."""
-    return hashlib.sha256(url.encode()).hexdigest()
+    """Convert URL to a short hash for cache directory naming."""
+    return hashlib.sha256(url.encode()).hexdigest()[:12]
 
 
 def extract_filename_from_url(url: str) -> str:
@@ -64,14 +67,16 @@ def download_asset(url: str, dest_path: Path) -> None:
             f.write(chunk)
 
 
-def cache_asset(project_dir: Path, url: str, container_dest: str) -> Tuple[Path, Path]:
+def cache_asset(
+    project_dir: Path, url: str, container_dest: Optional[str] = None
+) -> Tuple[Path, Path]:
     """
     Download and cache an asset if not already cached.
 
     Args:
         project_dir: Project directory
         url: URL to download from
-        container_dest: Destination path in container
+        container_dest: Destination path in container (optional, kept for backwards compat)
 
     Returns:
         (asset_dir, asset_file) tuple for cached asset
@@ -81,10 +86,9 @@ def cache_asset(project_dir: Path, url: str, container_dest: str) -> Tuple[Path,
 
     # Check if already cached
     if asset_file.exists() and meta_path.exists():
-        # Verify metadata matches
         with open(meta_path) as f:
             meta = json.load(f)
-        if meta.get("url") == url and meta.get("dest") == container_dest:
+        if meta.get("url") == url:
             return asset_dir, asset_file
 
     # Download asset
@@ -92,7 +96,9 @@ def cache_asset(project_dir: Path, url: str, container_dest: str) -> Tuple[Path,
     download_asset(url, asset_file)
 
     # Write metadata
-    meta = {"url": url, "dest": container_dest, "filename": asset_file.name}
+    meta = {"url": url, "filename": asset_file.name}
+    if container_dest:
+        meta["dest"] = container_dest
     with open(meta_path, "w") as f:
         json.dump(meta, f, indent=2)
 
@@ -133,6 +139,20 @@ def list_cached_assets(project_dir: Path) -> List[dict]:
         )
 
     return assets
+
+
+def build_asset_map(project_dir: Path, assets: List["AssetItem"]) -> Dict[str, str]:
+    """Build a mapping from asset filename to relative cache path.
+
+    Used by the Dockerfile generator to resolve copy sources that reference
+    downloaded assets.
+    """
+    asset_map: Dict[str, str] = {}
+    for item in assets:
+        _asset_dir, asset_file = get_asset_cache_path(project_dir, item.url)
+        rel_path = asset_file.relative_to(project_dir)
+        asset_map[item.filename] = str(rel_path)
+    return asset_map
 
 
 def clear_cache(project_dir: Path) -> None:

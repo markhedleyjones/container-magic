@@ -282,6 +282,50 @@ def generate(path: Path):
     update.callback(path)
 
 
+def _download_assets(config: ContainerMagicConfig, project_dir: Path):
+    """Download all assets (project-level and deprecated per-stage)."""
+    from container_magic.core.cache import cache_asset
+
+    has_assets = False
+
+    # New: project-level assets
+    for item in config.project.assets:
+        if not has_assets:
+            click.echo("Downloading assets...")
+            has_assets = True
+        try:
+            asset_dir, asset_file = cache_asset(project_dir, item.url)
+            if asset_file.exists():
+                click.echo(
+                    f"  {item.filename} -> {asset_file.relative_to(project_dir)}"
+                )
+        except Exception as e:
+            click.echo(f"  Failed to download {item.url}: {e}", err=True)
+            sys.exit(1)
+
+    # Deprecated: per-stage cached_assets (backwards compat)
+    for stage_name, stage_config in config.stages.items():
+        if stage_config.cached_assets:
+            if not has_assets:
+                click.echo("Downloading assets...")
+                has_assets = True
+            for asset in stage_config.cached_assets:
+                try:
+                    asset_dir, asset_file = cache_asset(
+                        project_dir, asset.url, asset.dest
+                    )
+                    if asset_file.exists():
+                        click.echo(
+                            f"  [{stage_name}] {asset.url} -> {asset_file.relative_to(project_dir)}"
+                        )
+                except Exception as e:
+                    click.echo(
+                        f"  [{stage_name}] Failed to download {asset.url}: {e}",
+                        err=True,
+                    )
+                    sys.exit(1)
+
+
 @cli.command()
 @click.option(
     "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
@@ -290,31 +334,10 @@ def build(path: Path):
     """Build container image (regenerates if config changed)."""
     config_path = find_config_file(path)
 
-    # Load config to check for cached assets
+    # Load config to check for assets
     config = ContainerMagicConfig.from_yaml(config_path)
 
-    # Download cached assets from all stages
-    from container_magic.core.cache import cache_asset
-
-    has_assets = False
-    for stage_name, stage_config in config.stages.items():
-        if stage_config.cached_assets:
-            if not has_assets:
-                click.echo("Downloading cached assets...")
-                has_assets = True
-            for asset in stage_config.cached_assets:
-                try:
-                    asset_dir, asset_file = cache_asset(path, asset.url, asset.dest)
-                    if asset_file.exists():
-                        click.echo(
-                            f"  ✓ [{stage_name}] {asset.url} → {asset_file.relative_to(path)}"
-                        )
-                except Exception as e:
-                    click.echo(
-                        f"  ✗ [{stage_name}] Failed to download {asset.url}: {e}",
-                        err=True,
-                    )
-                    sys.exit(1)
+    _download_assets(config, path)
 
     # Check if just is available
     if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
@@ -386,9 +409,10 @@ def cache_list(path: Path):
     click.echo(f"Cached assets ({len(assets)}):")
     for asset in assets:
         size_mb = asset["size"] / (1024 * 1024)
-        click.echo(f"  • {asset['filename']} ({size_mb:.2f} MB)")
+        click.echo(f"  {asset['filename']} ({size_mb:.2f} MB)")
         click.echo(f"    URL: {asset['url']}")
-        click.echo(f"    Dest: {asset['dest']}")
+        if asset.get("dest"):
+            click.echo(f"    Dest: {asset['dest']}")
         click.echo(f"    Hash: {asset['hash'][:16]}...")
 
 
@@ -495,30 +519,7 @@ def build_main():
     config_path = find_config_file(project_dir)
     config = ContainerMagicConfig.from_yaml(config_path)
 
-    # Download cached assets from all stages
-    from container_magic.core.cache import cache_asset
-
-    has_assets = False
-    for stage_name, stage_config in config.stages.items():
-        if stage_config.cached_assets:
-            if not has_assets:
-                click.echo("Downloading cached assets...")
-                has_assets = True
-            for asset in stage_config.cached_assets:
-                try:
-                    asset_dir, asset_file = cache_asset(
-                        project_dir, asset.url, asset.dest
-                    )
-                    if asset_file.exists():
-                        click.echo(
-                            f"  ✓ [{stage_name}] {asset.url} → {asset_file.relative_to(project_dir)}"
-                        )
-                except Exception as e:
-                    click.echo(
-                        f"  ✗ [{stage_name}] Failed to download {asset.url}: {e}",
-                        err=True,
-                    )
-                    sys.exit(1)
+    _download_assets(config, project_dir)
 
     # Check if just is available
     if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:

@@ -121,15 +121,6 @@ USER ${USER_NAME}
 {% elif step.type == "switch_root" %}
 # Switch to root
 USER root
-{% elif step.type == "cached_assets" %}
-# Copy cached assets
-{% for asset in stage.cached_assets %}
-{% if stage.needs_user_args %}
-COPY --chown=${USER_UID}:${USER_GID} {{ asset.source }} {{ asset.dest }}
-{% else %}
-COPY {{ asset.source }} {{ asset.dest }}
-{% endif %}
-{% endfor %}
 {% elif step.type == "copy_workspace" %}
 # Copy workspace into image
 {% if stage.needs_user_args %}
