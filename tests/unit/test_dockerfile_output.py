@@ -370,9 +370,11 @@ class TestEnvMerging:
         content = _generate(config)
         base = _get_stage_block(content, "base")
         # Two vars on one ENV instruction
-        env_lines = [l for l in base.splitlines() if l.strip().startswith("ENV")]
+        env_lines = [
+            line for line in base.splitlines() if line.strip().startswith("ENV")
+        ]
         # The preamble ENV and the env_vars ENV
-        env_var_lines = [l for l in env_lines if "A=" in l or "B=" in l]
+        env_var_lines = [line for line in env_lines if "A=" in line or "B=" in line]
         assert len(env_var_lines) == 1
         assert "\\" in env_var_lines[0]
 
