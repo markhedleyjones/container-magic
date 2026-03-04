@@ -373,10 +373,10 @@ def test_user_defined_but_never_used():
         output_path = Path(tmpdir) / "Dockerfile"
         stderr = capture_stderr(generate_dockerfile, config, output_path)
 
-        # Should not error - it's OK to define a user and not use it in create_user/switch_user
-        # The user args ARE included because they're referenced in WORKDIR
+        # Should not error - it's OK to define a user and not use it
+        # User ARGs only appear in stages that have user-related steps
         dockerfile_content = output_path.read_text()
-        assert "USER_NAME=appuser" in dockerfile_content
+        assert "USER_NAME=appuser" not in dockerfile_content
         assert "Warning" not in stderr
         assert "Error" not in stderr
 

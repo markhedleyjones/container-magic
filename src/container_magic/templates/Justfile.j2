@@ -53,7 +53,6 @@ build force="": (_check-config force)
         --build-arg USER_UID=$(id --user) \
         --build-arg USER_NAME=$(id --user --name) \
         --build-arg USER_HOME=$(echo ~) \
-        --build-arg WORKDIR=$(echo ~) \
         --tag {{ project_name }}:development \
         .
     {% else %}
@@ -63,7 +62,6 @@ build force="": (_check-config force)
         --build-arg USER_UID={{ dev_user_uid }} \
         --build-arg USER_NAME={{ dev_user_name }} \
         --build-arg USER_HOME={{ dev_user_home }} \
-        --build-arg WORKDIR={{ dev_user_home }} \
         --tag {{ project_name }}:development \
         .
     {% endif %}

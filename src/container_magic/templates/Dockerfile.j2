@@ -10,29 +10,39 @@
 # Stage: {{ stage.name }}
 ################################################################################
 FROM {{ stage.from }} AS {{ stage.name }}
-{% if stage.needs_user_args %}
+{% if stage.from_is_image %}
 
-# User configuration
+{% if stage.needs_user_args %}
+ARG USER_GID={{ stage.user_gid }} \
+    USER_UID={{ stage.user_uid }} \
+    USER_NAME={{ stage.user }} \
+    USER_HOME={{ stage.user_home }} \
+    WORKSPACE_NAME={{ workspace_name }}
+{% else %}
+ARG USER_HOME={{ stage.user_home }} \
+    WORKSPACE_NAME={{ workspace_name }}
+{% endif %}
+ENV WORKSPACE=${USER_HOME}/${WORKSPACE_NAME}
+WORKDIR ${USER_HOME}
+{% elif stage.needs_user_args %}
+
 ARG USER_GID={{ stage.user_gid }} \
     USER_UID={{ stage.user_uid }} \
     USER_NAME={{ stage.user }} \
     USER_HOME={{ stage.user_home }}
 {% endif %}
-
-# Setup workspace
-ARG WORKSPACE_NAME={{ workspace_name }}
-{% if not stage.needs_user_args %}
-ARG USER_HOME={{ stage.user_home }}
-{% endif %}
-ENV WORKDIR=${USER_HOME}
-ENV WORKSPACE=${USER_HOME}/${WORKSPACE_NAME}
-WORKDIR ${USER_HOME}
 {% if stage.env_vars %}
 
 # Environment variables
+{% if stage.env_vars | length == 1 %}
 {% for key, value in stage.env_vars.items() %}
 ENV {{ key }}="{{ value }}"
 {% endfor %}
+{% else %}
+ENV {% for key, value in stage.env_vars.items() %}{% if not loop.first %}    {% endif %}{{ key }}="{{ value }}"{% if not loop.last %} \
+{% endif %}{% endfor %}
+
+{% endif %}
 {% endif %}
 {% for step in stage.ordered_steps %}
 {% if step.type == "system_packages" %}
@@ -135,9 +145,15 @@ COPY --chown=${USER_UID}:${USER_GID} {{ step.args }}
 COPY {{ step.args }}
 {% endif %}
 {% elif step.type == "env" %}
+{% if step.vars | length == 1 %}
 {% for key, value in step.vars.items() %}
 ENV {{ key }}="{{ value }}"
 {% endfor %}
+{% else %}
+ENV {% for key, value in step.vars.items() %}{% if not loop.first %}    {% endif %}{{ key }}="{{ value }}"{% if not loop.last %} \
+{% endif %}{% endfor %}
+
+{% endif %}
 {% elif step.type == "custom" %}
 {% if step.command.startswith('ADD ') or step.command.startswith('ARG ') or step.command.startswith('CMD ') or step.command.startswith('COPY ') or step.command.startswith('ENTRYPOINT ') or step.command.startswith('ENV ') or step.command.startswith('EXPOSE ') or step.command.startswith('FROM ') or step.command.startswith('HEALTHCHECK ') or step.command.startswith('LABEL ') or step.command.startswith('RUN ') or step.command.startswith('SHELL ') or step.command.startswith('STOPSIGNAL ') or step.command.startswith('USER ') or step.command.startswith('VOLUME ') or step.command.startswith('WORKDIR ') %}
 {{ step.command }}

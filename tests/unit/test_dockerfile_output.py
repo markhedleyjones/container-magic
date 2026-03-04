@@ -1,9 +1,4 @@
-"""Tests for Dockerfile output correctness (Batch 1 from REVIEW.md).
-
-Each test demonstrates a current bug by asserting what the output SHOULD be.
-These tests are expected to FAIL against the current code, proving the bugs
-exist. Once the fixes are applied, they should pass.
-"""
+"""Tests for Dockerfile output correctness."""
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -219,3 +214,173 @@ class TestEmptyCopyArgs:
             self._assert_no_bare_copy(content)
         except (ValueError, KeyError):
             pass  # Raising an error is also acceptable
+
+
+# ---------------------------------------------------------------------------
+# 2.1 Stage preamble variants
+# ---------------------------------------------------------------------------
+
+
+def _get_stage_block(content, stage_name):
+    """Extract lines for a single stage from a generated Dockerfile."""
+    lines = content.splitlines()
+    start = None
+    end = None
+    for i, line in enumerate(lines):
+        if "FROM " in line and f" AS {stage_name}" in line:
+            start = i
+        elif start is not None and line.startswith("FROM "):
+            end = i
+            break
+    if start is not None:
+        return "\n".join(lines[start : end if end else len(lines)])
+    return ""
+
+
+class TestStagePreamble:
+    def test_image_stage_with_user_args(self):
+        """FROM Docker image with user steps: full ARG block + WORKSPACE + WORKDIR."""
+        config = {
+            "project": {"name": "test", "workspace": "ws"},
+            "user": {"production": {"name": "app"}},
+            "stages": {
+                "base": {
+                    "from": "python:3-slim",
+                    "steps": ["create_user", "become_user"],
+                },
+                "development": {"from": "base", "steps": []},
+                "production": {"from": "base", "steps": []},
+            },
+        }
+        content = _generate(config)
+        base = _get_stage_block(content, "base")
+        assert "ARG USER_GID=" in base
+        assert "USER_UID=" in base
+        assert "USER_NAME=app" in base
+        assert "USER_HOME=/home/app" in base
+        assert "WORKSPACE_NAME=ws" in base
+        assert "ENV WORKSPACE=${USER_HOME}/${WORKSPACE_NAME}" in base
+        assert "WORKDIR ${USER_HOME}" in base
+
+    def test_image_stage_without_user_args(self):
+        """FROM Docker image without user steps: minimal ARG + WORKSPACE + WORKDIR."""
+        config = _base_config(steps=[])
+        content = _generate(config)
+        base = _get_stage_block(content, "base")
+        assert "ARG USER_HOME=" in base
+        assert "WORKSPACE_NAME=" in base
+        assert "ENV WORKSPACE=${USER_HOME}/${WORKSPACE_NAME}" in base
+        assert "WORKDIR ${USER_HOME}" in base
+        # No user-specific ARGs
+        assert "USER_GID" not in base
+        assert "USER_UID" not in base
+        assert "USER_NAME" not in base
+
+    def test_child_stage_with_user_args(self):
+        """FROM another stage with user steps: user ARGs only, no WORKSPACE/WORKDIR."""
+        config = {
+            "project": {"name": "test", "workspace": "ws"},
+            "user": {"production": {"name": "app"}},
+            "stages": {
+                "base": {"from": "python:3-slim", "steps": ["create_user"]},
+                "development": {"from": "base", "steps": []},
+                "production": {
+                    "from": "base",
+                    "steps": ["become_user", "copy_workspace"],
+                },
+            },
+        }
+        content = _generate(config)
+        prod = _get_stage_block(content, "production")
+        assert "ARG USER_GID=" in prod
+        assert "USER_NAME=app" in prod
+        # No workspace setup (inherited from parent)
+        assert "WORKSPACE_NAME" not in prod
+        assert "WORKDIR" not in prod
+
+    def test_child_stage_without_user_args(self):
+        """FROM another stage without user steps: completely empty preamble."""
+        config = _base_config(steps=[])
+        content = _generate(config)
+        dev = _get_stage_block(content, "development")
+        # No ARG, ENV, or WORKDIR lines
+        assert "ARG " not in dev
+        assert "ENV " not in dev
+        assert "WORKDIR" not in dev
+
+    def test_no_env_workdir_in_output(self):
+        """ENV WORKDIR should never appear (removed variable)."""
+        config = _base_config(steps=[])
+        content = _generate(config)
+        assert "ENV WORKDIR" not in content
+
+
+# ---------------------------------------------------------------------------
+# 2.2 ENV merging
+# ---------------------------------------------------------------------------
+
+
+class TestEnvMerging:
+    def test_consecutive_env_steps_merged(self):
+        """Consecutive env steps produce a single ENV instruction."""
+        config = _base_config(
+            steps=[
+                {"env": {"PATH": "/usr/local/bin:$PATH"}},
+                {"env": {"LD_LIBRARY_PATH": "/usr/local/lib"}},
+            ],
+        )
+        content = _generate(config)
+        base = _get_stage_block(content, "base")
+        # Should be a single ENV with backslash continuation
+        assert 'ENV PATH="/usr/local/bin:$PATH" \\' in base
+        assert '    LD_LIBRARY_PATH="/usr/local/lib"' in base
+
+    def test_non_consecutive_env_steps_not_merged(self):
+        """Env steps separated by other steps remain separate."""
+        config = _base_config(
+            steps=[
+                {"env": {"FOO": "bar"}},
+                "echo hello",
+                {"env": {"BAZ": "qux"}},
+            ],
+        )
+        content = _generate(config)
+        base = _get_stage_block(content, "base")
+        assert 'ENV FOO="bar"' in base
+        assert 'ENV BAZ="qux"' in base
+
+    def test_single_env_step_no_continuation(self):
+        """Single-var env step produces a simple ENV line."""
+        config = _base_config(
+            steps=[{"env": {"MY_VAR": "value"}}],
+        )
+        content = _generate(config)
+        assert 'ENV MY_VAR="value"' in content
+        # No backslash
+        for line in content.splitlines():
+            if "MY_VAR" in line:
+                assert "\\" not in line
+
+    def test_stage_level_env_vars_merged(self):
+        """Multiple stage-level env vars produce a single merged ENV block."""
+        config = _base_config(
+            env={"A": "1", "B": "2"},
+            steps=[],
+        )
+        content = _generate(config)
+        base = _get_stage_block(content, "base")
+        # Two vars on one ENV instruction
+        env_lines = [l for l in base.splitlines() if l.strip().startswith("ENV")]
+        # The preamble ENV and the env_vars ENV
+        env_var_lines = [l for l in env_lines if "A=" in l or "B=" in l]
+        assert len(env_var_lines) == 1
+        assert "\\" in env_var_lines[0]
+
+    def test_single_stage_level_env_no_continuation(self):
+        """Single stage-level env var produces a simple ENV line."""
+        config = _base_config(
+            env={"ONLY": "one"},
+            steps=[],
+        )
+        content = _generate(config)
+        assert 'ENV ONLY="one"' in content
