@@ -1,6 +1,6 @@
 # Cached Assets
 
-Container-magic supports downloading external resources (files, models, datasets) and caching them locally to avoid re-downloading on subsequent builds. Use the `copy_cached_assets` [build step](build-steps.md#6-copy_cached_assets) to include cached assets in your image.
+Container-magic can download external resources (files, models, datasets) and cache them locally to avoid re-downloading on every build. Assets are defined under `project.assets` and copied into the image using `copy:` steps.
 
 **Use cases:**
 
@@ -11,37 +11,38 @@ Container-magic supports downloading external resources (files, models, datasets
 
 ## Configuration
 
-Define assets under `cached_assets` in any stage:
+Define assets under `project.assets`:
+
+```yaml
+project:
+  name: my-project
+  assets:
+    - https://example.com/model.tar.gz
+    - my-model.bin: https://huggingface.co/bert-base/resolve/main/model.safetensors
+```
+
+Each asset can be either:
+
+- A bare URL -- the filename is derived from the URL path
+- A `filename: url` mapping -- you choose the local filename
+
+Then use `copy:` steps to place them in the image:
 
 ```yaml
 stages:
   base:
-    from: python:3.11-slim
-    cached_assets:
-      - url: https://example.com/model.tar.gz
-        dest: /models/model.tar.gz
-      - url: https://huggingface.co/bert-base-uncased/resolve/main/model.safetensors
-        dest: /models/bert.safetensors
+    from: python:3-slim
     steps:
-      - copy_cached_assets
+      - copy: model.tar.gz /models/model.tar.gz
+      - copy: my-model.bin /models/bert.safetensors
 ```
-
-**Options:**
-
-| Option | Required | Description |
-|--------|----------|-------------|
-| `url` | Yes | HTTP(S) URL to download from |
-| `dest` | Yes | Destination path inside container |
 
 ## How It Works
 
-1. Run `cm update` or `cm build` — assets are downloaded (if not cached) with 60-second timeout
-2. Files cached in `.cm-cache/assets/<url-hash>/` with `meta.json` metadata
-3. Add `copy_cached_assets` to your stage's `steps` to copy into image
+1. Run `cm update` or `cm build` -- assets are downloaded (if not cached)
+2. Files cached in `.cm-cache/assets/<hash>/` with metadata
+3. Use `copy:` steps to place cached files into the image
 4. Subsequent builds reuse cached files, skipping downloads
-
-!!! warning
-    If you define `cached_assets` but don't add `copy_cached_assets` to your steps, the assets will be downloaded but not included in the image.
 
 ## Cache Management
 
@@ -56,6 +57,8 @@ cm cache clear   # Clear all cached assets
 ```yaml
 project:
   name: ml-service
+  assets:
+    - model.bin: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/pytorch_model.bin
 
 user:
   production:
@@ -68,49 +71,37 @@ stages:
       pip:
         - transformers
         - flask
-    cached_assets:
-      - url: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/pytorch_model.bin
-        dest: /models/model.bin
-    steps:
-      - install_pip_packages
-      - copy_cached_assets
-
-  production:
-    from: base
     steps:
       - create_user
       - become_user
-      - copy app /app
-```
-
-## Multi-stage Downloading
-
-All stages with `cached_assets` download when running `cm build`:
-
-```yaml
-stages:
-  base:
-    cached_assets:
-      - url: https://example.com/base-asset.tar.gz
-        dest: /opt/base-asset.tar.gz
-    steps:
-      - copy_cached_assets
-
-  development:
-    from: base
-    cached_assets:
-      - url: https://example.com/dev-asset.zip
-        dest: /opt/dev-asset.zip
-    steps:
-      - copy_cached_assets
+      - copy: model.bin /models/model.bin
 
   production:
     from: base
-    cached_assets:
-      - url: https://example.com/prod-asset.tar.gz
-        dest: /opt/prod-asset.tar.gz
     steps:
-      - copy_cached_assets
+      - copy app /app
 ```
 
-All three assets are downloaded and available for their respective stages.
+## Multiple Assets
+
+```yaml
+project:
+  name: ml-pipeline
+  assets:
+    - tokenizer.json: https://example.com/tokenizer.json
+    - model.safetensors: https://example.com/model.safetensors
+    - config.json: https://example.com/config.json
+
+stages:
+  base:
+    from: pytorch/pytorch:latest
+    steps:
+      - create_user
+      - become_user
+      - copy:
+          - tokenizer.json /models/tokenizer.json
+          - model.safetensors /models/model.safetensors
+          - config.json /models/config.json
+```
+
+The `copy:` step accepts a list to copy multiple files. Each item follows the same `source dest` format.

@@ -1,6 +1,6 @@
 # Configuration
 
-Container-magic is configured through a single YAML file (`cm.yaml` or `container-magic.yaml`).
+Container-magic is configured through a single YAML file (`cm.yaml`).
 
 ## Project
 

@@ -42,14 +42,13 @@ Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://pe
             - python3
             - python3-pip
         steps:
-          - install_system_packages
           - RUN pip install --break-system-packages requests
     ```
 
     !!! warning
         Only use `--break-system-packages` if you understand the security implications.
 
-## "Error: uses 'create_user' or 'become_user' but production.user is not defined"
+## "Error: no user is configured"
 
 Add a `user` section with a `production` entry to your config:
 
@@ -73,14 +72,19 @@ For other Dockerfile instructions (`ENV`, `COPY`, `WORKDIR`, etc.), use the uppe
 
 ## Build Takes Too Long When Downloading Assets
 
-Use `cached_assets` to download once and reuse:
+Use `project.assets` to download once and cache locally:
 
 ```yaml
-cached_assets:
-  - url: https://large-file.example.com/model.tar.gz
-    dest: /models/model.tar.gz
-steps:
-  - copy_cached_assets
+project:
+  name: my-project
+  assets:
+    - model.tar.gz: https://large-file.example.com/model.tar.gz
+
+stages:
+  base:
+    from: python:3-slim
+    steps:
+      - copy: model.tar.gz /models/model.tar.gz
 ```
 
 See [Cached Assets](cached-assets.md) for full details.

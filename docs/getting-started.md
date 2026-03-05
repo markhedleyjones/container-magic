@@ -17,9 +17,6 @@ cd my-project
 
 # Or initialise in the current directory
 cm init --here python:3.11
-
-# Use cm.yaml instead of container-magic.yaml
-cm init --compact python:3.11 my-project
 ```
 
 The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, etc.
@@ -78,10 +75,9 @@ The Justfile is generated locally for developers.
 # Create new project
 cm init <image> <name>
 cm init --here <image>        # Initialise in current dir
-cm init --compact <image>     # Use cm.yaml instead of container-magic.yaml
 
 # Regenerate files after editing YAML
-cm update                     # Or: cm generate (alias)
+cm update
 
 # Build and run (wrappers around just build / just run)
 cm build
