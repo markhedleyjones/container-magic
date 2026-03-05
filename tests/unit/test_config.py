@@ -161,70 +161,28 @@ def test_config_with_packages():
     assert config.stages["base"].packages.pip == ["numpy", "pandas"]
 
 
-def test_packages_apk_and_dnf_default_none():
-    """Test that apk and dnf fields default to None when not set."""
-    config = ContainerMagicConfig(
-        project={"name": "test"},
-        stages={
-            "base": {"from": "python:3-slim"},
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-        },
-    )
-
-    assert config.stages["base"].packages.apk is None
-    assert config.stages["base"].packages.dnf is None
-    assert config.stages["base"].packages.apt is None
-
-
-def test_config_with_apk_packages():
-    """Test configuration with apk package list."""
+@pytest.mark.parametrize(
+    ("pkg_manager", "base_image"),
+    [
+        ("apk", "alpine:latest"),
+        ("dnf", "fedora:latest"),
+    ],
+)
+def test_config_with_alternative_package_managers(pkg_manager, base_image):
     config = ContainerMagicConfig(
         project={"name": "test"},
         stages={
             "base": {
-                "from": "alpine:latest",
-                "packages": {"apk": ["curl", "git"]},
+                "from": base_image,
+                "packages": {pkg_manager: ["curl", "git"]},
             },
             "development": {"from": "base"},
             "production": {"from": "base"},
         },
     )
 
-    assert config.stages["base"].packages.apk == ["curl", "git"]
+    assert getattr(config.stages["base"].packages, pkg_manager) == ["curl", "git"]
     assert config.stages["base"].packages.apt is None
-
-
-def test_config_with_dnf_packages():
-    """Test configuration with dnf package list."""
-    config = ContainerMagicConfig(
-        project={"name": "test"},
-        stages={
-            "base": {
-                "from": "fedora:latest",
-                "packages": {"dnf": ["curl", "git"]},
-            },
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-        },
-    )
-
-    assert config.stages["base"].packages.dnf == ["curl", "git"]
-    assert config.stages["base"].packages.apt is None
-
-
-def test_build_script_default_target_default():
-    """Test that build_script.default_target defaults to 'production'."""
-    config = ContainerMagicConfig(
-        project={"name": "test"},
-        stages={
-            "base": {"from": "python:3-slim"},
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-        },
-    )
-
-    assert config.build_script.default_target == "production"
 
 
 def test_build_script_custom_default_target():

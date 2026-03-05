@@ -227,11 +227,3 @@ def test_justfile_run_command_order(test_output_dir):
         f"Found --interactive at position {tty_pos}, IMAGE at position {image_pos}. "
         "Container runtimes require: `run [flags] IMAGE [command]`"
     )
-
-
-def test_linter_availability():
-    """Display which linters are available (informational)."""
-    print("\n=== Available Linters ===")
-    for name, path in LINTERS.items():
-        status = "✓" if path else "✗"
-        print(f"{status} {name}: {path or 'not found'}")

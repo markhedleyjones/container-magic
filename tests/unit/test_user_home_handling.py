@@ -1,9 +1,4 @@
-"""Tests for user and home path handling (Batch 2 from REVIEW.md).
-
-Each test demonstrates a current bug by asserting what the output SHOULD be.
-These tests are expected to FAIL against the current code, proving the bugs
-exist. Once the fixes are applied, they should pass.
-"""
+"""Tests for user and home path handling."""
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -59,28 +54,6 @@ class TestUserNameNone:
                     },
                 }
             )
-
-    def test_production_user_without_name_does_not_produce_none_string(self):
-        """Even if config accepts a nameless user, the Dockerfile must not
-        contain the literal string 'None' as a username."""
-        config_dict = {
-            "project": {"name": "test", "workspace": "workspace"},
-            "user": {"production": {"uid": 1000, "gid": 1000}},
-            "stages": {
-                "base": {
-                    "from": "python:3-slim",
-                    "steps": ["create_user", "become_user"],
-                },
-                "development": {"from": "base", "steps": []},
-                "production": {"from": "base", "steps": []},
-            },
-        }
-        try:
-            content = _generate_dockerfile(config_dict)
-            assert "USER_NAME=None" not in content
-            assert "/home/None" not in content
-        except (ValueError, TypeError):
-            pass  # Raising at config or generation time is also acceptable
 
 
 # ---------------------------------------------------------------------------

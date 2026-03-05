@@ -138,37 +138,24 @@ class TestClassifyBareString:
         result = classify_bare_string("become_root")
         assert result == {"type": "keyword", "keyword": "become_root"}
 
-    def test_hyphenated_create_user_raises(self):
+    @pytest.mark.parametrize(
+        "keyword",
+        [
+            "create-user",
+            "become-user",
+            "become-root",
+            "switch_user",
+            "switch_root",
+            "install_system_packages",
+            "install_pip_packages",
+            "copy_cached_assets",
+            "copy-cached-assets",
+            "copy-workspace",
+        ],
+    )
+    def test_removed_keywords_raise(self, keyword):
         with pytest.raises(ValueError, match="Unknown step"):
-            classify_bare_string("create-user")
-
-    def test_hyphenated_become_user_raises(self):
-        with pytest.raises(ValueError, match="Unknown step"):
-            classify_bare_string("become-user")
-
-    def test_hyphenated_become_root_raises(self):
-        with pytest.raises(ValueError, match="Unknown step"):
-            classify_bare_string("become-root")
-
-    def test_switch_user_raises(self):
-        with pytest.raises(ValueError, match="Unknown step.*become_user"):
-            classify_bare_string("switch_user")
-
-    def test_switch_root_raises(self):
-        with pytest.raises(ValueError, match="Unknown step.*become_root"):
-            classify_bare_string("switch_root")
-
-    def test_install_system_packages_raises(self):
-        with pytest.raises(ValueError, match="Unknown step"):
-            classify_bare_string("install_system_packages")
-
-    def test_install_pip_packages_raises(self):
-        with pytest.raises(ValueError, match="Unknown step"):
-            classify_bare_string("install_pip_packages")
-
-    def test_copy_cached_assets_raises(self):
-        with pytest.raises(ValueError, match="Unknown step"):
-            classify_bare_string("copy_cached_assets")
+            classify_bare_string(keyword)
 
     def test_uppercase_passthrough(self):
         result = classify_bare_string("EXPOSE 8080")

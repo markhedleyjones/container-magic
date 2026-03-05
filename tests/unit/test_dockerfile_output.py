@@ -3,6 +3,8 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.generators.dockerfile import generate_dockerfile
 
@@ -87,58 +89,25 @@ class TestEnvValueQuoting:
 
 
 class TestInstructionPassthrough:
-    def test_arg_instruction_not_wrapped_with_run(self):
-        """A custom step starting with ARG should not get a RUN prefix."""
-        config = _base_config(steps=["ARG BUILD_DATE"])
+    @pytest.mark.parametrize(
+        ("step", "instruction"),
+        [
+            ("ARG BUILD_DATE", "ARG"),
+            ('CMD ["python", "app.py"]', "CMD"),
+            ('ENTRYPOINT ["python"]', "ENTRYPOINT"),
+            ("HEALTHCHECK CMD curl -f http://localhost/", "HEALTHCHECK"),
+            ('SHELL ["/bin/bash", "-c"]', "SHELL"),
+            ("STOPSIGNAL SIGTERM", "STOPSIGNAL"),
+            ("ENV FOO=bar", "ENV"),
+            ("EXPOSE 8080", "EXPOSE"),
+            ("LABEL version=1", "LABEL"),
+        ],
+    )
+    def test_dockerfile_instruction_not_wrapped_with_run(self, step, instruction):
+        config = _base_config(steps=[step])
         content = _generate(config)
-        assert "ARG BUILD_DATE" in content
-        assert "RUN ARG BUILD_DATE" not in content
-
-    def test_cmd_instruction_not_wrapped_with_run(self):
-        """A custom step starting with CMD should not get a RUN prefix."""
-        config = _base_config(steps=['CMD ["python", "app.py"]'])
-        content = _generate(config)
-        assert 'CMD ["python", "app.py"]' in content
-        assert "RUN CMD" not in content
-
-    def test_entrypoint_instruction_not_wrapped_with_run(self):
-        """A custom step starting with ENTRYPOINT should not get a RUN prefix."""
-        config = _base_config(steps=['ENTRYPOINT ["python"]'])
-        content = _generate(config)
-        assert 'ENTRYPOINT ["python"]' in content
-        assert "RUN ENTRYPOINT" not in content
-
-    def test_healthcheck_instruction_not_wrapped_with_run(self):
-        """A custom step starting with HEALTHCHECK should not get a RUN prefix."""
-        config = _base_config(steps=["HEALTHCHECK CMD curl -f http://localhost/"])
-        content = _generate(config)
-        assert "HEALTHCHECK CMD curl -f http://localhost/" in content
-        assert "RUN HEALTHCHECK" not in content
-
-    def test_shell_instruction_not_wrapped_with_run(self):
-        """A custom step starting with SHELL should not get a RUN prefix."""
-        config = _base_config(steps=['SHELL ["/bin/bash", "-c"]'])
-        content = _generate(config)
-        assert 'SHELL ["/bin/bash", "-c"]' in content
-        assert "RUN SHELL" not in content
-
-    def test_stopsignal_instruction_not_wrapped_with_run(self):
-        """A custom step starting with STOPSIGNAL should not get a RUN prefix."""
-        config = _base_config(steps=["STOPSIGNAL SIGTERM"])
-        content = _generate(config)
-        assert "STOPSIGNAL SIGTERM" in content
-        assert "RUN STOPSIGNAL" not in content
-
-    def test_existing_passthrough_still_works(self):
-        """Existing passthrough instructions (ENV, COPY, etc.) still work."""
-        config = _base_config(steps=["ENV FOO=bar", "EXPOSE 8080", "LABEL version=1"])
-        content = _generate(config)
-        assert "ENV FOO=bar" in content
-        assert "RUN ENV" not in content
-        assert "EXPOSE 8080" in content
-        assert "RUN EXPOSE" not in content
-        assert "LABEL version=1" in content
-        assert "RUN LABEL" not in content
+        assert step in content
+        assert f"RUN {instruction}" not in content
 
     def test_plain_command_still_gets_run(self):
         """A non-instruction command should still get a RUN prefix."""

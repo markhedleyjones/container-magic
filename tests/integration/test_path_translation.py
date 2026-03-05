@@ -1,6 +1,5 @@
 """Tests for path translation when running commands from different directories."""
 
-from pathlib import Path
 
 import pytest
 
@@ -73,18 +72,3 @@ def test_justfile_path_translation_from_project_root(test_project):
     assert "PROJECT_ROOT" in content
     assert "REL_PATH" in content
     assert "realpath --relative-to" in content
-
-
-def test_justfile_path_translation_from_subdirectory(test_project):
-    """Test that Justfile can calculate relative paths."""
-    # This is a unit test of the path calculation logic
-    # We can't easily test the full integration without building the container
-
-    project_root = test_project["project_dir"]
-    workspace = test_project["workspace"]
-
-    # Simulate what the Justfile will do
-    rel_path = workspace.relative_to(project_root)
-
-    assert rel_path == Path("workspace")
-    assert str(rel_path) == "workspace"

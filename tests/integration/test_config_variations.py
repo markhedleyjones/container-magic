@@ -488,18 +488,3 @@ def test_volumes_and_devices_appear_in_generated_files(fixtures_dir, temp_projec
     assert '"-v" "/tmp/test-data:/data:ro"' in run_sh
     assert '"-v" "/var/log/app:/logs"' in run_sh
     assert '"--device" "/dev/ttyUSB0"' in run_sh
-
-
-def test_linter_availability():
-    """Display which linters are available (informational)."""
-    linters = {
-        "yamlfmt": shutil.which("yamlfmt"),
-        "hadolint": shutil.which("hadolint"),
-        "shellcheck": shutil.which("shellcheck"),
-        "just": shutil.which("just"),
-    }
-
-    print("\n=== Linter Availability ===")
-    for name, path in linters.items():
-        status = "✓" if path else "✗"
-        print(f"{status} {name}: {path or 'not found'}")
