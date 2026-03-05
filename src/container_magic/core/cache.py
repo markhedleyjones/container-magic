@@ -5,7 +5,7 @@ import json
 import shutil
 import urllib.parse
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Tuple
 
 import requests
 
@@ -67,16 +67,9 @@ def download_asset(url: str, dest_path: Path) -> None:
             f.write(chunk)
 
 
-def cache_asset(
-    project_dir: Path, url: str, container_dest: Optional[str] = None
-) -> Tuple[Path, Path]:
+def cache_asset(project_dir: Path, url: str) -> Tuple[Path, Path]:
     """
     Download and cache an asset if not already cached.
-
-    Args:
-        project_dir: Project directory
-        url: URL to download from
-        container_dest: Destination path in container (optional, kept for backwards compat)
 
     Returns:
         (asset_dir, asset_file) tuple for cached asset
@@ -97,8 +90,6 @@ def cache_asset(
 
     # Write metadata
     meta = {"url": url, "filename": asset_file.name}
-    if container_dest:
-        meta["dest"] = container_dest
     with open(meta_path, "w") as f:
         json.dump(meta, f, indent=2)
 

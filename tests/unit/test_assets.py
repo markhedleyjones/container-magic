@@ -1,6 +1,5 @@
 """Tests for the project.assets manifest system."""
 
-import warnings
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -208,80 +207,6 @@ class TestDockerfileAssetCopyResolution:
         content = _generate(config)
         assert "COPY local-config.txt /etc/config" in content
         assert ".cm-cache" not in content.split("local-config.txt")[0].split("\n")[-1]
-
-
-class TestBackwardsCompatibility:
-    def test_deprecated_cached_assets_still_works(self):
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            config = ContainerMagicConfig(
-                project={"name": "test"},
-                user={"production": {"name": "modeluser", "uid": 1000, "gid": 1000}},
-                stages={
-                    "base": {
-                        "from": "python:3-slim",
-                        "cached_assets": [
-                            {
-                                "url": "https://example.com/model.bin",
-                                "dest": "/models/model.bin",
-                            }
-                        ],
-                        "steps": [
-                            "create_user",
-                            "copy_cached_assets",
-                        ],
-                    },
-                    "development": {"from": "base", "steps": []},
-                    "production": {"from": "base", "steps": []},
-                },
-            )
-            assert len(config.stages["base"].cached_assets) == 1
-            deprecation_warnings = [
-                x for x in w if issubclass(x.category, DeprecationWarning)
-            ]
-            assert len(deprecation_warnings) >= 1
-
-    def test_deprecated_copy_cached_assets_expands_to_copy_steps(self):
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            config_dict = {
-                "project": {"name": "test"},
-                "user": {"production": {"name": "user", "uid": 1000, "gid": 1000}},
-                "stages": {
-                    "base": {
-                        "from": "python:3-slim",
-                        "cached_assets": [
-                            {
-                                "url": "https://httpbin.org/uuid",
-                                "dest": "/models/test.json",
-                            }
-                        ],
-                        "steps": [
-                            "create_user",
-                            "copy_cached_assets",
-                        ],
-                    },
-                    "development": {"from": "base", "steps": []},
-                    "production": {"from": "base", "steps": []},
-                },
-            }
-            content = _generate(config_dict)
-            assert ".cm-cache/assets/" in content
-            assert "/models/test.json" in content
-
-    def test_copy_cached_assets_keyword_emits_deprecation(self):
-        from container_magic.core.steps import classify_bare_string
-
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            result = classify_bare_string("copy_cached_assets")
-            assert result["type"] == "keyword"
-            assert result["keyword"] == "copy_cached_assets"
-            deprecation_warnings = [
-                x for x in w if issubclass(x.category, DeprecationWarning)
-            ]
-            assert len(deprecation_warnings) == 1
-            assert "deprecated" in str(deprecation_warnings[0].message).lower()
 
 
 class TestAssetFixtureConfig:

@@ -108,21 +108,15 @@ def validate_no_consecutive_blank_lines(file_path: Path) -> bool:
 
 
 @pytest.mark.parametrize("name,template", TEST_CASES)
-@pytest.mark.parametrize("compact", [False, True], ids=["full", "compact"])
-def test_project_generation(name, template, compact, test_output_dir):
+def test_project_generation(name, template, test_output_dir):
     """Test that project generation works and produces valid files."""
-    # Determine variant name and config file
-    variant_name = f"{name}-compact" if compact else name
-    config_file = "cm.yaml" if compact else "container-magic.yaml"
-    compact_flag = ["--compact"] if compact else []
-
     # Create project directory
-    project_dir = test_output_dir / variant_name
+    project_dir = test_output_dir / name
     project_dir.mkdir(parents=True, exist_ok=True)
 
     # Run cm init
     result = subprocess.run(
-        ["cm", "init", "--here", *compact_flag, template],
+        ["cm", "init", "--here", template],
         cwd=project_dir,
         capture_output=True,
         text=True,
@@ -133,7 +127,7 @@ def test_project_generation(name, template, compact, test_output_dir):
     expected_files = [
         "Dockerfile",
         "Justfile",
-        config_file,
+        "cm.yaml",
         "build.sh",
         "run.sh",
         ".gitignore",
@@ -144,9 +138,7 @@ def test_project_generation(name, template, compact, test_output_dir):
         assert file_path.exists(), f"Missing file: {file}"
 
     # Validate files with linters
-    assert validate_yaml(project_dir / config_file), (
-        f"YAML validation failed: {config_file}"
-    )
+    assert validate_yaml(project_dir / "cm.yaml"), "YAML validation failed: cm.yaml"
     assert validate_dockerfile(project_dir / "Dockerfile"), (
         "Dockerfile validation failed"
     )
@@ -155,7 +147,7 @@ def test_project_generation(name, template, compact, test_output_dir):
     assert validate_justfile(project_dir / "Justfile"), "Justfile validation failed"
 
     # Validate no excessive blank lines in generated files
-    for file_name in ["Dockerfile", "Justfile", "build.sh", "run.sh", config_file]:
+    for file_name in ["Dockerfile", "Justfile", "build.sh", "run.sh", "cm.yaml"]:
         file_path = project_dir / file_name
         assert validate_no_consecutive_blank_lines(file_path), (
             f"{file_name} has more than one consecutive blank line"
@@ -171,7 +163,7 @@ def test_project_generation(name, template, compact, test_output_dir):
     assert result.returncode == 0, f"cm update failed: {result.stderr}"
 
     # Check config uses 'from:' not 'frm:'
-    config_content = (project_dir / config_file).read_text()
+    config_content = (project_dir / "cm.yaml").read_text()
     assert "frm:" not in config_content, "Config uses 'frm:' instead of 'from:'"
 
     # Check Dockerfile has required stages
@@ -184,21 +176,16 @@ def test_project_generation(name, template, compact, test_output_dir):
     justfile_content = (project_dir / "Justfile").read_text()
     assert "build" in justfile_content, "Justfile missing build target"
 
-    # Compact should have minimal comments (header only), full should have detailed comments
-    if compact:
-        comment_lines = [
-            line for line in config_content.split("\n") if line.strip().startswith("#")
-        ]
-        assert len(comment_lines) == 1, (
-            f"Compact config should only have header link, found {len(comment_lines)}"
-        )
-        assert "github.com/markhedleyjones/container-magic" in comment_lines[0], (
-            "Compact config missing repository link"
-        )
-    else:
-        assert "# Project configuration" in config_content, (
-            "Full config missing comments"
-        )
+    # Config should have minimal comments (header only)
+    comment_lines = [
+        line for line in config_content.split("\n") if line.strip().startswith("#")
+    ]
+    assert len(comment_lines) == 1, (
+        f"Config should only have header link, found {len(comment_lines)}"
+    )
+    assert "github.com/markhedleyjones/container-magic" in comment_lines[0], (
+        "Config missing repository link"
+    )
 
 
 def test_justfile_run_command_order(test_output_dir):

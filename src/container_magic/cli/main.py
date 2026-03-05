@@ -135,11 +135,6 @@ def cli():
     help="Directory to create project in (default: current directory)",
 )
 @click.option(
-    "--compact",
-    is_flag=True,
-    help="Use compact config (cm.yaml) without comments",
-)
-@click.option(
     "--here",
     "--in-place",
     "in_place",
@@ -150,7 +145,6 @@ def init(
     template: str,
     name: Optional[str],
     path: Optional[Path],
-    compact: bool,
     in_place: bool,
 ):
     """Initialize a new container-magic project from a template."""
@@ -219,10 +213,8 @@ def init(
         },
     )
 
-    # Choose filename based on compact flag
-    config_filename = "cm.yaml" if compact else "container-magic.yaml"
-    config_path = path / config_filename
-    config.to_yaml(config_path, compact=compact)
+    config_path = path / "cm.yaml"
+    config.to_yaml(config_path)
 
     # Create workspace directory if it doesn't exist
     workspace_dir = path / "workspace"
@@ -252,7 +244,7 @@ def init(
     "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
 )
 def update(path: Path):
-    """Regenerate all files from config (cm.yaml or container-magic.yaml)."""
+    """Regenerate all files from config (cm.yaml)."""
     config_path = find_config_file(path)
 
     click.echo("Regenerating files from configuration...")
@@ -273,22 +265,12 @@ def update(path: Path):
     click.echo("✓ Regenerated successfully")
 
 
-@cli.command()
-@click.option(
-    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
-)
-def generate(path: Path):
-    """Regenerate all files from config (alias for update)."""
-    update.callback(path)
-
-
 def _download_assets(config: ContainerMagicConfig, project_dir: Path):
     """Download all assets (project-level and deprecated per-stage)."""
     from container_magic.core.cache import cache_asset
 
     has_assets = False
 
-    # New: project-level assets
     for item in config.project.assets:
         if not has_assets:
             click.echo("Downloading assets...")
@@ -302,28 +284,6 @@ def _download_assets(config: ContainerMagicConfig, project_dir: Path):
         except Exception as e:
             click.echo(f"  Failed to download {item.url}: {e}", err=True)
             sys.exit(1)
-
-    # Deprecated: per-stage cached_assets (backwards compat)
-    for stage_name, stage_config in config.stages.items():
-        if stage_config.cached_assets:
-            if not has_assets:
-                click.echo("Downloading assets...")
-                has_assets = True
-            for asset in stage_config.cached_assets:
-                try:
-                    asset_dir, asset_file = cache_asset(
-                        project_dir, asset.url, asset.dest
-                    )
-                    if asset_file.exists():
-                        click.echo(
-                            f"  [{stage_name}] {asset.url} -> {asset_file.relative_to(project_dir)}"
-                        )
-                except Exception as e:
-                    click.echo(
-                        f"  [{stage_name}] Failed to download {asset.url}: {e}",
-                        err=True,
-                    )
-                    sys.exit(1)
 
 
 @cli.command()
@@ -458,13 +418,13 @@ def run_main():
     project_dir = None
 
     for parent in [current_dir] + list(current_dir.parents):
-        if (parent / "cm.yaml").exists() or (parent / "container-magic.yaml").exists():
+        if (parent / "cm.yaml").exists():
             project_dir = parent
             break
 
     if not project_dir:
         click.echo(
-            "Error: No config file (cm.yaml or container-magic.yaml) found in current directory or parents",
+            "Error: No config file (cm.yaml) found in current directory or parents",
             err=True,
         )
         sys.exit(1)
@@ -504,13 +464,13 @@ def build_main():
     project_dir = None
 
     for parent in [current_dir] + list(current_dir.parents):
-        if (parent / "cm.yaml").exists() or (parent / "container-magic.yaml").exists():
+        if (parent / "cm.yaml").exists():
             project_dir = parent
             break
 
     if not project_dir:
         click.echo(
-            "Error: No config file (cm.yaml or container-magic.yaml) found in current directory or parents",
+            "Error: No config file (cm.yaml) found in current directory or parents",
             err=True,
         )
         sys.exit(1)

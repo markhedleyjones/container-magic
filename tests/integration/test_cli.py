@@ -25,55 +25,10 @@ def test_init_with_here_flag(temp_project_dir):
     assert result.returncode == 0, f"cm init --here failed: {result.stderr}"
 
     # Check files were created in the directory (not in a subdirectory)
-    assert (temp_project_dir / "container-magic.yaml").exists()
+    assert (temp_project_dir / "cm.yaml").exists()
     assert (temp_project_dir / "Dockerfile").exists()
     assert (temp_project_dir / "Justfile").exists()
     assert (temp_project_dir / "workspace").exists()
-
-
-def test_init_with_compact_flag(temp_project_dir):
-    """Test that --compact flag creates cm.yaml instead of container-magic.yaml."""
-    result = subprocess.run(
-        ["cm", "init", "--compact", "--here", "python"],
-        cwd=temp_project_dir,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, f"cm init --compact failed: {result.stderr}"
-
-    # Check compact config file was created
-    assert (temp_project_dir / "cm.yaml").exists()
-    assert not (temp_project_dir / "container-magic.yaml").exists()
-
-    # Check that compact file has minimal comments (just header link)
-    config_content = (temp_project_dir / "cm.yaml").read_text()
-    comment_lines = [
-        line for line in config_content.split("\n") if line.strip().startswith("#")
-    ]
-    assert len(comment_lines) == 1, "Compact config should only have header link"
-    assert "github.com/markhedleyjones/container-magic" in comment_lines[0]
-
-
-def test_init_without_compact_has_comments(temp_project_dir):
-    """Test that default (non-compact) config has comments."""
-    result = subprocess.run(
-        ["cm", "init", "--here", "python"],
-        cwd=temp_project_dir,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0
-
-    # Check full config file was created
-    assert (temp_project_dir / "container-magic.yaml").exists()
-    assert not (temp_project_dir / "cm.yaml").exists()
-
-    # Check that full file has comments
-    config_content = (temp_project_dir / "container-magic.yaml").read_text()
-    assert "# Project configuration" in config_content
-    assert "# Container runtime configuration" in config_content
 
 
 def test_init_with_name_creates_subdirectory(tmp_path):
@@ -90,7 +45,7 @@ def test_init_with_name_creates_subdirectory(tmp_path):
     # Check files were created in subdirectory
     project_dir = tmp_path / "myproject"
     assert project_dir.exists()
-    assert (project_dir / "container-magic.yaml").exists()
+    assert (project_dir / "cm.yaml").exists()
     assert (project_dir / "Dockerfile").exists()
 
 
@@ -101,7 +56,6 @@ def test_init_complex_template_name(temp_project_dir):
             "cm",
             "init",
             "--here",
-            "--compact",
             "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime",
         ],
         cwd=temp_project_dir,

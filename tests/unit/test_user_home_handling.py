@@ -161,15 +161,15 @@ class TestUidGidZero:
 
 
 class TestToYamlStepsField:
-    def test_to_yaml_uses_steps_not_build_steps(self):
-        """to_yaml should write 'steps', not the deprecated alias 'build_steps'."""
+    def test_to_yaml_uses_steps_key(self):
+        """to_yaml should write 'steps' key."""
         config = ContainerMagicConfig(
             **{
                 "project": {"name": "test", "workspace": "workspace"},
                 "stages": {
                     "base": {
                         "from": "python:3-slim",
-                        "steps": ["install_system_packages"],
+                        "steps": ["create_user"],
                     },
                     "development": {"from": "base", "steps": []},
                     "production": {"from": "base", "steps": []},
@@ -181,4 +181,3 @@ class TestToYamlStepsField:
             config.to_yaml(output_path)
             content = output_path.read_text()
             assert "steps:" in content
-            assert "build_steps:" not in content

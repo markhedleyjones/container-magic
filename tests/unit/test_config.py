@@ -1,7 +1,5 @@
 """Tests for configuration schema and validation."""
 
-import warnings
-
 import pytest
 from pydantic import ValidationError
 
@@ -131,25 +129,20 @@ def test_invalid_volume_empty_parts():
         )
 
 
-def test_deprecated_network_migration():
-    """Test that runtime.network migrates to runtime.network_mode with warning."""
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        config = ContainerMagicConfig(
-            project={"name": "test"},
-            runtime={"network": "host"},
-            stages={
-                "base": {"from": "python:3-slim"},
-                "development": {"from": "base"},
-                "production": {"from": "base"},
-            },
-        )
-
-    assert config.runtime.network_mode == "host"
-    assert config.runtime.network is None
-    deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
-    assert len(deprecation_warnings) == 1
-    assert "network_mode" in str(deprecation_warnings[0].message)
+def test_removed_network_field_becomes_extra(capsys):
+    """Test that runtime.network is treated as an unknown field."""
+    config = ContainerMagicConfig(
+        project={"name": "test"},
+        runtime={"network": "host"},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+    )
+    # network should land in model_extra, network_mode stays None
+    assert config.runtime.network_mode is None
+    assert "network" in config.runtime.model_extra
 
 
 def test_config_with_packages():

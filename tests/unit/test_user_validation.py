@@ -24,7 +24,7 @@ def capture_stderr(func, *args, **kwargs):
 
 
 def test_production_user_empty_string():
-    """Error if create_user or switch_user used but production_user is not defined."""
+    """Error if create_user or become_user used but production_user is not defined."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
         # No production_user defined
@@ -57,8 +57,8 @@ def test_production_user_empty_string():
         assert "production.user is not defined" in str(excinfo.value)
 
 
-def test_switch_user_without_create_in_same_stage():
-    """Warn if switch_user used but no create_user in same stage."""
+def test_become_user_without_create_in_same_stage():
+    """Warn if become_user used but no create_user in same stage."""
     config_dict = {
         "project": {
             "name": "test",
@@ -71,7 +71,7 @@ def test_switch_user_without_create_in_same_stage():
             "base": {
                 "from": "python:3-slim",
                 "steps": [
-                    "switch_user",  # Trying to switch without creating
+                    "become_user",  # Trying to switch without creating
                 ],
             },
             "development": {"from": "base"},
@@ -89,8 +89,8 @@ def test_switch_user_without_create_in_same_stage():
         assert "may fail at build time" in stderr
 
 
-def test_switch_user_with_create_in_parent_stage():
-    """No warning if switch_user used and create_user exists in parent stage."""
+def test_become_user_with_create_in_parent_stage():
+    """No warning if become_user used and create_user exists in parent stage."""
     config_dict = {
         "project": {
             "name": "test",
@@ -113,7 +113,7 @@ def test_switch_user_with_create_in_parent_stage():
             "production": {
                 "from": "base",  # Inherit from base
                 "steps": [
-                    "switch_user",  # Switch in production - should be OK
+                    "become_user",  # Switch in production - should be OK
                 ],
             },
         },
@@ -124,13 +124,13 @@ def test_switch_user_with_create_in_parent_stage():
         output_path = Path(tmpdir) / "Dockerfile"
         stderr = capture_stderr(generate_dockerfile, config, output_path)
 
-        # Should NOT warn about switch_user since create_user is in parent
-        assert "uses 'switch_user'" not in stderr
+        # Should NOT warn about become_user since create_user is in parent
+        assert "uses 'become_user'" not in stderr
         assert "may fail at build time" not in stderr
 
 
-def test_create_user_and_switch_user_both_present():
-    """No warning if both create_user and switch_user are present."""
+def test_create_user_and_become_user_both_present():
+    """No warning if both create_user and become_user are present."""
     config_dict = {
         "project": {
             "name": "test",
@@ -144,7 +144,7 @@ def test_create_user_and_switch_user_both_present():
                 "from": "python:3-slim",
                 "steps": [
                     "create_user",
-                    "switch_user",
+                    "become_user",
                 ],
             },
             "development": {"from": "base"},
@@ -162,7 +162,7 @@ def test_create_user_and_switch_user_both_present():
 
 
 def test_no_user_keywords_no_warnings():
-    """No warnings if no create_user or switch_user keywords used."""
+    """No warnings if no create_user or become_user keywords used."""
     config_dict = {
         "project": {
             "name": "test",
@@ -175,7 +175,7 @@ def test_no_user_keywords_no_warnings():
             "base": {
                 "from": "python:3-slim",
                 "steps": [
-                    "install_system_packages",
+                    {"run": "echo test"},
                 ],
             },
             "development": {
@@ -198,8 +198,8 @@ def test_no_user_keywords_no_warnings():
         assert "Warning" not in stderr
 
 
-def test_switch_root_no_validation_needed():
-    """switch_root should not trigger any validation warnings."""
+def test_become_root_no_validation_needed():
+    """become_root should not trigger any validation warnings."""
     config_dict = {
         "project": {
             "name": "test",
@@ -213,7 +213,7 @@ def test_switch_root_no_validation_needed():
                 "from": "python:3-slim",
                 "steps": [
                     "create_user",
-                    "switch_root",  # Should not warn
+                    "become_root",  # Should not warn
                 ],
             },
             "development": {"from": "base"},
@@ -303,8 +303,8 @@ def test_explicit_create_user_without_user_config_raises_error():
         assert "production.user is not defined" in str(excinfo.value)
 
 
-def test_explicit_switch_user_without_user_config_raises_error():
-    """Explicitly using switch_user without user config should raise an error."""
+def test_explicit_become_user_without_user_config_raises_error():
+    """Explicitly using become_user without user config should raise an error."""
     config_dict = {
         "project": {
             "name": "test",
@@ -321,7 +321,7 @@ def test_explicit_switch_user_without_user_config_raises_error():
             "development": {
                 "from": "base",
                 "steps": [
-                    "switch_user",  # Explicit but no user config
+                    "become_user",  # Explicit but no user config
                 ],
             },
             "production": {"from": "base", "steps": []},
@@ -341,7 +341,7 @@ def test_explicit_switch_user_without_user_config_raises_error():
 
 
 def test_user_defined_but_never_used():
-    """User config defined but never used in create_user or switch_user steps."""
+    """User config defined but never used in create_user or become_user steps."""
     config_dict = {
         "project": {
             "name": "test",
@@ -354,7 +354,7 @@ def test_user_defined_but_never_used():
             "base": {
                 "from": "python:3-slim",
                 "steps": [
-                    "install_system_packages",  # No create_user step
+                    {"run": "echo test"},  # No create_user step
                 ],
             },
             "development": {
@@ -363,7 +363,7 @@ def test_user_defined_but_never_used():
             },
             "production": {
                 "from": "base",
-                "steps": [],  # No switch_user step
+                "steps": [],  # No become_user step
             },
         },
     }
@@ -566,8 +566,8 @@ def test_user_config_default_home_path():
 # --- Tests for lowercase `copy` step ---
 
 
-def test_copy_after_switch_user_gets_chown():
-    """Lowercase copy after switch_user should get --chown."""
+def test_copy_after_become_user_gets_chown():
+    """Lowercase copy after become_user should get --chown."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
         "user": {"production": {"name": "appuser"}},
@@ -576,7 +576,7 @@ def test_copy_after_switch_user_gets_chown():
                 "from": "python:3-slim",
                 "steps": [
                     "create_user",
-                    "switch_user",
+                    "become_user",
                     "copy docs/Gemfile /tmp/",
                 ],
             },
@@ -593,8 +593,8 @@ def test_copy_after_switch_user_gets_chown():
         assert "COPY --chown=${USER_UID}:${USER_GID} docs/Gemfile /tmp/" in content
 
 
-def test_copy_before_switch_user_no_chown():
-    """Lowercase copy before switch_user should not get --chown."""
+def test_copy_before_become_user_no_chown():
+    """Lowercase copy before become_user should not get --chown."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
         "user": {"production": {"name": "appuser"}},
@@ -604,7 +604,7 @@ def test_copy_before_switch_user_no_chown():
                 "steps": [
                     "copy app /app",
                     "create_user",
-                    "switch_user",
+                    "become_user",
                 ],
             },
             "development": {"from": "base", "steps": []},
@@ -622,8 +622,8 @@ def test_copy_before_switch_user_no_chown():
         assert "--chown" not in content.split("COPY app /app")[0].split("\n")[-1]
 
 
-def test_copy_after_switch_root_no_chown():
-    """Lowercase copy after switch_root should not get --chown."""
+def test_copy_after_become_root_no_chown():
+    """Lowercase copy after become_root should not get --chown."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
         "user": {"production": {"name": "appuser"}},
@@ -632,8 +632,8 @@ def test_copy_after_switch_root_no_chown():
                 "from": "python:3-slim",
                 "steps": [
                     "create_user",
-                    "switch_user",
-                    "switch_root",
+                    "become_user",
+                    "become_root",
                     "copy app /app",
                 ],
             },
@@ -657,7 +657,7 @@ def test_copy_after_switch_root_no_chown():
 
 
 def test_copy_inherits_user_from_parent():
-    """Lowercase copy in child stage should inherit user context from parent ending with switch_user."""
+    """Lowercase copy in child stage should inherit user context from parent ending with become_user."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
         "user": {"production": {"name": "appuser"}},
@@ -666,7 +666,7 @@ def test_copy_inherits_user_from_parent():
                 "from": "python:3-slim",
                 "steps": [
                     "create_user",
-                    "switch_user",
+                    "become_user",
                 ],
             },
             "development": {"from": "base", "steps": []},
@@ -687,8 +687,8 @@ def test_copy_inherits_user_from_parent():
         assert "COPY --chown=${USER_UID}:${USER_GID} app /app" in content
 
 
-def test_copy_parent_ends_with_switch_root():
-    """Lowercase copy in child stage should not get --chown if parent ends with switch_root."""
+def test_copy_parent_ends_with_become_root():
+    """Lowercase copy in child stage should not get --chown if parent ends with become_root."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
         "user": {"production": {"name": "appuser"}},
@@ -697,8 +697,8 @@ def test_copy_parent_ends_with_switch_root():
                 "from": "python:3-slim",
                 "steps": [
                     "create_user",
-                    "switch_user",
-                    "switch_root",
+                    "become_user",
+                    "become_root",
                 ],
             },
             "development": {"from": "base", "steps": []},
@@ -725,7 +725,7 @@ def test_copy_parent_ends_with_switch_root():
 
 
 def test_uppercase_copy_unchanged():
-    """Uppercase COPY (custom passthrough) should not get --chown even after switch_user."""
+    """Uppercase COPY (custom passthrough) should not get --chown even after become_user."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
         "user": {"production": {"name": "appuser"}},
@@ -734,7 +734,7 @@ def test_uppercase_copy_unchanged():
                 "from": "python:3-slim",
                 "steps": [
                     "create_user",
-                    "switch_user",
+                    "become_user",
                     "COPY app /app",
                 ],
             },
@@ -768,9 +768,9 @@ def test_multiple_copy_steps_mixed_context():
                 "steps": [
                     "copy config /etc/config",
                     "create_user",
-                    "switch_user",
+                    "become_user",
                     "copy app /home/appuser/app",
-                    "switch_root",
+                    "become_root",
                     "copy sysconfig /etc/sysconfig",
                 ],
             },
@@ -785,7 +785,7 @@ def test_multiple_copy_steps_mixed_context():
         capture_stderr(generate_dockerfile, config, output_path)
         content = output_path.read_text()
 
-        # First copy: before switch_user → no --chown
+        # First copy: before become_user → no --chown
         for line in content.splitlines():
             if "config /etc/config" in line:
                 assert "--chown" not in line
@@ -793,10 +793,10 @@ def test_multiple_copy_steps_mixed_context():
         else:
             pytest.fail("COPY config /etc/config not found")
 
-        # Second copy: after switch_user → has --chown
+        # Second copy: after become_user → has --chown
         assert "COPY --chown=${USER_UID}:${USER_GID} app /home/appuser/app" in content
 
-        # Third copy: after switch_root → no --chown
+        # Third copy: after become_root → no --chown
         for line in content.splitlines():
             if "sysconfig /etc/sysconfig" in line:
                 assert "--chown" not in line
@@ -809,7 +809,7 @@ def test_multiple_copy_steps_mixed_context():
 
 
 def test_become_user_alias_works():
-    """become_user should work identically to switch_user."""
+    """become_user should produce USER directive."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
         "user": {"production": {"name": "appuser"}},
@@ -832,7 +832,7 @@ def test_become_user_alias_works():
 
 
 def test_become_root_alias_works():
-    """become_root should work identically to switch_root."""
+    """become_root should produce USER root directive."""
     config_dict = {
         "project": {"name": "test", "workspace": "workspace"},
         "user": {"production": {"name": "appuser"}},
@@ -1101,12 +1101,11 @@ def test_copy_as_root_with_from():
         "stages": {
             "builder": {
                 "from": "ubuntu:24.04",
-                "steps": ["install_system_packages"],
+                "steps": [],
             },
             "base": {
                 "from": "ubuntu:24.04",
                 "steps": [
-                    "install_system_packages",
                     "copy_as_root --from=builder /usr/local/lib /usr/local/lib",
                 ],
             },
@@ -1131,7 +1130,7 @@ def test_copy_as_user_with_from():
         "stages": {
             "builder": {
                 "from": "ubuntu:24.04",
-                "steps": ["install_system_packages"],
+                "steps": [],
             },
             "base": {
                 "from": "ubuntu:24.04",

@@ -1,7 +1,5 @@
 """Tests for step parsing, command flattening, and validation."""
 
-import warnings
-
 import pytest
 
 from container_magic.core.registry import load_registry
@@ -140,39 +138,37 @@ class TestClassifyBareString:
         result = classify_bare_string("become_root")
         assert result == {"type": "keyword", "keyword": "become_root"}
 
-    def test_hyphenated_alias(self):
-        result = classify_bare_string("create-user")
-        assert result == {"type": "keyword", "keyword": "create_user"}
+    def test_hyphenated_create_user_raises(self):
+        with pytest.raises(ValueError, match="has been removed"):
+            classify_bare_string("create-user")
 
-    def test_hyphenated_become_user(self):
-        result = classify_bare_string("become-user")
-        assert result == {"type": "keyword", "keyword": "become_user"}
+    def test_hyphenated_become_user_raises(self):
+        with pytest.raises(ValueError, match="has been removed"):
+            classify_bare_string("become-user")
 
-    def test_hyphenated_become_root(self):
-        result = classify_bare_string("become-root")
-        assert result == {"type": "keyword", "keyword": "become_root"}
+    def test_hyphenated_become_root_raises(self):
+        with pytest.raises(ValueError, match="has been removed"):
+            classify_bare_string("become-root")
 
-    def test_switch_user_alias(self):
-        result = classify_bare_string("switch_user")
-        assert result == {"type": "keyword", "keyword": "become_user"}
+    def test_switch_user_raises(self):
+        with pytest.raises(ValueError, match="has been removed.*become_user"):
+            classify_bare_string("switch_user")
 
-    def test_switch_root_alias(self):
-        result = classify_bare_string("switch_root")
-        assert result == {"type": "keyword", "keyword": "become_root"}
+    def test_switch_root_raises(self):
+        with pytest.raises(ValueError, match="has been removed.*become_root"):
+            classify_bare_string("switch_root")
 
-    def test_v1_install_system_packages(self):
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            result = classify_bare_string("install_system_packages")
-        assert result == {"type": "v1_keyword", "keyword": "install_system_packages"}
-        assert len(w) == 1
+    def test_install_system_packages_raises(self):
+        with pytest.raises(ValueError, match="has been removed"):
+            classify_bare_string("install_system_packages")
 
-    def test_v1_install_pip_packages(self):
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            result = classify_bare_string("install_pip_packages")
-        assert result == {"type": "v1_keyword", "keyword": "install_pip_packages"}
-        assert len(w) == 1
+    def test_install_pip_packages_raises(self):
+        with pytest.raises(ValueError, match="has been removed"):
+            classify_bare_string("install_pip_packages")
+
+    def test_copy_cached_assets_raises(self):
+        with pytest.raises(ValueError, match="has been removed"):
+            classify_bare_string("copy_cached_assets")
 
     def test_uppercase_passthrough(self):
         result = classify_bare_string("EXPOSE 8080")

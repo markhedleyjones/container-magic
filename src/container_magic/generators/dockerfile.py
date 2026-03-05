@@ -1,13 +1,12 @@
 """Dockerfile generation from configuration."""
 
 import sys
-import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from container_magic.core.cache import build_asset_map, get_asset_cache_path
+from container_magic.core.cache import build_asset_map
 from container_magic.core.config import (
     ContainerMagicConfig,
     StageConfig,
@@ -37,24 +36,18 @@ def get_user_config(
 
 
 def _step_is_become_user(step: Union[str, Dict[str, Any]]) -> bool:
-    """Check if a step is a become-user/switch-user keyword."""
-    if isinstance(step, str):
-        return step in ("switch_user", "become_user", "become-user")
-    return False
+    """Check if a step is a become_user keyword."""
+    return isinstance(step, str) and step == "become_user"
 
 
 def _step_is_become_root(step: Union[str, Dict[str, Any]]) -> bool:
-    """Check if a step is a become-root/switch-root keyword."""
-    if isinstance(step, str):
-        return step in ("switch_root", "become_root", "become-root")
-    return False
+    """Check if a step is a become_root keyword."""
+    return isinstance(step, str) and step == "become_root"
 
 
 def _step_is_create_user(step: Union[str, Dict[str, Any]]) -> bool:
-    """Check if a step is a create-user/create_user keyword."""
-    if isinstance(step, str):
-        return step in ("create_user", "create-user")
-    return False
+    """Check if a step is a create_user keyword."""
+    return isinstance(step, str) and step == "create_user"
 
 
 def _parent_ends_as_user(
@@ -147,12 +140,12 @@ def _stage_needs_user_args(ordered_steps: List[Dict], has_non_root_user: bool) -
     """Check if a stage's steps require user-related ARGs.
 
     Returns True if any step references user ARGs (USER_UID, USER_GID, etc.):
-    - create_user or switch_user steps
+    - create_user or become_user steps
     - copy steps with --chown
     - copy_workspace when a non-root user is configured
     """
     for step in ordered_steps:
-        if step["type"] in ("create_user", "switch_user"):
+        if step["type"] in ("create_user", "become_user"):
             return True
         if step["type"] == "copy" and step.get("chown"):
             return True
@@ -225,14 +218,15 @@ def process_stage_steps(
     # Default build order if not specified
     if stage.steps is None:
         if ":" in stage.frm or "/" in stage.frm:
-            steps: List[Union[str, Dict[str, Any]]] = [
-                "install_system_packages",
-                "install_pip_packages",
+            ordered_steps: List[Dict] = [
+                {"type": "system_packages"},
+                {"type": "pip_packages"},
             ]
             if has_explicit_user_config:
-                steps.append("create_user")
+                ordered_steps.append({"type": "create_user"})
+            return ordered_steps
         else:
-            steps = []
+            steps: List[Union[str, Dict[str, Any]]] = []
             if stage_name == "production":
                 steps = ["copy_workspace"]
     else:
@@ -246,9 +240,7 @@ def process_stage_steps(
     ordered_steps = []
 
     for step in steps:
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            parsed = parse_step(step, registry)
+        parsed = parse_step(step, registry)
 
         step_type = parsed["type"]
 
@@ -258,34 +250,14 @@ def process_stage_steps(
                 ordered_steps.append({"type": "create_user"})
                 has_create_user = True
             elif keyword == "become_user":
-                ordered_steps.append({"type": "switch_user"})
+                ordered_steps.append({"type": "become_user"})
                 has_become_user = True
                 user_is_active = True
             elif keyword == "become_root":
-                ordered_steps.append({"type": "switch_root"})
+                ordered_steps.append({"type": "become_root"})
                 user_is_active = False
             elif keyword == "copy_workspace":
                 ordered_steps.append({"type": "copy_workspace"})
-            elif keyword == "copy_cached_assets":
-                # Backwards compat: expand to individual copy steps from
-                # the deprecated stage.cached_assets list
-                for asset in stage.cached_assets:
-                    asset_dir, asset_file = get_asset_cache_path(project_dir, asset.url)
-                    rel_path = asset_file.relative_to(project_dir)
-                    ordered_steps.append(
-                        {
-                            "type": "copy",
-                            "args": f"{rel_path} {asset.dest}",
-                            "chown": user_is_active,
-                        }
-                    )
-
-        elif step_type == "v1_keyword":
-            keyword = parsed["keyword"]
-            if keyword == "install_system_packages":
-                ordered_steps.append({"type": "system_packages"})
-            elif keyword == "install_pip_packages":
-                ordered_steps.append({"type": "pip_packages"})
 
         elif step_type == "copy_v1":
             chown = parsed["chown"]
@@ -332,27 +304,6 @@ def process_stage_steps(
             f"Stage '{stage_name}' uses 'create_user' or 'become_user' but production.user is not defined. "
             "Define production.user in your configuration."
         )
-
-    # Warn if deprecated cached_assets defined but copy_cached_assets not in steps
-    if stage.cached_assets:
-        has_copy_cached = any(
-            step == "copy_cached_assets" or step == "copy-cached-assets"
-            for step in (stage.steps or [])
-            if isinstance(step, str)
-        )
-        if not has_copy_cached:
-            print(
-                f"\u26a0\ufe0f  Warning: Stage '{stage_name}' has cached_assets but 'copy_cached_assets' not in steps",
-                file=sys.stderr,
-            )
-            print(
-                "   Assets will be downloaded but not copied into the image.",
-                file=sys.stderr,
-            )
-            print(
-                "   Add 'copy_cached_assets' to steps to use them.",
-                file=sys.stderr,
-            )
 
     return ordered_steps
 

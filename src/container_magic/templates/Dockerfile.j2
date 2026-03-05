@@ -125,11 +125,11 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
         chown ${USER_UID}:${USER_GID} ${USER_HOME}; \
     fi
 {% endif %}
-{% elif step.type == "switch_user" %}
-# Switch to user
+{% elif step.type == "become_user" %}
+# Become user
 USER ${USER_NAME}
-{% elif step.type == "switch_root" %}
-# Switch to root
+{% elif step.type == "become_root" %}
+# Become root
 USER root
 {% elif step.type == "copy_workspace" %}
 # Copy workspace into image

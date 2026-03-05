@@ -21,8 +21,6 @@ stages:
     env:
       MODEL_PATH: /models
     steps:
-      - install_system_packages
-      - install_pip_packages
       - create_user
       - copy: uuid /models/uuid.json
       - copy: test-model.bin /models/model.bin

@@ -26,7 +26,7 @@ def ros1_project():
             actual_project_dir = project_dir / "test-ros1-project"
             actual_project_dir.mkdir(exist_ok=True)
 
-            # Create minimal container-magic.yaml
+            # Create minimal cm.yaml
             config_content = """project:
   name: test-ros1-project
   workspace: workspace
@@ -38,44 +38,19 @@ user:
   production:
     name: user
 
-runtime:
-  backend: auto
-  privileged: false
-  features: []
-
 stages:
   base:
     from: docker.io/osrf/ros:noetic
-    packages:
-      apt: []
-      pip: []
-    env: {}
-    cached_assets: []
-    build_steps:
+    steps:
       - create_user
   development:
     from: base
-    packages:
-      apt: []
-      pip: []
-    env: {}
-    cached_assets: []
-    build_steps:
-      - switch_user
+    steps:
+      - become_user
   production:
     from: base
-    packages:
-      apt: []
-      pip: []
-    env: {}
-    cached_assets: []
-
-commands: {}
-
-build_script:
-  default_target: production
 """
-            config_file = actual_project_dir / "container-magic.yaml"
+            config_file = actual_project_dir / "cm.yaml"
             config_file.write_text(config_content)
 
             # Generate Justfile and Dockerfile

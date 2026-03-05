@@ -1,7 +1,6 @@
 """Configuration schema and validation for container-magic."""
 
 import sys
-import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -35,26 +34,23 @@ def find_config_file(path: Path) -> Path:
     """
     Find the config file to use.
 
-    Priority: cm.yaml > container-magic.yaml
-
     Raises:
-        SystemExit: If both files exist or neither exists
+        SystemExit: If config file not found or old name is used
     """
     cm_yaml = path / "cm.yaml"
     container_magic_yaml = path / "container-magic.yaml"
 
-    if cm_yaml.exists() and container_magic_yaml.exists():
-        print("Error: Both cm.yaml and container-magic.yaml found.", file=sys.stderr)
-        print("Please delete one to avoid confusion.", file=sys.stderr)
-        sys.exit(1)
-
     if cm_yaml.exists():
         return cm_yaml
     elif container_magic_yaml.exists():
-        return container_magic_yaml
+        print(
+            "Error: Rename container-magic.yaml to cm.yaml",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     else:
         print(
-            "Error: No config file found (cm.yaml or container-magic.yaml)",
+            "Error: No config file found (cm.yaml)",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -238,8 +234,6 @@ class RuntimeConfig(BaseModel):
         default=None,
         description="IPC namespace mode (e.g. shareable, container:<name>, host, private)",
     )
-    # Deprecated: use network_mode instead
-    network: Optional[Literal["host", "bridge", "none"]] = Field(default=None)
 
     @field_validator("volumes")
     @classmethod
@@ -262,21 +256,6 @@ class RuntimeConfig(BaseModel):
                 raise ValueError("Device path must not be empty")
         return v
 
-    @model_validator(mode="after")
-    def migrate_deprecated_fields(self) -> "RuntimeConfig":
-        """Migrate deprecated runtime fields."""
-        if self.network is not None:
-            if self.network:
-                warnings.warn(
-                    "runtime.network is deprecated, use runtime.network_mode instead",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                if self.network_mode is None:
-                    self.network_mode = self.network
-            self.network = None
-        return self
-
 
 class PackagesConfig(BaseModel):
     """Package installation configuration."""
@@ -297,28 +276,6 @@ class PackagesConfig(BaseModel):
     )
 
 
-class CachedAsset(BaseModel):
-    """Cached asset configuration."""
-
-    model_config = ConfigDict(extra="allow")
-
-    url: str = Field(description="URL to download asset from")
-    dest: str = Field(description="Destination path in container")
-
-    @model_validator(mode="before")
-    @classmethod
-    def check_for_path_field(cls, data: Any) -> Any:
-        """Provide helpful error message if user tries to use 'path' instead of 'url'."""
-        if isinstance(data, dict) and "path" in data:
-            raise ValueError(
-                "cached_assets does not support 'path' field. "
-                "Use 'url' for remote HTTP/HTTPS resources. "
-                "For local workspace files, use a COPY step instead: "
-                "'COPY workspace/path/to/file /container/path'"
-            )
-        return data
-
-
 class StageConfig(BaseModel):
     """Build stage configuration."""
 
@@ -335,28 +292,9 @@ class StageConfig(BaseModel):
     env: Dict[str, str] = Field(
         default_factory=dict, description="Environment variables to set in Dockerfile"
     )
-    cached_assets: List[CachedAsset] = Field(
-        default_factory=list,
-        description="Deprecated: use project.assets instead",
-    )
-
-    @field_validator("cached_assets", mode="after")
-    @classmethod
-    def warn_cached_assets_deprecated(cls, v):
-        """Emit deprecation warning when cached_assets is used on a stage."""
-        if v:
-            warnings.warn(
-                "stages.<stage>.cached_assets is deprecated. "
-                "Move assets to project.assets and use copy: steps instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        return v
-
     steps: Optional[List[Union[str, Dict[str, Any]]]] = Field(
         default=None,
         description="Ordered list of build steps: bare strings for keywords or Dockerfile passthrough, dicts for structured commands (run, copy, env, or command builder syntax)",
-        validation_alias="build_steps",  # Accept old name for backwards compatibility
     )
 
 
@@ -452,13 +390,8 @@ class ContainerMagicConfig(BaseModel):
 
         return config
 
-    def to_yaml(self, path: Path, compact: bool = True) -> None:
-        """Save configuration to YAML file.
-
-        Args:
-            path: Path to save YAML file
-            compact: If False, include helpful comments (default: True)
-        """
+    def to_yaml(self, path: Path) -> None:
+        """Save configuration to YAML file."""
         data = self.model_dump(exclude_none=True, by_alias=True)
 
         # Remove auto_update from output when it matches the default (True)
@@ -529,13 +462,9 @@ class ContainerMagicConfig(BaseModel):
 
         output = "\n".join(formatted_lines)
 
-        # Add comments if not compact
-        if not compact:
-            output = self._add_comments(output)
-        else:
-            # Add minimal header for compact config
-            compact_header = "# https://github.com/markhedleyjones/container-magic\n"
-            output = compact_header + output
+        # Add header
+        header = "# https://github.com/markhedleyjones/container-magic\n"
+        output = header + output
 
         with open(path, "w") as f:
             f.write(output)
@@ -549,121 +478,6 @@ class ContainerMagicConfig(BaseModel):
                 ["yamlfmt", "-formatter", "retain_line_breaks=true", str(path)],
                 capture_output=True,
             )
-
-    def _add_comments(self, yaml_content: str) -> str:
-        """Add helpful comments to YAML content."""
-        header = """# container-magic.yaml
-# Configuration file for container-magic - a tool for containerised development environments
-#
-# Repository: https://github.com/markhedleyjones/container-magic
-# Install: pip install container-magic
-# For a more compact config without comments, use: cm init --compact
-
-"""
-
-        # Add section comments
-        commented = header + yaml_content
-
-        # Add comments above keys (only first occurrence)
-        replacements = [
-            ("project:", "# Project configuration\nproject:"),
-            ("  name:", "  # Project name (used for Docker image tagging)\n  name:"),
-            (
-                "  workspace:",
-                "  # Directory containing your code (mounted into container)\n  workspace:",
-            ),
-            (
-                "  auto_update:",
-                "  # Automatically regenerate Dockerfile and Justfile when this file changes\n  auto_update:",
-            ),
-            (
-                "user:",
-                "# User configuration for development and production targets\nuser:",
-            ),
-            (
-                "  development:",
-                "  # Development target user (development: { host: true } for actual host user)\n  development:",
-            ),
-            (
-                "  production:",
-                "  # Production target user (production: { name: user, uid: 1000, gid: 1000 })\n  production:",
-            ),
-            ("runtime:", "# Container runtime configuration\nruntime:"),
-            (
-                "  backend:",
-                "  # Container runtime: auto, docker, or podman\n  backend:",
-            ),
-            (
-                "  privileged:",
-                "  # Run containers in privileged mode (for hardware access)\n  privileged:",
-            ),
-            (
-                "  network_mode:",
-                "  # Container network mode: host, bridge, or none\n  network_mode:",
-            ),
-            (
-                "  features:",
-                "  # Features to enable: display, gpu, audio, aws_credentials\n  features:",
-            ),
-            (
-                "  volumes:",
-                "  # Additional bind mounts (host:container[:options])\n  volumes:",
-            ),
-            (
-                "  devices:",
-                "  # Host devices to pass through (/dev/ttyUSB0, etc.)\n  devices:",
-            ),
-            (
-                "  ipc:",
-                "  # IPC namespace mode: shareable, container:<name>, host, private\n  ipc:",
-            ),
-            ("stages:", "# Build stages - each stage builds on the previous\nstages:"),
-            ("  base:", "  # Base stage - foundation for all other stages\n  base:"),
-            (
-                "    from:",
-                "    # Base image to build from (any Docker image)\n    from:",
-            ),
-            ("    packages:", "    # Packages to install\n    packages:"),
-            (
-                "      apt:",
-                "      # System packages (apt-get install)\n      apt:",
-            ),
-            (
-                "      apk:",
-                "      # System packages (apk add)\n      apk:",
-            ),
-            (
-                "      dnf:",
-                "      # System packages (dnf install)\n      dnf:",
-            ),
-            ("      pip:", "      # Python packages\n      pip:"),
-            ("    env:", "    # Environment variables\n    env:"),
-            (
-                "    cached_assets:",
-                "    # Large files to download and cache (e.g. model weights)\n    cached_assets:",
-            ),
-            (
-                "  development:",
-                "  # Development stage - used when running locally\n  development:",
-            ),
-            (
-                "    steps:",
-                "    # Build steps: create_user, become_user, become_root, copy_workspace, copy_cached_assets, or structured dicts (run, copy, env, apt-get, pip, etc.)\n    steps:",
-            ),
-            (
-                "  production:",
-                "  # Production stage - final deployable image\n  production:",
-            ),
-            (
-                "commands:",
-                "# Custom commands - define your own container commands\ncommands:",
-            ),
-        ]
-
-        for old, new in replacements:
-            commented = commented.replace(old, new, 1)  # Only replace first occurrence
-
-        return commented
 
     @field_validator("project")
     @classmethod

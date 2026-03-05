@@ -16,7 +16,6 @@ Three step categories determined by YAML structure:
 
 import difflib
 import re
-import warnings
 from typing import Any, Dict, List, Optional, Union
 
 from container_magic.core.registry import RegistryEntry
@@ -33,26 +32,18 @@ KEYWORDS = {
     "copy_workspace",
 }
 
-# Deprecated keywords that still parse but emit warnings
-_DEPRECATED_KEYWORDS = {
-    "copy_cached_assets",
-}
-
-# Accepted aliases mapped to canonical form (no deprecation warnings)
-_KEYWORD_ALIASES = {
-    "create-user": "create_user",
-    "become-user": "become_user",
-    "switch_user": "become_user",
-    "become-root": "become_root",
-    "switch_root": "become_root",
-    "copy-workspace": "copy_workspace",
-    "copy-cached-assets": "copy_cached_assets",
-}
-
-# v1 keywords that get converted to v2 equivalents
-_V1_STEP_KEYWORDS = {
-    "install_system_packages",
-    "install_pip_packages",
+# Removed keywords with migration messages
+_REMOVED_KEYWORDS = {
+    "switch_user": "Use 'become_user' instead",
+    "switch_root": "Use 'become_root' instead",
+    "create-user": "Use 'create_user' instead",
+    "become-user": "Use 'become_user' instead",
+    "become-root": "Use 'become_root' instead",
+    "copy-workspace": "Use 'copy_workspace' instead",
+    "install_system_packages": "Use structured steps or remove (auto-detected)",
+    "install_pip_packages": "Use structured steps or remove (auto-detected)",
+    "copy_cached_assets": "Use project.assets with copy: steps instead",
+    "copy-cached-assets": "Use project.assets with copy: steps instead",
 }
 
 # Known dict keys with special handling
@@ -181,9 +172,8 @@ def classify_bare_string(step: str) -> Dict[str, Any]:
     Returns a step dict with type information:
     - keyword: container-magic keyword (create_user, become_user, etc.)
     - passthrough: uppercase Dockerfile instruction
-    - v1_keyword: legacy v1 keyword (install_system_packages, etc.)
     - run: plain shell command (gets RUN prefix)
-    - copy_v1: v1-style copy step with inline args
+    - copy_v1: copy step with inline args
     """
     stripped = step.strip()
 
@@ -211,36 +201,11 @@ def classify_bare_string(step: str) -> Dict[str, Any]:
     if stripped in KEYWORDS:
         return {"type": "keyword", "keyword": stripped}
 
-    # Deprecated keywords
-    if stripped in _DEPRECATED_KEYWORDS:
-        warnings.warn(
-            f"Step '{stripped}' is deprecated. "
-            "Move assets to project.assets and use copy: steps instead.",
-            DeprecationWarning,
-            stacklevel=4,
+    # Removed keywords with migration messages
+    if stripped in _REMOVED_KEYWORDS:
+        raise ValueError(
+            f"Step '{stripped}' has been removed. {_REMOVED_KEYWORDS[stripped]}"
         )
-        return {"type": "keyword", "keyword": stripped}
-
-    # Accepted aliases (hyphens, switch_user/switch_root) - no deprecation
-    if stripped in _KEYWORD_ALIASES:
-        canonical = _KEYWORD_ALIASES[stripped]
-        if canonical in _DEPRECATED_KEYWORDS:
-            warnings.warn(
-                f"Step '{stripped}' is deprecated. "
-                "Move assets to project.assets and use copy: steps instead.",
-                DeprecationWarning,
-                stacklevel=4,
-            )
-        return {"type": "keyword", "keyword": canonical}
-
-    # v1 step keywords
-    if stripped in _V1_STEP_KEYWORDS:
-        warnings.warn(
-            f"Step '{stripped}' is deprecated, use structured step syntax instead",
-            DeprecationWarning,
-            stacklevel=4,
-        )
-        return {"type": "v1_keyword", "keyword": stripped}
 
     # Uppercase Dockerfile instruction passthrough
     first_word = stripped.split()[0] if stripped.split() else ""
@@ -249,12 +214,7 @@ def classify_bare_string(step: str) -> Dict[str, Any]:
 
     # Check if it looks like an unknown keyword (lowercase, no spaces, no special chars)
     if re.match(r"^[a-z][a-z0-9_-]*$", stripped):
-        all_known = (
-            KEYWORDS
-            | _DEPRECATED_KEYWORDS
-            | set(_KEYWORD_ALIASES.keys())
-            | _V1_STEP_KEYWORDS
-        )
+        all_known = KEYWORDS | set(_REMOVED_KEYWORDS.keys())
         matches = difflib.get_close_matches(stripped, all_known, n=3, cutoff=0.6)
         if matches:
             suggestion = f" Did you mean: {', '.join(matches)}?"

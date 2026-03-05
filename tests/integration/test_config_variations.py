@@ -22,7 +22,6 @@ CONFIG_FIXTURES = [
     "with_custom_commands.yaml",
     "with_env_vars.yaml",
     "with_gpu_features.yaml",
-    "with_cached_assets.yaml",
     "with_assets.yaml",
     "with_custom_stage.yaml",
     "with_mounts.yaml",
