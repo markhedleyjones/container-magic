@@ -122,7 +122,6 @@ def list_cached_assets(project_dir: Path) -> List[dict]:
         assets.append(
             {
                 "url": meta.get("url"),
-                "dest": meta.get("dest"),
                 "filename": meta.get("filename"),
                 "hash": asset_dir.name,
                 "size": size,

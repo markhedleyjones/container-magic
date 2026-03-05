@@ -266,7 +266,7 @@ def update(path: Path):
 
 
 def _download_assets(config: ContainerMagicConfig, project_dir: Path):
-    """Download all assets (project-level and deprecated per-stage)."""
+    """Download all project-level assets."""
     from container_magic.core.cache import cache_asset
 
     has_assets = False

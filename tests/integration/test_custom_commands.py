@@ -17,7 +17,7 @@ def test_custom_commands_in_justfile_and_run_sh(temp_project_dir):
     """Test that custom commands are generated in both Justfile and run.sh."""
     # Initialize a basic project
     result = subprocess.run(
-        ["cm", "init", "--here", "--compact", "python"],
+        ["cm", "init", "--here", "python"],
         cwd=temp_project_dir,
         capture_output=True,
         text=True,
@@ -99,7 +99,7 @@ def test_custom_commands_with_no_description(temp_project_dir):
     """Test that custom commands work without descriptions."""
     # Initialize a basic project
     result = subprocess.run(
-        ["cm", "init", "--here", "--compact", "python"],
+        ["cm", "init", "--here", "python"],
         cwd=temp_project_dir,
         capture_output=True,
         text=True,
@@ -144,7 +144,7 @@ def test_no_custom_commands_section_when_empty(temp_project_dir):
     """Test that custom command sections are not added when no commands are defined."""
     # Initialize a basic project (no custom commands)
     result = subprocess.run(
-        ["cm", "init", "--here", "--compact", "python"],
+        ["cm", "init", "--here", "python"],
         cwd=temp_project_dir,
         capture_output=True,
         text=True,
@@ -171,7 +171,7 @@ def test_custom_commands_use_workdir_not_workspace(temp_project_dir):
     """Test that custom commands use WORKDIR (not WORKDIR/WORKSPACE) as working directory."""
     # Initialize project
     result = subprocess.run(
-        ["cm", "init", "--here", "--compact", "python"],
+        ["cm", "init", "--here", "python"],
         cwd=temp_project_dir,
         capture_output=True,
         text=True,
@@ -229,7 +229,7 @@ def test_run_sh_shellcheck_validation_with_commands(temp_project_dir):
 
     # Initialize project
     result = subprocess.run(
-        ["cm", "init", "--here", "--compact", "python"],
+        ["cm", "init", "--here", "python"],
         cwd=temp_project_dir,
         capture_output=True,
         text=True,
@@ -275,7 +275,7 @@ def test_commands_with_workspace_variable(temp_project_dir):
     """Test that commands with $WORKSPACE variable expand in container."""
     # Initialize project
     result = subprocess.run(
-        ["cm", "init", "--here", "--compact", "python"],
+        ["cm", "init", "--here", "python"],
         cwd=temp_project_dir,
         capture_output=True,
         text=True,
@@ -326,7 +326,7 @@ def test_custom_commands_mount_workspace_in_justfile(temp_project_dir):
     """Test that custom commands in Justfile mount the workspace directory."""
     # Initialize project
     result = subprocess.run(
-        ["cm", "init", "--here", "--compact", "python"],
+        ["cm", "init", "--here", "python"],
         cwd=temp_project_dir,
         capture_output=True,
         text=True,
@@ -374,7 +374,7 @@ def test_custom_commands_quote_escaping_in_justfile(temp_project_dir):
     """Test that custom commands with nested quotes are properly escaped in Justfile."""
     # Initialize a basic project
     result = subprocess.run(
-        ["cm", "init", "--here", "--compact", "python"],
+        ["cm", "init", "--here", "python"],
         cwd=temp_project_dir,
         capture_output=True,
         text=True,
@@ -439,7 +439,7 @@ def test_custom_commands_with_ports(temp_project_dir):
     """Test that port publishing flags are generated in Justfile and run.sh."""
     # Initialise project
     result = subprocess.run(
-        ["cm", "init", "--here", "--compact", "python"],
+        ["cm", "init", "--here", "python"],
         cwd=temp_project_dir,
         capture_output=True,
         text=True,

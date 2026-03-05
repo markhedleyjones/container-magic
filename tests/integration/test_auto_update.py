@@ -13,7 +13,7 @@ def test_project(tmp_path):
 
     # Initialize project
     result = subprocess.run(
-        ["cm", "init", "--compact", "--here", "python"],
+        ["cm", "init", "--here", "python"],
         cwd=project_dir,
         capture_output=True,
         text=True,
@@ -70,7 +70,7 @@ def test_auto_update_in_generated_justfile(tmp_path):
 
     # Initialize with compact config
     result = subprocess.run(
-        ["cm", "init", "--compact", "--here", "python"],
+        ["cm", "init", "--here", "python"],
         cwd=project_dir,
         capture_output=True,
         text=True,

@@ -40,8 +40,8 @@ _REMOVED_KEYWORDS = {
     "become-user": "Use 'become_user' instead",
     "become-root": "Use 'become_root' instead",
     "copy-workspace": "Use 'copy_workspace' instead",
-    "install_system_packages": "Use structured steps or remove (auto-detected)",
-    "install_pip_packages": "Use structured steps or remove (auto-detected)",
+    "install_system_packages": "Remove this step; packages from the packages config are installed automatically",
+    "install_pip_packages": "Remove this step; packages from the packages config are installed automatically",
     "copy_cached_assets": "Use project.assets with copy: steps instead",
     "copy-cached-assets": "Use project.assets with copy: steps instead",
 }
@@ -203,9 +203,7 @@ def classify_bare_string(step: str) -> Dict[str, Any]:
 
     # Removed keywords with migration messages
     if stripped in _REMOVED_KEYWORDS:
-        raise ValueError(
-            f"Step '{stripped}' has been removed. {_REMOVED_KEYWORDS[stripped]}"
-        )
+        raise ValueError(f"Unknown step '{stripped}'. {_REMOVED_KEYWORDS[stripped]}")
 
     # Uppercase Dockerfile instruction passthrough
     first_word = stripped.split()[0] if stripped.split() else ""
@@ -237,7 +235,7 @@ def parse_dict_step(
     """
     if len(step) != 1:
         raise ValueError(
-            f"Dict step must have exactly one key, got {len(step)}: {list(step.keys())}"
+            f"Each step must have a single key, got {len(step)}: {list(step.keys())}"
         )
 
     key = next(iter(step))

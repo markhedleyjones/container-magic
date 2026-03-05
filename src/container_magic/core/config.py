@@ -75,10 +75,7 @@ class UserTargetConfig(BaseModel):
     def validate_host_field(self) -> "UserTargetConfig":
         """Validate that host is true or omitted, never false."""
         if self.host is False:
-            raise ValueError(
-                "host must be true or omitted. "
-                "If false, just omit the host field and specify name, uid, gid instead"
-            )
+            raise ValueError("host must be true or omitted")
         return self
 
     @model_validator(mode="after")
@@ -86,10 +83,7 @@ class UserTargetConfig(BaseModel):
         """Validate that host: true is not combined with name/uid/gid."""
         if self.host is True:
             if self.name is not None or self.uid is not None or self.gid is not None:
-                raise ValueError(
-                    "host: true cannot be combined with name, uid, or gid. "
-                    "host: true means use the actual host user, so other fields are ignored"
-                )
+                raise ValueError("host: true cannot be combined with name, uid, or gid")
         return self
 
     @model_validator(mode="after")
@@ -234,6 +228,18 @@ class RuntimeConfig(BaseModel):
         default=None,
         description="IPC namespace mode (e.g. shareable, container:<name>, host, private)",
     )
+
+    @model_validator(mode="after")
+    def reject_removed_fields(self):
+        """Reject fields that were removed in v2 with migration messages."""
+        removed = {
+            "network": "Use 'network_mode' instead",
+        }
+        if self.model_extra:
+            for key, message in removed.items():
+                if key in self.model_extra:
+                    raise ValueError(f"runtime.{key} is not valid. {message}")
+        return self
 
     @field_validator("volumes")
     @classmethod

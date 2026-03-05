@@ -129,20 +129,18 @@ def test_invalid_volume_empty_parts():
         )
 
 
-def test_removed_network_field_becomes_extra(capsys):
-    """Test that runtime.network is treated as an unknown field."""
-    config = ContainerMagicConfig(
-        project={"name": "test"},
-        runtime={"network": "host"},
-        stages={
-            "base": {"from": "python:3-slim"},
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-        },
-    )
-    # network should land in model_extra, network_mode stays None
-    assert config.runtime.network_mode is None
-    assert "network" in config.runtime.model_extra
+def test_removed_network_field_raises():
+    """Test that runtime.network is rejected with a migration message."""
+    with pytest.raises(ValidationError, match="network_mode"):
+        ContainerMagicConfig(
+            project={"name": "test"},
+            runtime={"network": "host"},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
 
 
 def test_config_with_packages():

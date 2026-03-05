@@ -174,9 +174,8 @@ def _merge_consecutive_env_steps(ordered_steps: List[Dict]) -> List[Dict]:
 def _resolve_copy_source(args: str, asset_map: Dict[str, str]) -> str:
     """Rewrite copy source if it matches an asset filename.
 
-    The args string is "source dest" (possibly with extra flags).
-    If the first non-flag token matches an asset filename, replace it
-    with the cache path.
+    The args string is "source dest".
+    If the source matches an asset filename, replace it with the cache path.
     """
     parts = args.split()
     if not parts:
@@ -203,7 +202,6 @@ def process_stage_steps(
 ) -> List[Dict]:
     """Process build steps for a stage.
 
-    Handles both v1 (flat string) and v2 (structured dict) step syntax.
     When asset_map is provided, copy sources matching asset filenames are
     rewritten to their cache paths.
 
@@ -293,16 +291,16 @@ def process_stage_steps(
         )
         if not user_created:
             print(
-                f"\u26a0\ufe0f  Warning: Stage '{stage_name}' uses 'become_user' but no 'create_user' found in this stage or parent stages",
+                f"Warning: Stage '{stage_name}' uses 'become_user' but no 'create_user' found. Add 'create_user' to an earlier stage.",
                 file=sys.stderr,
             )
-            print("   The become_user step may fail at build time.", file=sys.stderr)
 
-    # Validation: Check if create_user or become_user used but production.user not defined
+    # Validation: Check if create_user or become_user used but user not defined
     if (has_create_user or has_become_user) and not has_explicit_user_config:
+        keyword = "create_user" if has_create_user else "become_user"
         raise ValueError(
-            f"Stage '{stage_name}' uses 'create_user' or 'become_user' but production.user is not defined. "
-            "Define production.user in your configuration."
+            f"Stage '{stage_name}' uses '{keyword}' but no user is configured. "
+            "Add a user section to cm.yaml."
         )
 
     return ordered_steps

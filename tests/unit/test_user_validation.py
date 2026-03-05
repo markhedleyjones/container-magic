@@ -54,7 +54,7 @@ def test_production_user_empty_string():
         with pytest.raises(ValueError) as excinfo:
             generate_dockerfile(config, output_path)
 
-        assert "production.user is not defined" in str(excinfo.value)
+        assert "no user is configured" in str(excinfo.value)
 
 
 def test_become_user_without_create_in_same_stage():
@@ -86,7 +86,6 @@ def test_become_user_without_create_in_same_stage():
 
         assert "'base' uses 'become_user'" in stderr
         assert "no 'create_user' found" in stderr
-        assert "may fail at build time" in stderr
 
 
 def test_become_user_with_create_in_parent_stage():
@@ -300,7 +299,7 @@ def test_explicit_create_user_without_user_config_raises_error():
             generate_dockerfile(config, output_path)
 
         assert "create_user" in str(excinfo.value)
-        assert "production.user is not defined" in str(excinfo.value)
+        assert "no user is configured" in str(excinfo.value)
 
 
 def test_explicit_become_user_without_user_config_raises_error():
@@ -336,8 +335,7 @@ def test_explicit_become_user_without_user_config_raises_error():
         with pytest.raises(ValueError) as excinfo:
             generate_dockerfile(config, output_path)
 
-        assert "become_user" in str(excinfo.value)
-        assert "production.user is not defined" in str(excinfo.value)
+        assert "no user is configured" in str(excinfo.value)
 
 
 def test_user_defined_but_never_used():
