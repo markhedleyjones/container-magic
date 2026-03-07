@@ -155,7 +155,34 @@ The `--from=` argument should reference a stage name defined in the same `cm.yam
 
 ---
 
-### 5. `env`
+### 5. `run`
+
+Combines multiple commands into a single `RUN` instruction (one Docker layer). Commands are joined with `&& \` automatically:
+
+```yaml
+steps:
+  - run:
+      - mkdir -p /opt/app
+      - cd /opt/app
+      - git clone --depth 1 https://github.com/example/repo.git
+      - cd repo
+      - make install
+```
+
+Use this when commands are logically one operation -- for example, cloning a repository and building it. Shell state (`cd`, sourced environments, shell variables) persists across lines because everything runs in a single shell invocation.
+
+For a single command, a bare string is simpler:
+
+```yaml
+steps:
+  - echo "hello"     # becomes RUN echo "hello"
+```
+
+See [Multi-command Steps](#multi-command-steps) for more examples and [Docker Layer Caching](#docker-layer-caching) for when to combine vs separate commands.
+
+---
+
+### 6. `env`
 
 Sets environment variables in the image. Accepts either a dict or a list:
 
@@ -224,20 +251,20 @@ steps:
 
 This means you can write steps concisely -- just write the command and container-magic adds the `RUN` for you.
 
-### Multi-line Steps
+### Multi-command Steps
 
-Use a YAML `|` block to combine multiple commands into a **single `RUN` instruction** (and therefore a single Docker layer). Lines are automatically joined with `&& \`:
+Use `run:` with a list to combine multiple commands into a **single `RUN` instruction** (and therefore a single Docker layer). Commands are automatically joined with `&& \`:
 
 ```yaml
 steps:
-  - |
-    mkdir -p /opt/my_project/src
-    cd /opt/my_project/src
-    git clone --depth 1 https://github.com/example/repo.git
-    cd repo
-    cmake -B build
-    cmake --build build
-    cmake --install build
+  - run:
+      - mkdir -p /opt/my_project/src
+      - cd /opt/my_project/src
+      - git clone --depth 1 https://github.com/example/repo.git
+      - cd repo
+      - cmake -B build
+      - cmake --build build
+      - cmake --install build
 ```
 
 **Generated Dockerfile:**
@@ -252,28 +279,28 @@ RUN mkdir -p /opt/my_project/src && \
     cmake --install build
 ```
 
-This is particularly useful when commands share shell state -- `cd` changes, sourced environments, and shell variables all persist across lines because everything runs in a single shell invocation. No need for a `bash -c '...'` wrapper.
+This is particularly useful when commands share shell state -- `cd` changes, sourced environments, and shell variables all persist across lines because everything runs in a single shell invocation.
 
-**Example - building a ROS2 workspace:**
+**Example -- building a ROS2 workspace:**
 
 ```yaml
 steps:
-  - |
-    mkdir -p /opt/ros_ws/src
-    cd /opt/ros_ws/src
-    git clone --depth 1 https://github.com/example/ros_package.git
-    cd /opt/ros_ws
-    . /opt/ros/jazzy/setup.sh
-    colcon build
+  - run:
+      - mkdir -p /opt/ros_ws/src
+      - cd /opt/ros_ws/src
+      - git clone --depth 1 https://github.com/example/ros_package.git
+      - cd /opt/ros_ws
+      - . /opt/ros/jazzy/setup.sh
+      - colcon build
 ```
 
 The `. /opt/ros/jazzy/setup.sh` (source) sets up the ROS environment, and `colcon build` on the next line can use it -- because they're in the same `RUN`.
 
-### Single-line vs Multi-line: Docker Layer Caching
+### Docker Layer Caching
 
 Each step becomes one Docker layer. This gives you explicit control over caching:
 
-**Separate steps** - each gets its own layer with independent caching:
+**Separate steps** -- each gets its own layer with independent caching:
 
 ```yaml
 steps:
@@ -284,14 +311,14 @@ steps:
 
 If only the third step changes, Docker reuses the cached layers for the first two. Good for iterating on later steps during development.
 
-**Combined step** - everything in one layer, rebuilt together:
+**Combined step** -- everything in one layer, rebuilt together:
 
 ```yaml
 steps:
-  - |
-    apt-get update
-    apt-get install -y cuda-toolkit-12-6
-    dpkg -i /tmp/some-package.deb
+  - run:
+      - apt-get update
+      - apt-get install -y cuda-toolkit-12-6
+      - dpkg -i /tmp/some-package.deb
 ```
 
 If anything changes, the entire layer rebuilds. Good for related commands that should always run together (like cloning a repo and building it).
