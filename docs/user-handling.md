@@ -69,10 +69,10 @@ stages:
   production:
     from: base
     steps:
-      - create_user: app
-      - copy: config/system.conf /etc/app/            # Root-owned (before become)
-      - become: app
-      - copy: app /home/app/app                      # User-owned (context-aware)
+      - create_user: nonroot
+      - copy: config/nginx.conf /etc/nginx/nginx.conf  # Root-owned (before become)
+      - become: nonroot
+      - copy: workspace                                # User-owned (context-aware)
 ```
 
 See [Build Steps](build-steps.md#4-copy) for full details on the copy step.
