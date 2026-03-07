@@ -3,12 +3,6 @@ project:
   name: test-minimal
   workspace: workspace
 
-user:
-  production:
-    name: appuser
-    uid: 1000
-    gid: 1000
-
 runtime:
   backend: auto
   privileged: false
@@ -17,9 +11,16 @@ runtime:
 stages:
   base:
     from: python:3.11-slim
+    steps:
+      - {create_user: appuser,}
 
   development:
     from: base
+    steps:
+      - {become: appuser,}
 
   production:
     from: base
+    steps:
+      - {become: appuser}
+      - copy: workspace

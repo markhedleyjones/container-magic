@@ -25,21 +25,22 @@ from container_magic.core.registry import RegistryEntry
 _SHELL_SPECIAL = re.compile(r'[>\<&|;*?$(){}[\]!#` \t\'"]')
 
 # Container-magic keywords (underscore canonical form)
-KEYWORDS = {
-    "create_user",
-    "become_user",
-    "become_root",
-    "copy_workspace",
-}
+KEYWORDS: set = set()
 
 # Removed keywords with migration messages
 _REMOVED_KEYWORDS = {
-    "switch_user": "Use 'become_user' instead",
-    "switch_root": "Use 'become_root' instead",
-    "create-user": "Use 'create_user' instead",
-    "become-user": "Use 'become_user' instead",
-    "become-root": "Use 'become_root' instead",
-    "copy-workspace": "Use 'copy_workspace' instead",
+    "copy_workspace": "Use 'copy: workspace' instead",
+    "create_user": "Use 'create_user: <username>' instead",
+    "become_user": "Use 'become: <username>' instead",
+    "become_root": "Use 'become: root' instead",
+    "copy_as_user": "Use 'copy' after 'become: <username>', or uppercase 'COPY --chown=...'",
+    "copy_as_root": "Use 'copy' after 'become: root', or uppercase 'COPY'",
+    "switch_user": "Use 'become: <username>' instead",
+    "switch_root": "Use 'become: root' instead",
+    "create-user": "Use 'create_user: <username>' instead",
+    "become-user": "Use 'become: <username>' instead",
+    "become-root": "Use 'become: root' instead",
+    "copy-workspace": "Use 'copy: workspace' instead",
     "install_system_packages": "Remove this step; packages from the packages config are installed automatically",
     "install_pip_packages": "Remove this step; packages from the packages config are installed automatically",
     "copy_cached_assets": "Use project.assets with copy: steps instead",
@@ -47,7 +48,7 @@ _REMOVED_KEYWORDS = {
 }
 
 # Known dict keys with special handling
-_KNOWN_DICT_KEYS = {"run", "copy", "env"}
+_KNOWN_DICT_KEYS = {"run", "copy", "env", "create_user", "become"}
 
 # Dockerfile instructions that should pass through without RUN prefix
 _DOCKERFILE_INSTRUCTIONS = {
@@ -177,25 +178,18 @@ def classify_bare_string(step: str) -> Dict[str, Any]:
     """
     stripped = step.strip()
 
-    # Check for copy steps with arguments (copy <args>, copy_as_user <args>, copy_as_root <args>)
+    # Check for copy steps with arguments (copy <args>)
     # Use the original step (not stripped) to detect trailing-space-only args
-    for prefix in ("copy_as_user ", "copy_as_root ", "copy "):
-        if step.startswith(prefix) or stripped.startswith(prefix):
-            args = (
-                step[len(prefix) :].strip()
-                if step.startswith(prefix)
-                else stripped[len(prefix) :].strip()
-            )
-            if not args:
-                raise ValueError(
-                    f"'{prefix.strip()}' requires arguments (source and destination)."
-                )
-            if prefix == "copy_as_user ":
-                return {"type": "copy_v1", "args": args, "chown": True}
-            elif prefix == "copy_as_root ":
-                return {"type": "copy_v1", "args": args, "chown": False}
-            else:
-                return {"type": "copy_v1", "args": args, "chown": "context"}
+    prefix = "copy "
+    if step.startswith(prefix) or stripped.startswith(prefix):
+        args = (
+            step[len(prefix) :].strip()
+            if step.startswith(prefix)
+            else stripped[len(prefix) :].strip()
+        )
+        if not args:
+            raise ValueError("'copy' requires arguments (source and destination).")
+        return {"type": "copy_v1", "args": args, "chown": "context"}
 
     # Canonical keywords
     if stripped in KEYWORDS:
@@ -240,6 +234,42 @@ def parse_dict_step(
 
     key = next(iter(step))
     value = step[key]
+
+    # Migration error for old {create: user} syntax
+    if key == "create":
+        raise ValueError(
+            "'create: user' is no longer supported. Use 'create_user: <username>' instead."
+        )
+
+    # Dict steps: create_user and become
+    if key == "create_user":
+        if isinstance(value, str):
+            if not value.strip():
+                raise ValueError("'create_user' requires a non-empty username")
+            return {
+                "type": "create_user",
+                "username": value.strip(),
+                "uid": None,
+                "gid": None,
+            }
+        elif isinstance(value, dict):
+            if "name" not in value:
+                raise ValueError("'create_user' dict must have a 'name' field")
+            return {
+                "type": "create_user",
+                "username": value["name"],
+                "uid": value.get("uid"),
+                "gid": value.get("gid"),
+            }
+        else:
+            raise ValueError(
+                f"'create_user' value must be a string or dict, got {type(value).__name__}"
+            )
+
+    if key == "become":
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("'become' requires a non-empty username string")
+        return {"type": "become", "name": value.strip()}
 
     # Known dict keys with special handling
     if key == "run":
@@ -291,3 +321,31 @@ def parse_step(
         return parse_dict_step(step, registry)
     else:
         raise ValueError(f"Step must be a string or dict, got {type(step).__name__}")
+
+
+def find_create_user_in_stages(stages) -> Optional[Dict[str, Any]]:
+    """Find user info from create_user steps across all stages.
+
+    Scans all stages for create_user steps and returns the first match.
+    Handles both StageConfig objects and raw dicts.
+
+    Returns {"username": str, "uid": int|None, "gid": int|None} or None.
+    """
+    for stage in stages.values() if isinstance(stages, dict) else stages:
+        if isinstance(stage, dict):
+            steps = stage.get("steps") or []
+        else:
+            steps = stage.steps or []
+
+        for step in steps:
+            if isinstance(step, dict) and "create_user" in step:
+                value = step["create_user"]
+                if isinstance(value, str):
+                    return {"username": value, "uid": None, "gid": None}
+                elif isinstance(value, dict):
+                    return {
+                        "username": value["name"],
+                        "uid": value.get("uid"),
+                        "gid": value.get("gid"),
+                    }
+    return None

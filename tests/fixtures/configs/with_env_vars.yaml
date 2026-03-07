@@ -3,12 +3,6 @@ project:
   name: test-env-vars
   workspace: workspace
 
-user:
-  production:
-    name: appuser
-    uid: 1000
-    gid: 1000
-
 runtime:
   backend: auto
   privileged: false
@@ -23,19 +17,19 @@ stages:
           DATABASE_URL: postgresql://localhost/mydb
           API_KEY: test-key-123
           LOG_LEVEL: debug
-      - create_user
+      - {create_user: appuser,}
 
   development:
     from: base
     steps:
       - {env: {DEBUG: "true"}}
-      - become_user
+      - {become: appuser,}
 
   production:
     from: base
     steps:
       - {env: {DEBUG: "false"}}
-      - become_user
+      - {become: appuser,}
 
 commands:
   env-check:

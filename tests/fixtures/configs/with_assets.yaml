@@ -6,19 +6,13 @@ project:
     - https://httpbin.org/uuid
     - test-model.bin: https://example.com/download?file=model&v=2
 
-user:
-  production:
-    name: modeluser
-    uid: 1000
-    gid: 1000
-
 stages:
   base:
     from: python:3-slim
     steps:
       - pip: {install: [requests]}
       - {env: {MODEL_PATH: /models}}
-      - create_user
+      - {create_user: modeluser}
       - copy: uuid /models/uuid.json
       - copy: test-model.bin /models/model.bin
 

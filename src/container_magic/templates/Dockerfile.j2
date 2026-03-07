@@ -84,22 +84,19 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
         chown ${USER_UID}:${USER_GID} ${USER_HOME}; \
     fi
 {% endif %}
-{% elif step.type == "become_user" %}
-# Become user
-USER ${USER_NAME}
-{% elif step.type == "become_root" %}
-# Become root
-USER root
+{% elif step.type == "become" %}
+# Become {{ step.name }}
+USER {{ step.name }}
 {% elif step.type == "copy_workspace" %}
 # Copy workspace into image
-{% if stage.needs_user_args %}
-COPY --chown=${USER_UID}:${USER_GID} {{ workspace_name }} ${WORKSPACE}
+{% if step.chown %}
+COPY --chown={{ step.chown }}:{{ step.chown }} {{ workspace_name }} ${WORKSPACE}
 {% else %}
 COPY {{ workspace_name }} ${WORKSPACE}
 {% endif %}
 {% elif step.type == "copy" %}
 {% if step.chown %}
-COPY --chown=${USER_UID}:${USER_GID} {{ step.args }}
+COPY --chown={{ step.chown }}:{{ step.chown }} {{ step.args }}
 {% else %}
 COPY {{ step.args }}
 {% endif %}

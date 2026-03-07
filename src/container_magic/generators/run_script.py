@@ -6,8 +6,8 @@ from pathlib import Path
 from jinja2 import Environment, PackageLoader
 
 from container_magic.core.config import ContainerMagicConfig
+from container_magic.core.steps import find_create_user_in_stages
 from container_magic.core.templates import detect_shell, resolve_base_image
-from container_magic.generators.dockerfile import get_user_config
 
 
 def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None:
@@ -26,16 +26,16 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     # Determine runtime backend
     backend = config.runtime.backend if config.runtime else "auto"
 
-    # Get production user and workspace info
-    user_cfg = get_user_config(config)
-    production_user = user_cfg.name if user_cfg else "root"
+    # Get user and workspace info
+    user_info = find_create_user_in_stages(config.stages)
+    production_user = user_info["username"] if user_info else "root"
     workspace_name = config.project.workspace
 
     # Determine workdir based on production user
     if production_user == "root":
         workdir = "/root"
     else:
-        workdir = user_cfg.home or f"/home/{production_user}"
+        workdir = f"/home/{production_user}"
 
     # Determine shell from production or base stage
     prod_stage = "production" if "production" in config.stages else "base"

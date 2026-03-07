@@ -56,61 +56,6 @@ def find_config_file(path: Path) -> Path:
         sys.exit(1)
 
 
-class UserTargetConfig(BaseModel):
-    """User configuration for a specific target (development, production, etc.)."""
-
-    model_config = ConfigDict(extra="allow")
-
-    name: Optional[str] = Field(default=None, description="User name")
-    uid: Optional[int] = Field(default=None, description="User ID")
-    gid: Optional[int] = Field(default=None, description="Group ID")
-    home: Optional[str] = Field(
-        default=None, description="Home directory (defaults to /home/${name})"
-    )
-    host: Optional[bool] = Field(
-        default=None, description="Use host user (capture actual UID/GID at build time)"
-    )
-
-    @model_validator(mode="after")
-    def validate_host_field(self) -> "UserTargetConfig":
-        """Validate that host is true or omitted, never false."""
-        if self.host is False:
-            raise ValueError("host must be true or omitted")
-        return self
-
-    @model_validator(mode="after")
-    def validate_host_exclusive(self) -> "UserTargetConfig":
-        """Validate that host: true is not combined with name/uid/gid."""
-        if self.host is True:
-            if self.name is not None or self.uid is not None or self.gid is not None:
-                raise ValueError("host: true cannot be combined with name, uid, or gid")
-        return self
-
-    @model_validator(mode="after")
-    def validate_name_required(self) -> "UserTargetConfig":
-        """Validate that name is provided when host is not true."""
-        if self.host is not True and self.name is None:
-            if self.uid is not None or self.gid is not None or self.home is not None:
-                raise ValueError(
-                    "user name is required when uid, gid, or home is specified. "
-                    "Add name: <username> to your user configuration"
-                )
-        return self
-
-
-class UserConfig(BaseModel):
-    """Top-level user configuration for different targets."""
-
-    model_config = ConfigDict(extra="allow")
-
-    development: Optional[UserTargetConfig] = Field(
-        default=None, description="User configuration for development target"
-    )
-    production: Optional[UserTargetConfig] = Field(
-        default=None, description="User configuration for production target"
-    )
-
-
 class AssetItem(BaseModel):
     """Normalised asset entry (filename + URL)."""
 
@@ -343,10 +288,6 @@ class ContainerMagicConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     project: ProjectConfig
-    user: Optional[UserConfig] = Field(
-        default=None,
-        description="User configuration for development and production targets",
-    )
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     stages: Dict[str, StageConfig]
     commands: Dict[str, CustomCommand] = Field(
@@ -357,6 +298,21 @@ class ContainerMagicConfig(BaseModel):
         description="Per-project command registry overrides for structured step syntax",
     )
     build_script: BuildScriptConfig = Field(default_factory=BuildScriptConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_user_block(cls, data):
+        """Reject any user: config block with migration message."""
+        if isinstance(data, dict) and "user" in data:
+            raise ValueError(
+                "The 'user' config block is no longer supported. "
+                "Use 'create_user' in your build steps instead:\n"
+                "  stages:\n"
+                "    base:\n"
+                "      steps:\n"
+                "        - create_user: appuser"
+            )
+        return data
 
     @classmethod
     def from_yaml(cls, path: Path) -> "ContainerMagicConfig":

@@ -6,8 +6,8 @@ from typing import List
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.config import ContainerMagicConfig
+from container_magic.core.steps import find_create_user_in_stages
 from container_magic.core.templates import detect_shell, resolve_base_image
-from container_magic.generators.dockerfile import get_user_config
 
 
 def generate_standalone_command_scripts(
@@ -51,10 +51,10 @@ def generate_standalone_command_scripts(
     # Determine backend
     backend = config.runtime.backend if config.runtime else "auto"
 
-    # Determine workdir from production user config
-    user_cfg = get_user_config(config, target="production")
-    if user_cfg and user_cfg.name:
-        workdir = user_cfg.home or f"/home/{user_cfg.name}"
+    # Determine workdir from create_user steps
+    user_info = find_create_user_in_stages(config.stages)
+    if user_info:
+        workdir = f"/home/{user_info['username']}"
     else:
         workdir = "/root"
 

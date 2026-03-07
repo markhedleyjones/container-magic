@@ -3,12 +3,6 @@ project:
   name: test-commands
   workspace: workspace
 
-user:
-  production:
-    name: appuser
-    uid: 1000
-    gid: 1000
-
 runtime:
   backend: auto
   privileged: false

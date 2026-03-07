@@ -3,12 +3,6 @@ project:
   name: test-gpu-audio
   workspace: workspace
 
-user:
-  production:
-    name: nonroot
-    uid: 1000
-    gid: 1000
-
 runtime:
   backend: auto
   privileged: true
