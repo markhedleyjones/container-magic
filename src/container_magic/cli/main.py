@@ -196,9 +196,9 @@ def init(
         stages={
             "base": {
                 "from": base_image,
-                "steps": [{"create_user": "user"}],
+                "steps": [{"create_user": "nonroot"}],
             },
-            "development": {"from": "base", "steps": [{"become": "user"}]},
+            "development": {"from": "base", "steps": [{"become": "nonroot"}]},
             "production": {"from": "base"},
         },
     )
