@@ -51,10 +51,10 @@ stages:
     from: python:3.11-slim
     steps:
       - create_user: nonroot
-      - become: nonroot     # USER nonroot
-      - copy: app /app      # COPY --chown=nonroot:nonroot app /app
-      - become: root        # USER root
-      - copy: sys.conf /etc/  # COPY sys.conf /etc/ (no --chown)
+      - become: nonroot          # USER nonroot
+      - copy: entrypoint.sh /opt/  # COPY --chown=nonroot:nonroot ...
+      - become: root             # USER root
+      - copy: sys.conf /etc/     # COPY sys.conf /etc/ (no --chown)
 ```
 
 **Generated Dockerfile:** `USER <username>`
@@ -95,20 +95,20 @@ stages:
   base:
     from: python:3.11-slim
     steps:
-      - create_user: app
-      - become: app
-      - copy: app /app
-      - copy: config.yaml /etc/app/config.yaml
+      - create_user: nonroot
+      - become: nonroot
+      - copy: config.yaml /etc/myservice/config.yaml
+      - copy: scripts/init.sh /opt/init.sh
 ```
 
 **Generated Dockerfile:**
 
 ```dockerfile
-COPY --chown=app:app app /app
-COPY --chown=app:app config.yaml /etc/app/config.yaml
+COPY --chown=nonroot:nonroot config.yaml /etc/myservice/config.yaml
+COPY --chown=nonroot:nonroot scripts/init.sh /opt/init.sh
 ```
 
-If the `copy` step appears before `become` or after `become: root`, it generates a plain `COPY` without `--chown`. User context is inherited from parent stages -- if a parent ends with `become: app`, child stages start with user context active.
+If the `copy` step appears before `become` or after `become: root`, it generates a plain `COPY` without `--chown`. User context is inherited from parent stages -- if a parent ends with `become: nonroot`, child stages start with user context active.
 
 ### Copying from other stages (`--from=`)
 
@@ -144,11 +144,11 @@ When `become` is active, `--chown` is added automatically:
 
 ```yaml
 - become: user
-- copy: --from=builder /opt/app /home/user/app
+- copy: --from=builder /usr/local/bin/myapp /usr/local/bin/myapp
 ```
 
 ```dockerfile
-COPY --chown=user:user --from=builder /opt/app /home/user/app
+COPY --chown=user:user --from=builder /usr/local/bin/myapp /usr/local/bin/myapp
 ```
 
 The `--from=` argument should reference a stage name defined in the same `cm.yaml`. The stage doesn't need to be a parent -- it can be any stage in the build.
@@ -394,7 +394,7 @@ If no steps are specified, `copy: workspace` is added automatically.
 steps:
   - create_user: nonroot
   - become: nonroot
-  - copy: app /app
+  - copy: workspace
 ```
 
 ## Package Installation
