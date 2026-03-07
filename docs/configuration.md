@@ -66,13 +66,21 @@ stages:
   base:
     from: python:3.11-slim    # Any Docker Hub image
     steps:
-      - apt-get: {install: [git, curl]}
-      - pip: {install: [numpy, pandas]}
+      - apt-get:
+          install:
+            - git
+            - curl
+      - pip:
+          install:
+            - numpy
+            - pandas
 
   development:
     from: base                # Inherit from base
     steps:
-      - pip: {install: [pytest]}
+      - pip:
+          install:
+            - pytest
 
   production:
     from: base
@@ -83,24 +91,36 @@ Each stage also supports:
 - `package_manager` - Override the auto-detected package manager (`apt`, `apk`, or `dnf`). Normally inferred from the base image.
 - `shell` - Override the default shell for the stage. Normally inferred from the base image.
 
-Package installation uses the command builder step syntax. The command name determines which package manager is used:
+Package installation uses the command builder step syntax. The command name determines which package manager is used. Container-optimised defaults (flags, cleanup) are applied automatically -- see [Package Installation](build-steps.md#package-installation) for details.
 
 ```yaml
 # Debian / Ubuntu
 steps:
-  - apt-get: {install: [curl, git]}
+  - apt-get:
+      install:
+        - curl
+        - git
 
 # Alpine
 steps:
-  - apk: {add: [curl, git]}
+  - apk:
+      add:
+        - curl
+        - git
 
 # Fedora / CentOS
 steps:
-  - dnf: {install: [curl, git]}
+  - dnf:
+      install:
+        - curl
+        - git
 
 # Python pip
 steps:
-  - pip: {install: [requests, numpy]}
+  - pip:
+      install:
+        - requests
+        - numpy
 ```
 
 You can use any image from Docker Hub as your base (e.g., `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, `nvidia/cuda:12.4.0-runtime-ubuntu22.04`).

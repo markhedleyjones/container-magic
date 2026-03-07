@@ -119,7 +119,10 @@ stages:
   builder:
     from: ubuntu:24.04
     steps:
-      - apt-get: {install: [build-essential, cmake]}
+      - apt-get:
+          install:
+            - build-essential
+            - cmake
       - /tmp/build_deps.sh
 
   base:
@@ -322,6 +325,110 @@ steps:
   - copy app /app
 ```
 
+## Package Installation
+
+Package managers can be used as structured steps. The command name determines which package manager is used:
+
+```yaml
+# Debian / Ubuntu
+steps:
+  - apt-get:
+      install:
+        - curl
+        - git
+
+# Alpine
+steps:
+  - apk:
+      add:
+        - curl
+        - git
+
+# Fedora / CentOS
+steps:
+  - dnf:
+      install:
+        - curl
+        - git
+
+# Python pip
+steps:
+  - pip:
+      install:
+        - requests
+        - numpy
+```
+
+### Registry Defaults
+
+Container-magic applies container-optimised defaults to each package manager automatically. You don't need to add these flags yourself -- they're handled for you:
+
+| Command | Setup | Flags | Cleanup |
+|---------|-------|-------|---------|
+| `apt-get install` | `apt-get update` | `-y --no-install-recommends` | `rm -rf /var/lib/apt/lists/*` |
+| `apk add` | -- | `--no-cache` | -- |
+| `dnf install` | -- | `-y` | `dnf clean all` |
+| `pip install` | -- | `--no-cache-dir` | -- |
+
+For example, this step:
+
+```yaml
+- apt-get:
+    install:
+      - curl
+      - git
+```
+
+generates a single `RUN` instruction equivalent to:
+
+```dockerfile
+RUN apt-get update && apt-get install -y --no-install-recommends curl git && rm -rf /var/lib/apt/lists/*
+```
+
+The defaults are defined in YAML files under `src/container_magic/registry/`. Each file defines the setup, flags, and cleanup for one command:
+
+```
+src/container_magic/registry/
+  apt-get.yaml
+  apk.yaml
+  dnf.yaml
+  pip.yaml
+```
+
+### Per-project Overrides
+
+You can override registry defaults in your `cm.yaml` using the `command_registry` field:
+
+```yaml
+command_registry:
+  apt-get:
+    install:
+      flags: "-y"    # Drop --no-install-recommends
+      cleanup: ""    # Skip cleanup
+```
+
+Overrides replace the entire entry for that command path -- they don't merge with the built-in defaults.
+
+### Adding New Registry Entries
+
+Contributors can add support for new package managers or tools by creating a YAML file in `src/container_magic/registry/`. The file name becomes the command name, and each top-level key is a subcommand:
+
+```yaml
+# src/container_magic/registry/pacman.yaml
+install:
+  setup: "pacman -Sy"
+  flags: "--noconfirm --needed"
+  cleanup: "pacman -Scc --noconfirm"
+```
+
+Each entry supports three optional fields:
+
+- `setup` -- command to run before the main command (e.g. updating the package index)
+- `flags` -- flags appended to the command line
+- `cleanup` -- command to run after the main command (e.g. clearing caches to reduce layer size)
+
+All three are combined into a single `RUN` instruction to keep the layer count down.
+
 ## Common Patterns
 
 ### Multi-stage with shared base
@@ -331,18 +438,29 @@ stages:
   base:
     from: python:3.11-slim
     steps:
-      - apt-get: {install: [git, build-essential]}
-      - pip: {install: [setuptools]}
+      - apt-get:
+          install:
+            - git
+            - build-essential
+      - pip:
+          install:
+            - setuptools
 
   development:
     from: base
     steps:
-      - pip: {install: [pytest, black, mypy]}
+      - pip:
+          install:
+            - pytest
+            - black
+            - mypy
 
   production:
     from: base
     steps:
-      - pip: {install: [gunicorn]}
+      - pip:
+          install:
+            - gunicorn
       - create_user: appuser
       - become: appuser
       - copy: workspace
@@ -360,7 +478,9 @@ stages:
   base:
     from: pytorch/pytorch:latest
     steps:
-      - pip: {install: [transformers]}
+      - pip:
+          install:
+            - transformers
       - copy: model.safetensors /models/bert.safetensors
       - RUN python -c "from transformers import AutoModel; AutoModel.from_pretrained('/models')"
 ```

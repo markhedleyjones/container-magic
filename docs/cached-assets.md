@@ -64,7 +64,10 @@ stages:
   base:
     from: pytorch/pytorch:latest
     steps:
-      - pip: {install: [transformers, flask]}
+      - pip:
+          install:
+            - transformers
+            - flask
       - create_user: appuser
       - become: appuser
       - copy: model.bin /models/model.bin

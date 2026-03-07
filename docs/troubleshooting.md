@@ -13,7 +13,10 @@ Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://pe
       base:
         from: python:3.11-slim
         steps:
-          - pip: {install: [requests, numpy]}
+          - pip:
+              install:
+                - requests
+                - numpy
     ```
 
 === "Install python3-full"
@@ -23,8 +26,12 @@ Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://pe
       base:
         from: ubuntu:24.04
         steps:
-          - apt-get: {install: [python3-full]}
-          - pip: {install: [requests]}
+          - apt-get:
+              install:
+                - python3-full
+          - pip:
+              install:
+                - requests
     ```
 
 === "--break-system-packages"
@@ -34,7 +41,10 @@ Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://pe
       base:
         from: ubuntu:24.04
         steps:
-          - apt-get: {install: [python3, python3-pip]}
+          - apt-get:
+              install:
+                - python3
+                - python3-pip
           - RUN pip install --break-system-packages requests
     ```
 
