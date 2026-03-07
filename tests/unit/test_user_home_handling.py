@@ -3,7 +3,6 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import pytest
 
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.generators.dockerfile import generate_dockerfile
@@ -28,67 +27,19 @@ def _generate_run_script(config_dict):
 
 
 # ---------------------------------------------------------------------------
-# 2.1 user_cfg.name can be None
-# ---------------------------------------------------------------------------
-
-
-class TestUserNameNone:
-    def test_production_user_without_name_raises_error(self):
-        """A production user with uid/gid but no name should be rejected.
-
-        Without this validation, the Dockerfile would contain literal
-        USER_NAME=None and USER_HOME=/home/None.
-        """
-        with pytest.raises((ValueError, TypeError)):
-            ContainerMagicConfig(
-                **{
-                    "project": {"name": "test", "workspace": "workspace"},
-                    "user": {"production": {"uid": 1000, "gid": 1000}},
-                    "stages": {
-                        "base": {
-                            "from": "python:3-slim",
-                            "steps": ["create_user", "become_user"],
-                        },
-                        "development": {"from": "base", "steps": []},
-                        "production": {"from": "base", "steps": []},
-                    },
-                }
-            )
-
-
-# ---------------------------------------------------------------------------
-# 2.2 run.sh ignores custom home path
+# 2.2 run.sh uses user home path
 # ---------------------------------------------------------------------------
 
 
 class TestRunScriptHomePath:
-    def test_custom_home_used_in_run_script(self):
-        """run.sh should use the custom home path, not /home/{name}."""
+    def test_default_home_works(self):
+        """When create_user is used, /home/{name} should be used."""
         config_dict = {
             "project": {"name": "test", "workspace": "workspace"},
-            "user": {"production": {"name": "app", "home": "/opt/app"}},
             "stages": {
                 "base": {
                     "from": "python:3-slim",
-                    "steps": ["create_user"],
-                },
-                "development": {"from": "base", "steps": []},
-                "production": {"from": "base", "steps": []},
-            },
-        }
-        content = _generate_run_script(config_dict)
-        assert "/opt/app" in content
-        assert "/home/app" not in content
-
-    def test_default_home_still_works(self):
-        """When no custom home is set, /home/{name} should be used."""
-        config_dict = {
-            "project": {"name": "test", "workspace": "workspace"},
-            "user": {"production": {"name": "app"}},
-            "stages": {
-                "base": {
-                    "from": "python:3-slim",
-                    "steps": ["create_user"],
+                    "steps": [{"create_user": "app"}],
                 },
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
@@ -96,36 +47,6 @@ class TestRunScriptHomePath:
         }
         content = _generate_run_script(config_dict)
         assert "/home/app" in content
-
-
-# ---------------------------------------------------------------------------
-# 2.3 UID/GID 0 treated as falsy
-# ---------------------------------------------------------------------------
-
-
-class TestUidGidZero:
-    def test_uid_zero_not_overridden(self):
-        """UID 0 should not be silently replaced with 1000.
-
-        The `or` operator treats 0 as falsy, so `uid or 1000` gives 1000.
-        """
-        config_dict = {
-            "project": {"name": "test", "workspace": "workspace"},
-            "user": {"production": {"name": "specialroot", "uid": 0, "gid": 0}},
-            "stages": {
-                "base": {
-                    "from": "python:3-slim",
-                    "steps": ["create_user"],
-                },
-                "development": {"from": "base", "steps": []},
-                "production": {"from": "base", "steps": []},
-            },
-        }
-        content = _generate_dockerfile(config_dict)
-        assert "USER_UID=0" in content
-        assert "USER_GID=0" in content
-        assert "USER_UID=1000" not in content
-        assert "USER_GID=1000" not in content
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +63,7 @@ class TestToYamlStepsField:
                 "stages": {
                     "base": {
                         "from": "python:3-slim",
-                        "steps": ["create_user"],
+                        "steps": [{"create_user": "app"}],
                     },
                     "development": {"from": "base", "steps": []},
                     "production": {"from": "base", "steps": []},

@@ -85,8 +85,6 @@ class TestMultiLineSteps:
             steps=["RUN apt-get update\napt-get install -y curl"],
         )
         content = _generate(config)
-        # The RUN prefix from the passthrough check should appear once,
-        # and the lines should be joined with &&
         assert "apt-get update" in content
         assert "apt-get install -y curl" in content
 
@@ -117,21 +115,6 @@ class TestEmptyCopyArgs:
         except (ValueError, KeyError):
             pass  # Raising an error is also acceptable
 
-    def test_copy_as_user_with_no_arguments(self):
-        """A copy_as_user step with no arguments should raise or not produce a bare COPY."""
-        config = _base_config(steps=["copy_as_user "])
-        config["user"] = {"production": {"name": "testuser"}}
-        config["stages"]["base"]["steps"] = [
-            "create_user",
-            "become_user",
-            "copy_as_user ",
-        ]
-        try:
-            content = _generate(config)
-            self._assert_no_bare_copy(content)
-        except (ValueError, KeyError):
-            pass  # Raising an error is also acceptable
-
 
 # ---------------------------------------------------------------------------
 # 2.1 Stage preamble variants
@@ -156,14 +139,13 @@ def _get_stage_block(content, stage_name):
 
 class TestStagePreamble:
     def test_image_stage_with_user_args(self):
-        """FROM Docker image with user steps: full ARG block + WORKSPACE + WORKDIR."""
+        """FROM Docker image with create_user step: full ARG block + WORKSPACE + WORKDIR."""
         config = {
             "project": {"name": "test", "workspace": "ws"},
-            "user": {"production": {"name": "app"}},
             "stages": {
                 "base": {
                     "from": "python:3-slim",
-                    "steps": ["create_user", "become_user"],
+                    "steps": [{"create_user": "app"}, {"become": "app"}],
                 },
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
@@ -193,24 +175,25 @@ class TestStagePreamble:
         assert "USER_UID" not in base
         assert "USER_NAME" not in base
 
-    def test_child_stage_with_user_args(self):
-        """FROM another stage with user steps: user ARGs only, no WORKSPACE/WORKDIR."""
+    def test_child_stage_with_become_configured_user(self):
+        """FROM another stage with become referencing configured user: needs ARGs."""
         config = {
             "project": {"name": "test", "workspace": "ws"},
-            "user": {"production": {"name": "app"}},
             "stages": {
-                "base": {"from": "python:3-slim", "steps": ["create_user"]},
+                "base": {"from": "python:3-slim", "steps": [{"create_user": "app"}]},
                 "development": {"from": "base", "steps": []},
                 "production": {
                     "from": "base",
-                    "steps": ["become_user", "copy_workspace"],
+                    "steps": [{"become": "app"}, {"copy": "workspace"}],
                 },
             },
         }
         content = _generate(config)
         prod = _get_stage_block(content, "production")
-        assert "ARG USER_GID=" in prod
-        assert "USER_NAME=app" in prod
+        # Needs user ARGs because become references the configured user
+        # (created via ARGs in parent), so USER ${USER_NAME} is used
+        assert "USER_GID" in prod
+        assert "USER ${USER_NAME}" in prod
         # No workspace setup (inherited from parent)
         assert "WORKSPACE_NAME" not in prod
         assert "WORKDIR" not in prod
@@ -277,4 +260,3 @@ class TestEnvMerging:
         for line in content.splitlines():
             if "MY_VAR" in line:
                 assert "\\" not in line
-

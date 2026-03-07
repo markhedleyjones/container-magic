@@ -52,29 +52,28 @@ project:
   name: {_image_name(base_image)}
   workspace: workspace
 
-user:
-  production:
-    name: testuser
-    uid: 1500
-    gid: 1500
-
 runtime:
   backend: auto
 
 stages:
   base:
     from: {base_image}
+    steps:
+    - create_user:
+        name: testuser
+        uid: 1500
+        gid: 1500
 
   development:
     from: base
     steps:
-    - become_user
+    - become: testuser
 
   production:
     from: base
     steps:
-    - become_user
-    - copy_workspace
+    - become: testuser
+    - copy: workspace
 """
     (project_dir / "cm.yaml").write_text(config)
 
@@ -173,7 +172,7 @@ def _run_in_container(project_dir: Path, command: str, timeout: int = 30):
 def test_image_builds(built_project):
     """Verify that build.sh succeeds for each base image.
 
-    The actual build happens in the fixture — if we get here, it passed.
+    The actual build happens in the fixture -- if we get here, it passed.
     """
     assert built_project.exists()
 

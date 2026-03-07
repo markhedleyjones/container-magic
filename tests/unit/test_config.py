@@ -173,3 +173,17 @@ def test_build_script_invalid_default_target():
         )
 
     assert "does not exist in stages" in str(exc_info.value)
+
+
+def test_user_block_rejected():
+    """Test that user: config block raises a migration error."""
+    with pytest.raises(ValidationError, match="no longer supported"):
+        ContainerMagicConfig(
+            project={"name": "test"},
+            user={"name": "appuser"},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )

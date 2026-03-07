@@ -130,7 +130,7 @@ stages:
   production:
     from: base
     steps:
-    - copy_workspace
+    - copy: workspace
 """
         (project_dir / "cm.yaml").write_text(config_content)
 

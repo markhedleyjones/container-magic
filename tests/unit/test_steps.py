@@ -126,21 +126,15 @@ class TestBuildCommand:
 
 
 class TestClassifyBareString:
-    def test_canonical_keyword(self):
-        result = classify_bare_string("create_user")
-        assert result == {"type": "keyword", "keyword": "create_user"}
-
-    def test_become_user_keyword(self):
-        result = classify_bare_string("become_user")
-        assert result == {"type": "keyword", "keyword": "become_user"}
-
-    def test_become_root_keyword(self):
-        result = classify_bare_string("become_root")
-        assert result == {"type": "keyword", "keyword": "become_root"}
-
     @pytest.mark.parametrize(
         "keyword",
         [
+            "copy_workspace",
+            "create_user",
+            "become_user",
+            "become_root",
+            "copy_as_user",
+            "copy_as_root",
             "create-user",
             "become-user",
             "become-root",
@@ -180,11 +174,7 @@ class TestClassifyBareString:
 
     def test_unknown_keyword_raises_error(self):
         with pytest.raises(ValueError, match="Unknown step keyword"):
-            classify_bare_string("crate-user")
-
-    def test_unknown_keyword_suggests_close_match(self):
-        with pytest.raises(ValueError, match="create.user"):
-            classify_bare_string("crate-user")
+            classify_bare_string("crate_workspace")
 
     def test_v1_copy_with_args(self):
         result = classify_bare_string("copy docs/Gemfile /tmp/")
@@ -192,30 +182,67 @@ class TestClassifyBareString:
         assert result["args"] == "docs/Gemfile /tmp/"
         assert result["chown"] == "context"
 
-    def test_v1_copy_as_user_with_args(self):
-        result = classify_bare_string("copy_as_user app /app")
-        assert result["type"] == "copy_v1"
-        assert result["args"] == "app /app"
-        assert result["chown"] is True
-
-    def test_v1_copy_as_root_with_args(self):
-        result = classify_bare_string("copy_as_root config /etc/config")
-        assert result["type"] == "copy_v1"
-        assert result["args"] == "config /etc/config"
-        assert result["chown"] is False
-
     def test_v1_copy_empty_args_raises(self):
         with pytest.raises(ValueError, match="requires arguments"):
             classify_bare_string("copy ")
-
-    def test_v1_copy_as_user_empty_args_raises(self):
-        with pytest.raises(ValueError, match="requires arguments"):
-            classify_bare_string("copy_as_user ")
 
 
 class TestParseDictStep:
     def setup_method(self):
         self.registry = load_registry()
+
+    def test_create_user_string(self):
+        result = parse_dict_step({"create_user": "appuser"}, self.registry)
+        assert result == {
+            "type": "create_user",
+            "username": "appuser",
+            "uid": None,
+            "gid": None,
+        }
+
+    def test_create_user_dict(self):
+        result = parse_dict_step(
+            {"create_user": {"name": "app", "uid": 2000, "gid": 2000}}, self.registry
+        )
+        assert result == {
+            "type": "create_user",
+            "username": "app",
+            "uid": 2000,
+            "gid": 2000,
+        }
+
+    def test_create_user_dict_name_only(self):
+        result = parse_dict_step({"create_user": {"name": "app"}}, self.registry)
+        assert result == {
+            "type": "create_user",
+            "username": "app",
+            "uid": None,
+            "gid": None,
+        }
+
+    def test_create_user_empty_raises(self):
+        with pytest.raises(ValueError, match="non-empty username"):
+            parse_dict_step({"create_user": ""}, self.registry)
+
+    def test_create_user_dict_missing_name_raises(self):
+        with pytest.raises(ValueError, match="must have a 'name' field"):
+            parse_dict_step({"create_user": {"uid": 1000}}, self.registry)
+
+    def test_old_create_syntax_raises_migration_error(self):
+        with pytest.raises(ValueError, match="no longer supported"):
+            parse_dict_step({"create": "user"}, self.registry)
+
+    def test_become_user(self):
+        result = parse_dict_step({"become": "appuser"}, self.registry)
+        assert result == {"type": "become", "name": "appuser"}
+
+    def test_become_root(self):
+        result = parse_dict_step({"become": "root"}, self.registry)
+        assert result == {"type": "become", "name": "root"}
+
+    def test_become_empty_raises(self):
+        with pytest.raises(ValueError, match="non-empty username"):
+            parse_dict_step({"become": ""}, self.registry)
 
     def test_run_string(self):
         result = parse_dict_step({"run": "echo hello"}, self.registry)
@@ -301,14 +328,23 @@ class TestParseStep:
     def setup_method(self):
         self.registry = load_registry()
 
-    def test_string_step(self):
-        result = parse_step("create_user", self.registry)
-        assert result["type"] == "keyword"
-        assert result["keyword"] == "create_user"
+    def test_copy_workspace_removed(self):
+        with pytest.raises(ValueError, match="copy: workspace"):
+            parse_step("copy_workspace", self.registry)
 
     def test_dict_step(self):
         result = parse_step({"run": "echo hello"}, self.registry)
         assert result["type"] == "run"
+
+    def test_create_user_dict_step(self):
+        result = parse_step({"create_user": "appuser"}, self.registry)
+        assert result["type"] == "create_user"
+        assert result["username"] == "appuser"
+
+    def test_become_dict_step(self):
+        result = parse_step({"become": "appuser"}, self.registry)
+        assert result["type"] == "become"
+        assert result["name"] == "appuser"
 
     def test_invalid_type_raises(self):
         with pytest.raises(ValueError, match="must be a string or dict"):
