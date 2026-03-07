@@ -23,50 +23,56 @@ This means:
 
 ## Production (`./build.sh` and `./run.sh`)
 
-The standalone production scripts use the user configuration from your `cm.yaml`:
+The standalone production scripts use the user defined by the `create_user` step in your build stages:
 
 ```yaml
-user:
-  production:
-    name: appuser      # This user is baked into the image
-    uid: 1000
-    gid: 1000
+stages:
+  base:
+    from: python:3.11-slim
+    steps:
+      - create_user: appuser    # This user is baked into the image
 ```
 
-If no `user.production` is defined, **the container runs as root** (`root` user with UID 0).
+If no `create_user` step is used, **the container runs as root** (`root` user with UID 0).
+
+For custom uid/gid, use the extended form:
+
+```yaml
+stages:
+  base:
+    from: python:3.11-slim
+    steps:
+      - create_user:
+          name: appuser
+          uid: 2000
+          gid: 2000
+```
 
 !!! note
-    When no user is configured, the `run.sh` script still works correctly. Commands execute with root privileges — this is the default Docker/Podman behaviour (no `USER` directive means root).
+    When no user is created, the `run.sh` script still works correctly. Commands execute with root privileges - this is the default Docker/Podman behaviour (no `USER` directive means root).
 
 ## Copy Ownership
 
-The copy steps interact with user context to control file ownership:
+The `copy` step interacts with user context to control file ownership:
 
 | Step | Behaviour |
 |------|-----------|
-| `copy` | Adds `--chown` when `become_user` is active, plain `COPY` otherwise |
-| `copy_as_user` | Always adds `--chown=${USER_UID}:${USER_GID}` |
-| `copy_as_root` | Never adds `--chown` |
+| `copy` | Adds `--chown=<username>:<username>` when `become` is active, plain `COPY` otherwise |
 | `COPY` (uppercase) | Raw Dockerfile passthrough, no automatic ownership |
 
-User context is inherited from parent stages — if a parent ends with `become_user`, child stages start with user context active.
+User context is inherited from parent stages - if a parent ends with `become: appuser`, child stages start with user context active.
 
 ### Example: Mixed Ownership
 
 ```yaml
-user:
-  production:
-    name: appuser
-
 stages:
   production:
     from: base
     steps:
-      - create_user
-      - copy_as_user config/app.conf /home/appuser/.config/  # User-owned
-      - copy_as_root config/system.conf /etc/app/            # Root-owned
-      - become_user
-      - copy app /home/appuser/app                           # User-owned (context-aware)
+      - create_user: appuser
+      - copy config/system.conf /etc/app/            # Root-owned (before become)
+      - become: appuser
+      - copy app /home/appuser/app                   # User-owned (context-aware)
 ```
 
-See [Build Steps](build-steps.md#8-copy) for full details on each copy variant.
+See [Build Steps](build-steps.md#4-copy) for full details on the copy step.

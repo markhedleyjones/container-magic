@@ -23,8 +23,8 @@ project:
 
 Each asset can be either:
 
-- A bare URL -- the filename is derived from the URL path
-- A `filename: url` mapping -- you choose the local filename
+- A bare URL - the filename is derived from the URL path
+- A `filename: url` mapping - you choose the local filename
 
 Then use `copy:` steps to place them in the image:
 
@@ -39,7 +39,7 @@ stages:
 
 ## How It Works
 
-1. Run `cm update` or `cm build` -- assets are downloaded (if not cached)
+1. Run `cm update` or `cm build` - assets are downloaded (if not cached)
 2. Files cached in `.cm-cache/assets/<hash>/` with metadata
 3. Use `copy:` steps to place cached files into the image
 4. Subsequent builds reuse cached files, skipping downloads
@@ -60,17 +60,13 @@ project:
   assets:
     - model.bin: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/pytorch_model.bin
 
-user:
-  production:
-    name: appuser
-
 stages:
   base:
     from: pytorch/pytorch:latest
     steps:
       - pip: {install: [transformers, flask]}
-      - create_user
-      - become_user
+      - create_user: appuser
+      - become: appuser
       - copy: model.bin /models/model.bin
 
   production:
@@ -93,8 +89,8 @@ stages:
   base:
     from: pytorch/pytorch:latest
     steps:
-      - create_user
-      - become_user
+      - create_user: appuser
+      - become: appuser
       - copy:
           - tokenizer.json /models/tokenizer.json
           - model.safetensors /models/model.safetensors

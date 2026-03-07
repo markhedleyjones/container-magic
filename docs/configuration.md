@@ -36,10 +36,10 @@ runtime:
 
 The `ipc` field sets the IPC namespace mode for containers (`--ipc` flag). Common values:
 
-- `shareable` — allow other containers to share this container's IPC namespace
-- `container:<name>` — join another container's IPC namespace
-- `host` — use the host's IPC namespace
-- `private` — container's own private IPC namespace (default)
+- `shareable` - allow other containers to share this container's IPC namespace
+- `container:<name>` - join another container's IPC namespace
+- `host` - use the host's IPC namespace
+- `private` - container's own private IPC namespace (default)
 
 Per-command overrides are supported via the `ipc` field on individual commands.
 
@@ -58,25 +58,6 @@ To stop a detached container:
 
 - **Justfile:** `just stop`
 - **run.sh:** `./run.sh --stop`
-
-## User
-
-```yaml
-user:
-  development:
-    host: true              # Use your host UID/GID at build time
-  production:
-    name: appuser           # Required: username
-    uid: 1000               # Optional (default: 1000)
-    gid: 1000               # Optional (default: 1000)
-    home: /home/appuser     # Optional (default: /home/${name})
-```
-
-The `development` target with `host: true` captures your actual UID/GID when building, so file permissions match your host user. The `production` target defines a fixed user baked into the image.
-
-If no `user` section is defined, containers run as root.
-
-See [User Handling](user-handling.md) for more detail on how users work in development vs production.
 
 ## Stages
 
@@ -163,21 +144,21 @@ commands:
 
 The `standalone` flag (default: `false`) controls script generation:
 
-- **`standalone: false`** (default) — Command available via `just <command>` and `./run.sh <command>` only
-- **`standalone: true`** — Also generates a dedicated `<command>.sh` script for direct execution
+- **`standalone: false`** (default) - Command available via `just <command>` and `./run.sh <command>` only
+- **`standalone: true`** - Also generates a dedicated `<command>.sh` script for direct execution
 
 **Development:**
 
-- `just train` — from anywhere in your repository
+- `just train` - from anywhere in your repository
 
 **Production (standalone: false):**
 
-- `./run.sh train` — only way to run
+- `./run.sh train` - only way to run
 
 **Production (standalone: true):**
 
-- `./run.sh deploy` — via run.sh
-- `./deploy.sh` — dedicated standalone script
+- `./run.sh deploy` - via run.sh
+- `./deploy.sh` - dedicated standalone script
 
 ### Command Arguments
 
@@ -260,10 +241,10 @@ build_script:
 The `build.sh` script can build any defined stage:
 
 ```bash
-./build.sh              # Builds the default target (production) → tagged as 'latest'
-./build.sh production   # Builds production stage → tagged as 'latest'
-./build.sh testing      # Builds testing stage → tagged as 'testing'
-./build.sh development  # Builds development stage → tagged as 'development'
+./build.sh              # Builds the default target (production) - tagged as 'latest'
+./build.sh production   # Builds production stage - tagged as 'latest'
+./build.sh testing      # Builds testing stage - tagged as 'testing'
+./build.sh development  # Builds development stage - tagged as 'development'
 ./build.sh --help       # Shows all available targets
 ```
 

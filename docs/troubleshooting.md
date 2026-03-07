@@ -43,12 +43,14 @@ Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://pe
 
 ## "Error: no user is configured"
 
-Add a `user` section with a `production` entry to your config:
+Add a `create_user` step to your build stages:
 
 ```yaml
-user:
-  production:
-    name: appuser
+stages:
+  base:
+    from: python:3.11-slim
+    steps:
+      - create_user: appuser
 ```
 
 ## Custom Step Not Producing Expected Output
@@ -84,12 +86,12 @@ See [Cached Assets](cached-assets.md) for full details.
 
 ## Permission Denied When Running as Non-root
 
-Use lowercase `copy` instead of uppercase `COPY` — it automatically sets ownership via `--chown` when `become_user` is active:
+Use lowercase `copy` instead of uppercase `COPY` - it automatically sets ownership via `--chown` when `become` is active:
 
 ```yaml
 steps:
-  - create_user
-  - become_user
+  - create_user: appuser
+  - become: appuser
   - copy app /app
 ```
 

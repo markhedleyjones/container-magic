@@ -4,107 +4,99 @@ The `steps` field in each stage defines how the image is constructed. Container-
 
 ## Built-in Steps
 
-### 1. `create_user`
+### 1. `create_user: <username>`
 
-Creates a non-root user account for running the application.
+Creates a non-root user account in the container image.
 
-**Requires:** `user.production` defined in config (with at least `name` field)
+**Defaults:**
 
-**Field defaults:**
+- `uid`: 1000
+- `gid`: 1000
+- `home`: `/home/<username>`
 
-- `uid`: 1000 (if not specified)
-- `gid`: 1000 (if not specified)
-- `home`: `/home/${name}` (if not specified)
+**Simple form** (string value):
 
 ```yaml
-user:
-  production:
-    name: appuser
-
 stages:
   base:
     from: python:3.11-slim
     steps:
-      - create_user  # Creates user with uid=1000, gid=1000, home=/home/appuser
+      - create_user: appuser  # uid=1000, gid=1000, home=/home/appuser
+```
+
+**Extended form** (dict value with custom uid/gid):
+
+```yaml
+stages:
+  base:
+    from: python:3.11-slim
+    steps:
+      - create_user:
+          name: appuser
+          uid: 2000
+          gid: 2000
 ```
 
 **Generated Dockerfile:** Creates user and group with specified IDs, skips if user is "root"
 
 ---
 
-### 2. `become_user`
+### 2. `become: <username>`
 
-Switches the current user context from root to the configured non-root user. Also sets the user context for subsequent `copy` steps.
-
-**Requires:** `create_user` step in same or parent stage, user config defined
-
-```yaml
-stages:
-  production:
-    from: base
-    steps:
-      - create_user
-      - become_user
-      - copy app /app
-```
-
-**Generated Dockerfile:** Sets `USER user`
-
----
-
-### 3. `become_root`
-
-Switches user context back to root (if needed after `become_user`).
-
-**Requires:** `become_user` step executed previously
-
-```yaml
-stages:
-  production:
-    steps:
-      - become_user
-      - RUN echo "running as user"
-      - become_root
-      - RUN echo "back to root"
-```
-
-**Generated Dockerfile:** Sets `USER root`
-
----
-
-### 4. `copy_workspace`
-
-Copies the entire workspace directory into the image (typically for production builds).
-
-```yaml
-stages:
-  production:
-    from: base
-    steps:
-      - copy_workspace
-```
-
-**Generated Dockerfile:**
-
-- Without user: `COPY workspace ${WORKSPACE}`
-- With user: `COPY --chown=${USER_UID}:${USER_GID} workspace ${WORKSPACE}`
-
-!!! note
-    This is the automatic default step for the production stage if not specified.
-
----
-
-### 5. `copy`
-
-User-context-aware file copy. Behaves like Docker's `COPY` but automatically adds `--chown=${USER_UID}:${USER_GID}` when `become_user` is active. Lowercase = smart abstraction, uppercase `COPY` = raw Dockerfile passthrough.
+Switches the current user context. Sets the Dockerfile `USER` directive and controls whether subsequent `copy` steps add `--chown`.
 
 ```yaml
 stages:
   base:
     from: python:3.11-slim
     steps:
-      - create_user
-      - become_user
+      - create_user: appuser
+      - become: appuser     # USER appuser
+      - copy app /app       # COPY --chown=appuser:appuser app /app
+      - become: root        # USER root
+      - copy sys.conf /etc/ # COPY sys.conf /etc/ (no --chown)
+```
+
+**Generated Dockerfile:** `USER <username>`
+
+You can switch to any container user -- Docker resolves the username against `/etc/passwd` at build time. This means `become: www-data` or `become: mysql` work without needing `create_user` (those users already exist in the base image).
+
+---
+
+### 3. `copy: workspace`
+
+Copies the entire workspace directory into the image (typically for production builds). Context-aware -- adds `--chown` when `become` is active.
+
+```yaml
+stages:
+  production:
+    from: base
+    steps:
+      - become: appuser
+      - copy: workspace
+```
+
+**Generated Dockerfile:**
+
+- Without active user: `COPY workspace ${WORKSPACE}`
+- With active user: `COPY --chown=<username>:<username> workspace ${WORKSPACE}`
+
+!!! note
+    This is the automatic default step for the production stage if no steps are specified.
+
+---
+
+### 4. `copy`
+
+User-context-aware file copy. Behaves like Docker's `COPY` but automatically adds `--chown=<username>:<username>` when `become` is active for a non-root user. Lowercase = smart abstraction, uppercase `COPY` = raw Dockerfile passthrough.
+
+```yaml
+stages:
+  base:
+    from: python:3.11-slim
+    steps:
+      - create_user: appuser
+      - become: appuser
       - copy app /app
       - copy config.yaml /etc/app/config.yaml
 ```
@@ -112,46 +104,15 @@ stages:
 **Generated Dockerfile:**
 
 ```dockerfile
-COPY --chown=${USER_UID}:${USER_GID} app /app
-COPY --chown=${USER_UID}:${USER_GID} config.yaml /etc/app/config.yaml
+COPY --chown=appuser:appuser app /app
+COPY --chown=appuser:appuser config.yaml /etc/app/config.yaml
 ```
 
-If the `copy` step appears before `become_user` or after `become_root`, it generates a plain `COPY` without `--chown`. User context is inherited from parent stages -- if a parent ends with `become_user`, child stages start with user context active.
-
----
-
-### 6. `copy_as_user`
-
-Copies files with user ownership regardless of the current user context. Always adds `--chown=${USER_UID}:${USER_GID}`.
-
-```yaml
-steps:
-  - create_user
-  - copy_as_user config/app.conf /home/appuser/.config/
-  - become_user
-```
-
-**Use case:** Set up user-owned files while still running as root, before switching context.
-
----
-
-### 7. `copy_as_root`
-
-Copies files with root ownership regardless of the current user context. Never adds `--chown`.
-
-```yaml
-steps:
-  - create_user
-  - become_user
-  - copy_as_root config/system.conf /etc/app/
-  - copy app /home/appuser/app
-```
-
-**Use case:** Copy root-owned system files without needing to switch context back and forth. Equivalent to uppercase `COPY` but keeps your steps in the container-magic vocabulary.
+If the `copy` step appears before `become` or after `become: root`, it generates a plain `COPY` without `--chown`. User context is inherited from parent stages -- if a parent ends with `become: appuser`, child stages start with user context active.
 
 ### Copying from other stages (`--from=`)
 
-All three copy variants support Docker's `--from=<stage>` syntax for copying artefacts between stages that don't inherit from each other. This is useful for multi-stage builds where a heavy builder stage compiles dependencies and a lightweight runtime stage copies only the installed artefacts:
+The `copy` step supports Docker's `--from=<stage>` syntax for copying artefacts between stages that don't inherit from each other. This is useful for multi-stage builds where a heavy builder stage compiles dependencies and a lightweight runtime stage copies only the installed artefacts:
 
 ```yaml
 stages:
@@ -164,8 +125,8 @@ stages:
   base:
     from: ubuntu:24.04
     steps:
-      - copy_as_root --from=builder /usr/local/lib /usr/local/lib
-      - copy_as_root --from=builder /usr/local/include /usr/local/include
+      - copy --from=builder /usr/local/lib /usr/local/lib
+      - copy --from=builder /usr/local/include /usr/local/include
       - ldconfig
 ```
 
@@ -176,14 +137,15 @@ COPY --from=builder /usr/local/lib /usr/local/lib
 COPY --from=builder /usr/local/include /usr/local/include
 ```
 
-With `copy_as_user`, `--chown` is added automatically:
+When `become` is active, `--chown` is added automatically:
 
 ```yaml
-- copy_as_user --from=builder /opt/app /home/appuser/app
+- become: appuser
+- copy --from=builder /opt/app /home/appuser/app
 ```
 
 ```dockerfile
-COPY --chown=${USER_UID}:${USER_GID} --from=builder /opt/app /home/appuser/app
+COPY --chown=appuser:appuser --from=builder /opt/app /home/appuser/app
 ```
 
 The `--from=` argument should reference a stage name defined in the same `cm.yaml`. The stage doesn't need to be a parent -- it can be any stage in the build.
@@ -244,7 +206,7 @@ RUN mkdir -p /opt/my_project/src && \
 
 This is particularly useful when commands share shell state -- `cd` changes, sourced environments, and shell variables all persist across lines because everything runs in a single shell invocation. No need for a `bash -c '...'` wrapper.
 
-**Example -- building a ROS2 workspace:**
+**Example - building a ROS2 workspace:**
 
 ```yaml
 steps:
@@ -263,7 +225,7 @@ The `. /opt/ros/jazzy/setup.sh` (source) sets up the ROS environment, and `colco
 
 Each step becomes one Docker layer. This gives you explicit control over caching:
 
-**Separate steps** -- each gets its own layer with independent caching:
+**Separate steps** - each gets its own layer with independent caching:
 
 ```yaml
 steps:
@@ -274,7 +236,7 @@ steps:
 
 If only the third step changes, Docker reuses the cached layers for the first two. Good for iterating on later steps during development.
 
-**Combined step** -- everything in one layer, rebuilt together:
+**Combined step** - everything in one layer, rebuilt together:
 
 ```yaml
 steps:
@@ -292,9 +254,9 @@ If anything changes, the entire layer rebuilds. Good for related commands that s
 
 You can reference container-magic variables in custom steps:
 
-- `${WORKSPACE}` -- Workspace directory path
-- `${USER_NAME}` -- Non-root user name (if configured)
-- `${USER_UID}` / `${USER_GID}` -- User IDs
+- `${WORKSPACE}` - Workspace directory path
+- `${USER_NAME}` - Non-root user name (if `create_user` was used)
+- `${USER_UID}` / `${USER_GID}` - User IDs
 
 ## Using `$WORKSPACE` in Container Scripts
 
@@ -324,7 +286,7 @@ stages:
   base:
     from: python:3.11
     steps:
-      - copy_workspace
+      - copy: workspace
       - RUN python ${WORKSPACE}/setup.py build
       - RUN ${WORKSPACE}/scripts/init.sh
 ```
@@ -335,7 +297,7 @@ If you don't specify `steps`, container-magic applies defaults based on the stag
 
 **For stages FROM Docker images** (e.g., `from: python:3.11-slim`):
 
-`create_user` is added if `user.production` is configured. Otherwise, no default steps.
+No default steps.
 
 **For stages FROM other stages** (e.g., `from: base`):
 
@@ -343,20 +305,20 @@ No default steps.
 
 **For the production stage:**
 
-If no steps are specified, `copy_workspace` is added automatically.
+If no steps are specified, `copy: workspace` is added automatically.
 
 ## Step Ordering Rules
 
-1. **Steps execute in order** -- left to right, top to bottom
-2. **User creation before switching** -- `create_user` must come before `become_user`
-3. **User switching for security** -- switch to non-root after setup, use `copy_as_root` or `become_root` if needed for privileged ops
+1. **Steps execute in order** - left to right, top to bottom
+2. **User creation before switching** - `create_user` must come before `become: <username>`
+3. **User switching for security** - switch to non-root after setup, use `become: root` if needed for privileged ops
 
 **Common approach:**
 
 ```yaml
 steps:
-  - create_user
-  - become_user
+  - create_user: appuser
+  - become: appuser
   - copy app /app
 ```
 
@@ -381,9 +343,9 @@ stages:
     from: base
     steps:
       - pip: {install: [gunicorn]}
-      - create_user
-      - become_user
-      - copy_workspace
+      - create_user: appuser
+      - become: appuser
+      - copy: workspace
 ```
 
 ### Using cached assets for models
@@ -414,11 +376,3 @@ stages:
       - ENV PATH=/app/node_modules/.bin:$PATH
       - RUN npm install --global yarn
 ```
-
-## Validation Rules
-
-| Rule | Error | Solution |
-|------|-------|----------|
-| `become_user` without `create_user` | Warning | Add `create_user` step before `become_user` |
-| `create_user` without user config | Error | Add a `user` section to cm.yaml |
-| `become_user` without user config | Error | Add a `user` section to cm.yaml |

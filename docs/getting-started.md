@@ -36,34 +36,34 @@ just run           # starts an interactive shell
 `just` works from anywhere in your project by searching upward for the Justfile. The `cm build`, `cm run`, and `cm shell` commands are convenience wrappers that call the corresponding Justfile recipes.
 
 !!! tip "The `run` alias"
-    Container-magic also provides `build` and `run` shell aliases. The `run` alias adds automatic working directory translation — the container's working directory matches your position in the repository:
+    Container-magic also provides `build` and `run` shell aliases. The `run` alias adds automatic working directory translation - the container's working directory matches your position in the repository:
 
     ```bash
     cd workspace/src
-    run python utils.py        # Works — runs from workspace/src inside the container
-    just run python utils.py   # Fails — just always runs from the project root
+    run python utils.py        # Works - runs from workspace/src inside the container
+    just run python utils.py   # Fails - just always runs from the project root
     ```
 
 ## Workflow
 
 ```
-┌─────────────────────┐
-│   cm.yaml           │  ← You edit this
-│  (central config)   │
-└──────────┬──────────┘
-           │
-           │  cm init / cm update
-           │
-           ├─────────────┬──────────────────┬──────────────────┐
-           ▼             ▼                  ▼                  ▼
-      Dockerfile     Development        Production      Command Scripts
-                  ┌───────────────┐  ┌──────────────┐  ┌──────────────┐
-                  │ • Justfile    │  │ • build.sh   │  │ • <cmd>.sh   │
-                  │               │  │ • run.sh     │  │   (optional) │
-                  │ (mounts live  │  │              │  │              │
-                  │  workspace)   │  │ (standalone, │  │ (standalone, │
-                  └───────────────┘  │  no cm deps) │  │  no cm deps) │
-                                     └──────────────┘  └──────────────┘
++---------------------+
+|   cm.yaml           |  <- You edit this
+|  (central config)   |
++----------+----------+
+           |
+           |  cm init / cm update
+           |
+           +-------------+-----------------+-----------------+
+           |             |                 |                 |
+      Dockerfile     Development       Production     Command Scripts
+                  +---------------+  +--------------+  +--------------+
+                  | Justfile      |  | build.sh     |  | <cmd>.sh     |
+                  |               |  | run.sh       |  |   (optional) |
+                  | (mounts live  |  |              |  |              |
+                  |  workspace)   |  | (standalone, |  | (standalone, |
+                  +---------------+  |  no cm deps) |  |  no cm deps) |
+                                     +--------------+  +--------------+
 ```
 
 Production files (Dockerfile, build.sh, run.sh, command scripts) are committed to git.
@@ -127,14 +127,14 @@ just clean-images             # Remove built images
 
 ```
 my-project/
-├── cm.yaml              # Your config (committed)
-├── Dockerfile           # Generated (committed)
-├── build.sh             # Generated (committed)
-├── run.sh               # Generated (committed)
-├── <command>.sh         # Generated for standalone commands (committed)
-├── Justfile             # Generated locally for dev (gitignored)
-├── workspace/           # Your code
-└── .cm-cache/           # Downloaded assets (gitignored)
++-- cm.yaml              # Your config (committed)
++-- Dockerfile           # Generated (committed)
++-- build.sh             # Generated (committed)
++-- run.sh               # Generated (committed)
++-- <command>.sh         # Generated for standalone commands (committed)
++-- Justfile             # Generated locally for dev (gitignored)
++-- workspace/           # Your code
++-- .cm-cache/           # Downloaded assets (gitignored)
 ```
 
 Command scripts (e.g., `train.sh`, `deploy.sh`) are only generated for commands with `standalone: true`.
