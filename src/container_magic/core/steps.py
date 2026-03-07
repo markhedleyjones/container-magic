@@ -290,9 +290,25 @@ def parse_dict_step(
             )
 
     if key == "env":
-        if not isinstance(value, dict):
-            raise ValueError(f"'env' value must be a dict, got {type(value).__name__}")
-        return {"type": "env", "vars": value}
+        if isinstance(value, dict):
+            return {"type": "env", "vars": value}
+        elif isinstance(value, list):
+            merged = {}
+            for item in value:
+                if isinstance(item, dict) and len(item) == 1:
+                    merged.update(item)
+                elif isinstance(item, str) and "=" in item:
+                    k, v = item.split("=", 1)
+                    merged[k.strip()] = v.strip()
+                else:
+                    raise ValueError(
+                        f"'env' list items must be 'KEY=value' strings or single-key dicts, got: {item!r}"
+                    )
+            return {"type": "env", "vars": merged}
+        else:
+            raise ValueError(
+                f"'env' value must be a dict or list, got {type(value).__name__}"
+            )
 
     # Command builder - look up in registry
     from container_magic.core.registry import lookup as registry_lookup

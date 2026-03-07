@@ -282,8 +282,42 @@ class TestParseDictStep:
             "vars": {"APP_PORT": "8080", "DEBUG": "true"},
         }
 
-    def test_env_non_dict_raises(self):
-        with pytest.raises(ValueError, match="must be a dict"):
+    def test_env_list_of_dicts(self):
+        result = parse_dict_step(
+            {"env": [{"APP_PORT": "8080"}, {"DEBUG": "true"}]},
+            self.registry,
+        )
+        assert result == {
+            "type": "env",
+            "vars": {"APP_PORT": "8080", "DEBUG": "true"},
+        }
+
+    def test_env_list_of_strings(self):
+        result = parse_dict_step(
+            {"env": ["APP_PORT=8080", "DEBUG=true"]},
+            self.registry,
+        )
+        assert result == {
+            "type": "env",
+            "vars": {"APP_PORT": "8080", "DEBUG": "true"},
+        }
+
+    def test_env_list_mixed(self):
+        result = parse_dict_step(
+            {"env": [{"APP_PORT": "8080"}, "DEBUG=true"]},
+            self.registry,
+        )
+        assert result == {
+            "type": "env",
+            "vars": {"APP_PORT": "8080", "DEBUG": "true"},
+        }
+
+    def test_env_list_invalid_item_raises(self):
+        with pytest.raises(ValueError, match="list items must be"):
+            parse_dict_step({"env": [42]}, self.registry)
+
+    def test_env_non_dict_or_list_raises(self):
+        with pytest.raises(ValueError, match="must be a dict or list"):
             parse_dict_step({"env": "FOO=bar"}, self.registry)
 
     def test_apt_get_install_with_registry(self):
