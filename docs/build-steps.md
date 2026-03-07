@@ -21,7 +21,7 @@ stages:
   base:
     from: python:3.11-slim
     steps:
-      - create_user: appuser  # uid=1000, gid=1000, home=/home/appuser
+      - create_user: nonroot  # uid=1000, gid=1000, home=/home/nonroot
 ```
 
 **Extended form** (dict value with custom uid/gid):
@@ -50,9 +50,9 @@ stages:
   base:
     from: python:3.11-slim
     steps:
-      - create_user: appuser
-      - become: appuser     # USER appuser
-      - copy app /app       # COPY --chown=appuser:appuser app /app
+      - create_user: nonroot
+      - become: nonroot     # USER nonroot
+      - copy app /app       # COPY --chown=nonroot:nonroot app /app
       - become: root        # USER root
       - copy sys.conf /etc/ # COPY sys.conf /etc/ (no --chown)
 ```
@@ -72,7 +72,7 @@ stages:
   production:
     from: base
     steps:
-      - become: appuser
+      - become: app
       - copy: workspace
 ```
 
@@ -95,8 +95,8 @@ stages:
   base:
     from: python:3.11-slim
     steps:
-      - create_user: appuser
-      - become: appuser
+      - create_user: app
+      - become: app
       - copy app /app
       - copy config.yaml /etc/app/config.yaml
 ```
@@ -104,11 +104,11 @@ stages:
 **Generated Dockerfile:**
 
 ```dockerfile
-COPY --chown=appuser:appuser app /app
-COPY --chown=appuser:appuser config.yaml /etc/app/config.yaml
+COPY --chown=app:app app /app
+COPY --chown=app:app config.yaml /etc/app/config.yaml
 ```
 
-If the `copy` step appears before `become` or after `become: root`, it generates a plain `COPY` without `--chown`. User context is inherited from parent stages -- if a parent ends with `become: appuser`, child stages start with user context active.
+If the `copy` step appears before `become` or after `become: root`, it generates a plain `COPY` without `--chown`. User context is inherited from parent stages -- if a parent ends with `become: app`, child stages start with user context active.
 
 ### Copying from other stages (`--from=`)
 
@@ -143,15 +143,60 @@ COPY --from=builder /usr/local/include /usr/local/include
 When `become` is active, `--chown` is added automatically:
 
 ```yaml
-- become: appuser
-- copy --from=builder /opt/app /home/appuser/app
+- become: user
+- copy --from=builder /opt/app /home/user/app
 ```
 
 ```dockerfile
-COPY --chown=appuser:appuser --from=builder /opt/app /home/appuser/app
+COPY --chown=user:user --from=builder /opt/app /home/user/app
 ```
 
 The `--from=` argument should reference a stage name defined in the same `cm.yaml`. The stage doesn't need to be a parent -- it can be any stage in the build.
+
+---
+
+### 5. `env`
+
+Sets environment variables in the image. Accepts either a dict or a list:
+
+**Dict form:**
+
+```yaml
+steps:
+  - env:
+      DATABASE_URL: postgresql://localhost/mydb
+      API_KEY: test-key-123
+      LOG_LEVEL: debug
+```
+
+**List form:**
+
+```yaml
+steps:
+  - env:
+      - DATABASE_URL: postgresql://localhost/mydb
+      - API_KEY: test-key-123
+      - LOG_LEVEL: debug
+```
+
+Both forms generate the same Dockerfile output. The list form also accepts `KEY=value` strings:
+
+```yaml
+steps:
+  - env:
+      - DATABASE_URL=postgresql://localhost/mydb
+      - API_KEY=test-key-123
+```
+
+Consecutive `env` steps are automatically merged into a single `ENV` instruction in the Dockerfile.
+
+**Generated Dockerfile:**
+
+```dockerfile
+ENV DATABASE_URL="postgresql://localhost/mydb" \
+    API_KEY="test-key-123" \
+    LOG_LEVEL="debug"
+```
 
 ---
 
@@ -320,8 +365,8 @@ If no steps are specified, `copy: workspace` is added automatically.
 
 ```yaml
 steps:
-  - create_user: appuser
-  - become: appuser
+  - create_user: nonroot
+  - become: nonroot
   - copy app /app
 ```
 
@@ -461,8 +506,8 @@ stages:
       - pip:
           install:
             - gunicorn
-      - create_user: appuser
-      - become: appuser
+      - create_user: nonroot
+      - become: nonroot
       - copy: workspace
 ```
 

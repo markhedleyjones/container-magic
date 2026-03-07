@@ -30,7 +30,7 @@ stages:
   base:
     from: python:3.11-slim
     steps:
-      - create_user: appuser    # This user is baked into the image
+      - create_user: nonroot    # This user is baked into the image
 ```
 
 If no `create_user` step is used, **the container runs as root** (`root` user with UID 0).
@@ -60,7 +60,7 @@ The `copy` step interacts with user context to control file ownership:
 | `copy` | Adds `--chown=<username>:<username>` when `become` is active, plain `COPY` otherwise |
 | `COPY` (uppercase) | Raw Dockerfile passthrough, no automatic ownership |
 
-User context is inherited from parent stages - if a parent ends with `become: appuser`, child stages start with user context active.
+User context is inherited from parent stages - if a parent ends with `become: nonroot`, child stages start with user context active.
 
 ### Example: Mixed Ownership
 
@@ -69,10 +69,10 @@ stages:
   production:
     from: base
     steps:
-      - create_user: appuser
+      - create_user: app
       - copy config/system.conf /etc/app/            # Root-owned (before become)
-      - become: appuser
-      - copy app /home/appuser/app                   # User-owned (context-aware)
+      - become: app
+      - copy app /home/app/app                       # User-owned (context-aware)
 ```
 
 See [Build Steps](build-steps.md#4-copy) for full details on the copy step.

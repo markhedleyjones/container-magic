@@ -68,8 +68,8 @@ stages:
           install:
             - transformers
             - flask
-      - create_user: appuser
-      - become: appuser
+      - create_user: user
+      - become: user
       - copy: model.bin /models/model.bin
 
   production:
@@ -92,8 +92,8 @@ stages:
   base:
     from: pytorch/pytorch:latest
     steps:
-      - create_user: appuser
-      - become: appuser
+      - create_user: nonroot
+      - become: nonroot
       - copy:
           - tokenizer.json /models/tokenizer.json
           - model.safetensors /models/model.safetensors

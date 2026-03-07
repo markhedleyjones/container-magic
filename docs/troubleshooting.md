@@ -60,7 +60,7 @@ stages:
   base:
     from: python:3.11-slim
     steps:
-      - create_user: appuser
+      - create_user: nonroot
 ```
 
 ## Custom Step Not Producing Expected Output
@@ -100,8 +100,8 @@ Use lowercase `copy` instead of uppercase `COPY` - it automatically sets ownersh
 
 ```yaml
 steps:
-  - create_user: appuser
-  - become: appuser
+  - create_user: user
+  - become: user
   - copy app /app
 ```
 
