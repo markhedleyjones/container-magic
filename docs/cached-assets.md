@@ -75,7 +75,7 @@ stages:
   production:
     from: base
     steps:
-      - copy app /app
+      - copy: app /app
 ```
 
 ## Multiple Assets

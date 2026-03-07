@@ -102,7 +102,7 @@ Use lowercase `copy` instead of uppercase `COPY` - it automatically sets ownersh
 steps:
   - create_user: user
   - become: user
-  - copy app /app
+  - copy: app /app
 ```
 
 See [User Handling](user-handling.md) for more on copy ownership.

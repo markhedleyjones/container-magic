@@ -70,9 +70,9 @@ stages:
     from: base
     steps:
       - create_user: app
-      - copy config/system.conf /etc/app/            # Root-owned (before become)
+      - copy: config/system.conf /etc/app/            # Root-owned (before become)
       - become: app
-      - copy app /home/app/app                       # User-owned (context-aware)
+      - copy: app /home/app/app                      # User-owned (context-aware)
 ```
 
 See [Build Steps](build-steps.md#4-copy) for full details on the copy step.

@@ -52,9 +52,9 @@ stages:
     steps:
       - create_user: nonroot
       - become: nonroot     # USER nonroot
-      - copy app /app       # COPY --chown=nonroot:nonroot app /app
+      - copy: app /app      # COPY --chown=nonroot:nonroot app /app
       - become: root        # USER root
-      - copy sys.conf /etc/ # COPY sys.conf /etc/ (no --chown)
+      - copy: sys.conf /etc/  # COPY sys.conf /etc/ (no --chown)
 ```
 
 **Generated Dockerfile:** `USER <username>`
@@ -97,8 +97,8 @@ stages:
     steps:
       - create_user: app
       - become: app
-      - copy app /app
-      - copy config.yaml /etc/app/config.yaml
+      - copy: app /app
+      - copy: config.yaml /etc/app/config.yaml
 ```
 
 **Generated Dockerfile:**
@@ -128,8 +128,8 @@ stages:
   base:
     from: ubuntu:24.04
     steps:
-      - copy --from=builder /usr/local/lib /usr/local/lib
-      - copy --from=builder /usr/local/include /usr/local/include
+      - copy: --from=builder /usr/local/lib /usr/local/lib
+      - copy: --from=builder /usr/local/include /usr/local/include
       - ldconfig
 ```
 
@@ -144,7 +144,7 @@ When `become` is active, `--chown` is added automatically:
 
 ```yaml
 - become: user
-- copy --from=builder /opt/app /home/user/app
+- copy: --from=builder /opt/app /home/user/app
 ```
 
 ```dockerfile
@@ -394,7 +394,7 @@ If no steps are specified, `copy: workspace` is added automatically.
 steps:
   - create_user: nonroot
   - become: nonroot
-  - copy app /app
+  - copy: app /app
 ```
 
 ## Package Installation
