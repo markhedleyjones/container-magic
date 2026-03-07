@@ -1,6 +1,5 @@
 """Dockerfile generation from configuration."""
 
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -10,10 +9,9 @@ from container_magic.core.cache import build_asset_map
 from container_magic.core.config import (
     ContainerMagicConfig,
     StageConfig,
-    UserTargetConfig,
 )
 from container_magic.core.registry import load_registry
-from container_magic.core.steps import parse_step
+from container_magic.core.steps import find_create_user_in_stages, parse_step
 from container_magic.core.templates import (
     detect_package_manager,
     detect_shell,
@@ -22,50 +20,32 @@ from container_magic.core.templates import (
 )
 
 
-def get_user_config(
-    config: ContainerMagicConfig, target: str = "production"
-) -> Optional[UserTargetConfig]:
-    """Get the user configuration for a specific target (development or production), or None if not defined."""
-
-    if config.user:
-        if target == "development":
-            return config.user.development
-        elif target == "production":
-            return config.user.production
+def _step_is_become(step: Union[str, Dict[str, Any]]) -> Optional[str]:
+    """If the step is a become dict, return the target username. Otherwise None."""
+    if isinstance(step, dict) and len(step) == 1 and "become" in step:
+        return step["become"]
     return None
 
 
-def _step_is_become_user(step: Union[str, Dict[str, Any]]) -> bool:
-    """Check if a step is a become_user keyword."""
-    return isinstance(step, str) and step == "become_user"
-
-
-def _step_is_become_root(step: Union[str, Dict[str, Any]]) -> bool:
-    """Check if a step is a become_root keyword."""
-    return isinstance(step, str) and step == "become_root"
-
-
 def _step_is_create_user(step: Union[str, Dict[str, Any]]) -> bool:
-    """Check if a step is a create_user keyword."""
-    return isinstance(step, str) and step == "create_user"
+    """Check if a step is a create_user dict step."""
+    return isinstance(step, dict) and len(step) == 1 and "create_user" in step
 
 
-def _parent_ends_as_user(
+def _get_parent_user_context(
     stage_name: str,
     stages_dict: Dict[str, StageConfig],
-) -> bool:
-    """Check if the parent stage hierarchy ends with user context active.
+) -> Optional[str]:
+    """Get the user context from the parent stage hierarchy.
 
     Walks up the stage tree via `frm` references. For each stage, looks at the
-    last become_user/become_root step. Returns True if the nearest explicit
-    switch is become_user, False otherwise.
+    last become step. Returns the username if become is active, None otherwise.
     """
     visited: set = set()
     current = stages_dict.get(stage_name)
     if current is None:
-        return False
+        return None
 
-    # Start from the current stage's parent
     parent_name = current.frm
     while parent_name in stages_dict:
         if parent_name in visited:
@@ -75,81 +55,59 @@ def _parent_ends_as_user(
         parent = stages_dict[parent_name]
         steps = parent.steps
 
-        # If parent has explicit steps, scan for last switch
         if steps is not None:
-            last_switch = None
+            last_user = None
             for step in steps:
-                if _step_is_become_user(step):
-                    last_switch = "user"
-                elif _step_is_become_root(step):
-                    last_switch = "root"
-            if last_switch is not None:
-                return last_switch == "user"
+                become_target = _step_is_become(step)
+                if become_target is not None:
+                    last_user = None if become_target == "root" else become_target
+            if last_user is not None:
+                return last_user
 
-        # No explicit steps - if FROM a Docker image, no user context
         if ":" in parent.frm or "/" in parent.frm:
-            return False
+            return None
 
-        # FROM another stage - keep walking up
         parent_name = parent.frm
 
-    return False
+    return None
 
 
 def _has_create_user_in_hierarchy(
     stage_name: str,
-    stage: StageConfig,
     stages_dict: Dict[str, StageConfig],
-    has_explicit_user_config: bool,
 ) -> bool:
-    """Walk up the stage hierarchy to find if any parent has create_user."""
-    if stage.frm not in stages_dict:
-        return False
+    """Check if create_user exists in any ancestor stage (including self)."""
+    visited: set = set()
+    current_name = stage_name
 
-    current_stage_name = stage.frm
-    visited = set()
-
-    while current_stage_name in stages_dict:
-        if current_stage_name in visited:
+    while current_name in stages_dict:
+        if current_name in visited:
             break
-        visited.add(current_stage_name)
+        visited.add(current_name)
 
-        current_stage = stages_dict[current_stage_name]
-        if current_stage.steps:
-            for step in current_stage.steps:
+        stage = stages_dict[current_name]
+        if stage.steps:
+            for step in stage.steps:
                 if _step_is_create_user(step):
                     return True
-        # Check if parent uses default build steps (no steps specified and FROM a Docker image)
-        if current_stage.steps is None and (
-            ":" in current_stage.frm or "/" in current_stage.frm
-        ):
-            # Default build steps include create_user when user is configured
-            if has_explicit_user_config:
-                return True
 
-        # Move to parent stage
-        if current_stage.frm in stages_dict:
-            current_stage_name = current_stage.frm
-        else:
-            break
+        if ":" in stage.frm or "/" in stage.frm:
+            return False
+        current_name = stage.frm
 
     return False
 
 
-def _stage_needs_user_args(ordered_steps: List[Dict], has_non_root_user: bool) -> bool:
+def _stage_needs_user_args(ordered_steps: List[Dict]) -> bool:
     """Check if a stage's steps require user-related ARGs.
 
-    Returns True if any step references user ARGs (USER_UID, USER_GID, etc.):
-    - create_user or become_user steps
-    - copy steps with --chown
-    - copy_workspace when a non-root user is configured
+    Returns True if the stage has a create_user step or a become step that
+    references ${USER_NAME} (meaning the configured user was created via ARGs).
     """
     for step in ordered_steps:
-        if step["type"] in ("create_user", "become_user"):
+        if step["type"] == "create_user":
             return True
-        if step["type"] == "copy" and step.get("chown"):
-            return True
-        if step["type"] == "copy_workspace" and has_non_root_user:
+        if step["type"] == "become" and "${USER_NAME}" in step.get("name", ""):
             return True
     return False
 
@@ -195,7 +153,6 @@ def process_stage_steps(
     project_dir: Path,
     stages_dict: Dict[str, StageConfig],
     production_user: str,
-    has_explicit_user_config: bool,
     workspace_name: str,
     registry: Dict = None,
     asset_map: Dict[str, str] = None,
@@ -214,26 +171,40 @@ def process_stage_steps(
         asset_map = {}
 
     # Default build order if not specified
+    is_default_production = False
     if stage.steps is None:
         if ":" in stage.frm or "/" in stage.frm:
-            ordered_steps: List[Dict] = [
-                {"type": "system_packages"},
-                {"type": "pip_packages"},
-            ]
-            if has_explicit_user_config:
-                ordered_steps.append({"type": "create_user"})
-            return ordered_steps
+            return []
         else:
             steps: List[Union[str, Dict[str, Any]]] = []
             if stage_name == "production":
-                steps = ["copy_workspace"]
+                steps = [{"copy": "workspace"}]
+                is_default_production = True
     else:
         steps = list(stage.steps)
 
-    has_create_user = False
-    has_become_user = False
+    # When the configured user is created via create_user (which uses ARGs),
+    # become and chown must reference ${USER_NAME} instead of the literal name,
+    # because development builds pass the host username as USER_NAME.
+    user_created_via_args = _has_create_user_in_hierarchy(stage_name, stages_dict)
 
-    user_is_active = _parent_ends_as_user(stage_name, stages_dict)
+    def _resolve_user_ref(name: str) -> str:
+        """Return ${USER_NAME} if the name matches the configured user created via ARGs."""
+        if name == production_user and user_created_via_args:
+            return "${USER_NAME}"
+        return name
+
+    # Track current user context: None = root, string = username or ${USER_NAME}
+    parent_context = _get_parent_user_context(stage_name, stages_dict)
+    if parent_context is not None:
+        current_user = _resolve_user_ref(parent_context)
+    else:
+        current_user = None
+
+    # For default production steps, use configured user for workspace ownership.
+    # Use literal username (not ARG) since production stage won't have ARGs declared.
+    if is_default_production and current_user is None and production_user != "root":
+        current_user = production_user
 
     ordered_steps = []
 
@@ -242,34 +213,37 @@ def process_stage_steps(
 
         step_type = parsed["type"]
 
-        if step_type == "keyword":
-            keyword = parsed["keyword"]
-            if keyword == "create_user":
-                ordered_steps.append({"type": "create_user"})
-                has_create_user = True
-            elif keyword == "become_user":
-                ordered_steps.append({"type": "become_user"})
-                has_become_user = True
-                user_is_active = True
-            elif keyword == "become_root":
-                ordered_steps.append({"type": "become_root"})
-                user_is_active = False
-            elif keyword == "copy_workspace":
-                ordered_steps.append({"type": "copy_workspace"})
+        if step_type == "create_user":
+            ordered_steps.append({"type": "create_user"})
+            user_created_via_args = True
+
+        elif step_type == "become":
+            name = parsed["name"]
+            if name == "root":
+                current_user = None
+            else:
+                current_user = _resolve_user_ref(name)
+            ordered_steps.append({"type": "become", "name": current_user or "root"})
 
         elif step_type == "copy_v1":
             chown = parsed["chown"]
             if chown == "context":
-                chown = user_is_active
+                chown = current_user
             args = _resolve_copy_source(parsed["args"], asset_map)
             ordered_steps.append({"type": "copy", "args": args, "chown": chown})
 
         elif step_type == "copy_v2":
             for args in parsed["args_list"]:
-                args = _resolve_copy_source(args, asset_map)
-                ordered_steps.append(
-                    {"type": "copy", "args": args, "chown": user_is_active}
-                )
+                resolved_args = _resolve_copy_source(args, asset_map)
+                # Single token matching workspace name becomes copy_workspace
+                if args.strip() == workspace_name:
+                    ordered_steps.append(
+                        {"type": "copy_workspace", "chown": current_user}
+                    )
+                else:
+                    ordered_steps.append(
+                        {"type": "copy", "args": resolved_args, "chown": current_user}
+                    )
 
         elif step_type == "env":
             ordered_steps.append({"type": "env", "vars": parsed["vars"]})
@@ -283,25 +257,6 @@ def process_stage_steps(
 
         elif step_type == "passthrough":
             ordered_steps.append({"type": "custom", "command": parsed["command"]})
-
-    # Validation: Check if become_user used but no create_user in this or parent stages
-    if has_become_user and not has_create_user:
-        user_created = _has_create_user_in_hierarchy(
-            stage_name, stage, stages_dict, has_explicit_user_config
-        )
-        if not user_created:
-            print(
-                f"Warning: Stage '{stage_name}' uses 'become_user' but no 'create_user' found. Add 'create_user' to an earlier stage.",
-                file=sys.stderr,
-            )
-
-    # Validation: Check if create_user or become_user used but user not defined
-    if (has_create_user or has_become_user) and not has_explicit_user_config:
-        keyword = "create_user" if has_create_user else "become_user"
-        raise ValueError(
-            f"Stage '{stage_name}' uses '{keyword}' but no user is configured. "
-            "Add a user section to cm.yaml."
-        )
 
     return ordered_steps
 
@@ -321,17 +276,23 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
     # Build stages dict with defaults if needed
     stages = dict(config.stages)
 
+    # Find user info from create_user steps
+    user_info = find_create_user_in_stages(stages)
+    user_name = user_info["username"] if user_info else "root"
+
     if "development" not in stages:
         from container_magic.core.config import StageConfig
 
-        stages["development"] = StageConfig(frm="base", steps=["become_user"])
+        dev_steps = []
+        if user_info:
+            dev_steps.append({"become": user_info["username"]})
+        stages["development"] = StageConfig(frm="base", steps=dev_steps)
 
     if "production" not in stages:
         from container_magic.core.config import StageConfig
 
         stages["production"] = StageConfig(frm="base")
 
-    user_cfg = get_user_config(config)
     registry = load_registry(
         project_overrides=config.command_registry if config.command_registry else None
     )
@@ -350,15 +311,12 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
         shell = stage_config.shell or detect_shell(resolved_image)
         user_creation_style = detect_user_creation_style(resolved_image)
 
-        has_explicit_user = user_cfg is not None
-        user_name = user_cfg.name if user_cfg else "root"
         ordered_steps = process_stage_steps(
             stage_config,
             stage_name,
             project_dir,
             stages,
             user_name,
-            has_explicit_user,
             config.project.workspace,
             registry,
             asset_map,
@@ -366,33 +324,33 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
 
         ordered_steps = _merge_consecutive_env_steps(ordered_steps)
 
-        has_non_root_user = user_cfg is not None and user_cfg.name != "root"
-        needs_user_args = _stage_needs_user_args(ordered_steps, has_non_root_user)
+        needs_user_args = _stage_needs_user_args(ordered_steps)
         from_is_image = ":" in base_image or "/" in base_image
+
+        user_uid = (
+            (user_info["uid"] if user_info and user_info["uid"] is not None else 1000)
+            if user_info
+            else 0
+        )
+        user_gid = (
+            (user_info["gid"] if user_info and user_info["gid"] is not None else 1000)
+            if user_info
+            else 0
+        )
+        user_home = f"/home/{user_name}" if user_info else "/root"
 
         stages_data.append(
             {
                 "name": stage_name,
                 "from": base_image,
                 "from_is_image": from_is_image,
-                "apt_packages": stage_config.packages.apt or [],
-                "apk_packages": stage_config.packages.apk or [],
-                "dnf_packages": stage_config.packages.dnf or [],
-                "pip_packages": stage_config.packages.pip,
-                "env_vars": stage_config.env,
                 "package_manager": package_manager,
                 "shell": shell,
                 "user_creation_style": user_creation_style,
                 "user": user_name,
-                "user_uid": (user_cfg.uid if user_cfg.uid is not None else 1000)
-                if user_cfg
-                else 0,
-                "user_gid": (user_cfg.gid if user_cfg.gid is not None else 1000)
-                if user_cfg
-                else 0,
-                "user_home": (user_cfg.home or f"/home/{user_cfg.name}")
-                if user_cfg
-                else "/root",
+                "user_uid": user_uid,
+                "user_gid": user_gid,
+                "user_home": user_home,
                 "ordered_steps": ordered_steps,
                 "needs_user_args": needs_user_args,
             }

@@ -32,59 +32,7 @@ def _base_config(**overrides):
 
 
 # ---------------------------------------------------------------------------
-# 1.1 ENV values with spaces
-# ---------------------------------------------------------------------------
-
-
-class TestEnvValueQuoting:
-    def test_env_value_with_spaces(self):
-        """ENV values containing spaces must be quoted in the Dockerfile."""
-        config = _base_config(
-            env={"MY_VAR": "hello world"},
-            steps=[],
-        )
-        content = _generate(config)
-        # Docker parses unquoted `ENV MY_VAR=hello world` as two assignments:
-        # MY_VAR=hello and world= (empty). The value must be quoted.
-        assert 'ENV MY_VAR="hello world"' in content
-
-    def test_env_value_with_equals_sign(self):
-        """ENV values containing = should be quoted for consistency.
-
-        Docker splits on the first = only, so = in values technically works
-        unquoted. But quoting all values uniformly is safer and more readable.
-        """
-        config = _base_config(
-            env={"DATABASE_URL": "postgres://host:5432/db?opt=val"},
-            steps=[],
-        )
-        content = _generate(config)
-        assert 'ENV DATABASE_URL="postgres://host:5432/db?opt=val"' in content
-
-    def test_env_value_simple_no_spaces(self):
-        """Simple values without spaces should still work (quoting is harmless)."""
-        config = _base_config(
-            env={"MY_VAR": "hello"},
-            steps=[],
-        )
-        content = _generate(config)
-        # Either quoted or unquoted is fine for simple values
-        assert "ENV MY_VAR=" in content
-        assert "hello" in content
-
-    def test_env_value_with_dollar_sign(self):
-        """ENV values referencing other variables should be preserved."""
-        config = _base_config(
-            env={"PATH": "/app/bin:${PATH}"},
-            steps=[],
-        )
-        content = _generate(config)
-        # The ${PATH} reference must survive into the Dockerfile
-        assert "${PATH}" in content
-
-
-# ---------------------------------------------------------------------------
-# 1.2 Missing Dockerfile instruction passthrough
+# 1.1 Dockerfile instruction passthrough
 # ---------------------------------------------------------------------------
 
 
@@ -330,28 +278,3 @@ class TestEnvMerging:
             if "MY_VAR" in line:
                 assert "\\" not in line
 
-    def test_stage_level_env_vars_merged(self):
-        """Multiple stage-level env vars produce a single merged ENV block."""
-        config = _base_config(
-            env={"A": "1", "B": "2"},
-            steps=[],
-        )
-        content = _generate(config)
-        base = _get_stage_block(content, "base")
-        # Two vars on one ENV instruction
-        env_lines = [
-            line for line in base.splitlines() if line.strip().startswith("ENV")
-        ]
-        # The preamble ENV and the env_vars ENV
-        env_var_lines = [line for line in env_lines if "A=" in line or "B=" in line]
-        assert len(env_var_lines) == 1
-        assert "\\" in env_var_lines[0]
-
-    def test_single_stage_level_env_no_continuation(self):
-        """Single stage-level env var produces a simple ENV line."""
-        config = _base_config(
-            env={"ONLY": "one"},
-            steps=[],
-        )
-        content = _generate(config)
-        assert 'ENV ONLY="one"' in content

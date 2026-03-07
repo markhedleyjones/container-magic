@@ -143,48 +143,6 @@ def test_removed_network_field_raises():
         )
 
 
-def test_config_with_packages():
-    """Test configuration with package lists."""
-    config = ContainerMagicConfig(
-        project={"name": "test"},
-        stages={
-            "base": {
-                "from": "python:3-slim",
-                "packages": {"apt": ["git", "curl"], "pip": ["numpy", "pandas"]},
-            },
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-        },
-    )
-
-    assert config.stages["base"].packages.apt == ["git", "curl"]
-    assert config.stages["base"].packages.pip == ["numpy", "pandas"]
-
-
-@pytest.mark.parametrize(
-    ("pkg_manager", "base_image"),
-    [
-        ("apk", "alpine:latest"),
-        ("dnf", "fedora:latest"),
-    ],
-)
-def test_config_with_alternative_package_managers(pkg_manager, base_image):
-    config = ContainerMagicConfig(
-        project={"name": "test"},
-        stages={
-            "base": {
-                "from": base_image,
-                "packages": {pkg_manager: ["curl", "git"]},
-            },
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-        },
-    )
-
-    assert getattr(config.stages["base"].packages, pkg_manager) == ["curl", "git"]
-    assert config.stages["base"].packages.apt is None
-
-
 def test_build_script_custom_default_target():
     """Test that build_script.default_target can be customised."""
     config = ContainerMagicConfig(

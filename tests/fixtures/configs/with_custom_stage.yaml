@@ -17,18 +17,14 @@ runtime:
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt: []
-      pip: []
 
   development:
     from: base
 
   testing:
     from: base
-    packages:
-      pip:
-        - pytest
+    steps:
+      - pip: {install: [pytest]}
 
   production:
     from: base

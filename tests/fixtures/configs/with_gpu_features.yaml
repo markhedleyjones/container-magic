@@ -20,13 +20,9 @@ runtime:
 stages:
   base:
     from: pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
-    packages:
-      apt:
-        - ffmpeg
-        - libsndfile1
-      pip:
-        - numpy
-        - torch
+    steps:
+      - apt-get: {install: [ffmpeg, libsndfile1]}
+      - pip: {install: [numpy, torch]}
 
   development:
     from: base

@@ -157,9 +157,8 @@ All three copy variants support Docker's `--from=<stage>` syntax for copying art
 stages:
   builder:
     from: ubuntu:24.04
-    packages:
-      apt: [build-essential, cmake]
     steps:
+      - apt-get: {install: [build-essential, cmake]}
       - /tmp/build_deps.sh
 
   base:
@@ -336,11 +335,11 @@ If you don't specify `steps`, container-magic applies defaults based on the stag
 
 **For stages FROM Docker images** (e.g., `from: python:3.11-slim`):
 
-Packages from the `packages` config are installed automatically, and `create_user` is added if `user.production` is configured. There is no need to list these explicitly.
+`create_user` is added if `user.production` is configured. Otherwise, no default steps.
 
 **For stages FROM other stages** (e.g., `from: base`):
 
-No default steps -- inherits packages from the parent stage.
+No default steps.
 
 **For the production stage:**
 
@@ -369,24 +368,19 @@ steps:
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt:
-        - git
-        - build-essential
-      pip:
-        - setuptools
+    steps:
+      - apt-get: {install: [git, build-essential]}
+      - pip: {install: [setuptools]}
 
   development:
     from: base
-    packages:
-      pip: [pytest, black, mypy]  # Inline style works too
+    steps:
+      - pip: {install: [pytest, black, mypy]}
 
   production:
     from: base
-    packages:
-      pip:
-        - gunicorn
     steps:
+      - pip: {install: [gunicorn]}
       - create_user
       - become_user
       - copy_workspace
@@ -403,10 +397,8 @@ project:
 stages:
   base:
     from: pytorch/pytorch:latest
-    packages:
-      pip:
-        - transformers
     steps:
+      - pip: {install: [transformers]}
       - copy: model.safetensors /models/bert.safetensors
       - RUN python -c "from transformers import AutoModel; AutoModel.from_pretrained('/models')"
 ```

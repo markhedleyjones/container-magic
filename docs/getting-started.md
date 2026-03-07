@@ -151,13 +151,9 @@ project:
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt:
-        - git
-        - build-essential
-      pip:
-        - numpy
-        - pandas
+    steps:
+      - apt-get: {install: [git, build-essential]}
+      - pip: {install: [numpy, pandas]}
 
   development:
     from: base
@@ -181,19 +177,14 @@ runtime:
 stages:
   base:
     from: pytorch/pytorch
-    packages:
-      pip:
-        - transformers
-        - datasets
-    env:
-      HF_HOME: /models
+    steps:
+      - pip: {install: [transformers, datasets]}
+      - {env: {HF_HOME: /models}}
 
   development:
     from: base
-    packages:
-      pip:
-        - pytest
-        - ipython
+    steps:
+      - pip: {install: [pytest, ipython]}
 
   production:
     from: base

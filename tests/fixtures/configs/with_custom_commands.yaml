@@ -17,13 +17,10 @@ runtime:
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt:
-        - curl
-      pip:
-        - pytest
-    env:
-      APP_ENV: production
+    steps:
+      - apt-get: {install: [curl]}
+      - pip: {install: [pytest]}
+      - {env: {APP_ENV: production},}
 
   development:
     from: base

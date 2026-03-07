@@ -129,9 +129,6 @@ def generate_justfile(
     custom_commands_content = ""
     if config.commands:
         command_template = env.get_template("custom_command.j2")
-        # Merge stage environment variables with command-specific ones
-        stage_env = dev_stage_config.env or {}
-
         for command_name, command_spec in config.commands.items():
             # Escape dollar signs in command so they expand in the container
             command_escaped = command_spec.command.replace("$", r"\$")
@@ -140,8 +137,7 @@ def generate_justfile(
             command_escaped = "; ".join(
                 line for line in command_escaped.splitlines() if line.strip()
             )
-            # Merge stage env with command env (command env takes precedence)
-            merged_env = {**stage_env, **(command_spec.env or {})}
+            merged_env = command_spec.env or {}
             custom_commands_content += "\n" + command_template.render(
                 command_name=command_name,
                 description=command_spec.description,

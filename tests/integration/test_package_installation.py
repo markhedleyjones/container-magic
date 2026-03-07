@@ -47,8 +47,8 @@ project:
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt: [curl]
+    steps:
+      - apt-get: {install: [curl]}
   development:
     from: base
   production:
@@ -105,8 +105,8 @@ project:
 stages:
   base:
     from: ubuntu:22.04
-    packages:
-      apt: [curl, ca-certificates]
+    steps:
+      - apt-get: {install: [curl, ca-certificates]}
   development:
     from: base
   production:
@@ -163,8 +163,8 @@ project:
 stages:
   base:
     from: debian:bookworm
-    packages:
-      apt: [curl]
+    steps:
+      - apt-get: {install: [curl]}
   development:
     from: base
   production:
@@ -221,8 +221,8 @@ project:
 stages:
   base:
     from: alpine:latest
-    packages:
-      apk: [curl]
+    steps:
+      - apk: {add: [curl]}
   development:
     from: base
   production:
@@ -279,8 +279,8 @@ project:
 stages:
   base:
     from: ubuntu:24.04
-    packages:
-      apt: [curl, ca-certificates]
+    steps:
+      - apt-get: {install: [curl, ca-certificates]}
   development:
     from: base
   production:
@@ -337,8 +337,8 @@ project:
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt: [curl, git, ca-certificates]
+    steps:
+      - apt-get: {install: [curl, git, ca-certificates]}
   development:
     from: base
   production:

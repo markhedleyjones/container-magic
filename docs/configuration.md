@@ -84,21 +84,14 @@ See [User Handling](user-handling.md) for more detail on how users work in devel
 stages:
   base:
     from: python:3.11-slim    # Any Docker Hub image
-    packages:
-      apt:
-        - git
-        - curl
-      pip:
-        - numpy
-        - pandas
-    env:
-      VAR: value
+    steps:
+      - apt-get: {install: [git, curl]}
+      - pip: {install: [numpy, pandas]}
 
   development:
     from: base                # Inherit from base
-    packages:
-      pip:
-        - pytest
+    steps:
+      - pip: {install: [pytest]}
 
   production:
     from: base
@@ -109,22 +102,25 @@ Each stage also supports:
 - `package_manager` - Override the auto-detected package manager (`apt`, `apk`, or `dnf`). Normally inferred from the base image.
 - `shell` - Override the default shell for the stage. Normally inferred from the base image.
 
-The package field name determines which package manager is used: `apt` uses `apt-get install`, `apk` uses `apk add`, `dnf` uses `dnf install`. Use the field that matches your base image:
+Package installation uses the command builder step syntax. The command name determines which package manager is used:
 
 ```yaml
+# Debian / Ubuntu
+steps:
+  - apt-get: {install: [curl, git]}
+
 # Alpine
-packages:
-  apk: [curl, git]
+steps:
+  - apk: {add: [curl, git]}
 
 # Fedora / CentOS
-packages:
-  dnf: [curl, git]
+steps:
+  - dnf: {install: [curl, git]}
+
+# Python pip
+steps:
+  - pip: {install: [requests, numpy]}
 ```
-
-`cm init` scaffolds the correct field automatically based on the base image you specify.
-
-!!! tip "Inline lists"
-    Package lists can also be written inline for brevity: `pip: [pytest, black, mypy]`. Both styles are valid YAML — use whichever is clearer for the length of your list.
 
 You can use any image from Docker Hub as your base (e.g., `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, `nvidia/cuda:12.4.0-runtime-ubuntu22.04`).
 

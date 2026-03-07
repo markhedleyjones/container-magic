@@ -4,7 +4,7 @@
 
 Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://peps.python.org/pep-0668/), which prevents pip from installing packages system-wide. If you try to use pip on these distributions, you'll encounter an error.
 
-**Solution — use one of these approaches:**
+**Solution -- use one of these approaches:**
 
 === "Python official image"
 
@@ -12,10 +12,8 @@ Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://pe
     stages:
       base:
         from: python:3.11-slim
-        packages:
-          pip:
-            - requests
-            - numpy
+        steps:
+          - pip: {install: [requests, numpy]}
     ```
 
 === "Install python3-full"
@@ -24,11 +22,9 @@ Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://pe
     stages:
       base:
         from: ubuntu:24.04
-        packages:
-          apt:
-            - python3-full
-          pip:
-            - requests
+        steps:
+          - apt-get: {install: [python3-full]}
+          - pip: {install: [requests]}
     ```
 
 === "--break-system-packages"
@@ -37,11 +33,8 @@ Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://pe
     stages:
       base:
         from: ubuntu:24.04
-        packages:
-          apt:
-            - python3
-            - python3-pip
         steps:
+          - apt-get: {install: [python3, python3-pip]}
           - RUN pip install --break-system-packages requests
     ```
 

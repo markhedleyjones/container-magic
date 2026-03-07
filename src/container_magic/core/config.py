@@ -263,40 +263,17 @@ class RuntimeConfig(BaseModel):
         return v
 
 
-class PackagesConfig(BaseModel):
-    """Package installation configuration."""
-
-    model_config = ConfigDict(extra="allow")
-
-    apt: Optional[List[str]] = Field(
-        default=None, description="APT packages to install"
-    )
-    apk: Optional[List[str]] = Field(
-        default=None, description="APK packages to install"
-    )
-    dnf: Optional[List[str]] = Field(
-        default=None, description="DNF packages to install"
-    )
-    pip: List[str] = Field(
-        default_factory=list, description="Python pip packages to install"
-    )
-
-
 class StageConfig(BaseModel):
     """Build stage configuration."""
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     frm: str = Field(description="Base image or stage name to build from", alias="from")
-    packages: PackagesConfig = Field(default_factory=PackagesConfig)
     package_manager: Optional[Literal["apt", "apk", "dnf"]] = Field(
         default=None, description="Package manager (auto-detected if not specified)"
     )
     shell: Optional[str] = Field(
         default=None, description="Default shell (auto-detected if not specified)"
-    )
-    env: Dict[str, str] = Field(
-        default_factory=dict, description="Environment variables to set in Dockerfile"
     )
     steps: Optional[List[Union[str, Dict[str, Any]]]] = Field(
         default=None,
@@ -422,18 +399,6 @@ class ContainerMagicConfig(BaseModel):
             data["project"]["assets"] = yaml_assets
         else:
             data["project"].pop("assets", None)
-
-        # Strip empty system package lists only when a populated one exists,
-        # so configs with e.g. apt: [curl] don't also show apk: [] and dnf: [].
-        # When all are empty (e.g. scaffolds), keep them to hint which field to use.
-        for stage_data in data.get("stages", {}).values():
-            packages = stage_data.get("packages", {})
-            sys_pkg_fields = ("apt", "apk", "dnf")
-            has_populated = any(packages.get(f) for f in sys_pkg_fields)
-            if has_populated:
-                for pkg_mgr in sys_pkg_fields:
-                    if pkg_mgr in packages and packages[pkg_mgr] == []:
-                        del packages[pkg_mgr]
 
         # Custom YAML dumper that adds blank lines between top-level sections
         class BlankLineDumper(yaml.SafeDumper):

@@ -67,11 +67,8 @@ user:
 stages:
   base:
     from: pytorch/pytorch:latest
-    packages:
-      pip:
-        - transformers
-        - flask
     steps:
+      - pip: {install: [transformers, flask]}
       - create_user
       - become_user
       - copy: model.bin /models/model.bin

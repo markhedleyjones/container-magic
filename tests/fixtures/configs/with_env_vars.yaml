@@ -17,24 +17,25 @@ runtime:
 stages:
   base:
     from: ubuntu:22.04
-    packages:
-      apt:
-        - python3
-        - python3-pip
-    env:
-      DATABASE_URL: postgresql://localhost/mydb
-      API_KEY: test-key-123
-      LOG_LEVEL: debug
+    steps:
+      - apt-get: {install: [python3, python3-pip]}
+      - env:
+          DATABASE_URL: postgresql://localhost/mydb
+          API_KEY: test-key-123
+          LOG_LEVEL: debug
+      - create_user
 
   development:
     from: base
-    env:
-      DEBUG: "true"
+    steps:
+      - {env: {DEBUG: "true"}}
+      - become_user
 
   production:
     from: base
-    env:
-      DEBUG: "false"
+    steps:
+      - {env: {DEBUG: "false"}}
+      - become_user
 
 commands:
   env-check:

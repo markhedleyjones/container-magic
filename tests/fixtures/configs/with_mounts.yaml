@@ -22,9 +22,8 @@ runtime:
 stages:
   base:
     from: python:3-slim
-    packages:
-      apt:
-        - curl
+    steps:
+      - apt-get: {install: [curl]}
 
   development:
     from: base

@@ -64,8 +64,6 @@ runtime:
 stages:
   base:
     from: {base_image}
-    packages:
-      pip: []
 
   development:
     from: base
