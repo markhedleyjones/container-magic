@@ -20,7 +20,7 @@ def temp_project_dir():
 def test_build_script_default_target_production(temp_project_dir):
     """Test that build.sh defaults to production target."""
     config = ContainerMagicConfig(
-        project={"name": "test-project"},
+        names={"project": "test-project", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
@@ -39,7 +39,7 @@ def test_build_script_default_target_production(temp_project_dir):
 def test_build_script_custom_default_target(temp_project_dir):
     """Test that build.sh uses custom default target."""
     config = ContainerMagicConfig(
-        project={"name": "test-project"},
+        names={"project": "test-project", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
@@ -60,7 +60,7 @@ def test_build_script_custom_default_target(temp_project_dir):
 def test_build_script_available_targets(temp_project_dir):
     """Test that build.sh includes all available targets."""
     config = ContainerMagicConfig(
-        project={"name": "test-project"},
+        names={"project": "test-project", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
@@ -84,7 +84,7 @@ def test_build_script_available_targets(temp_project_dir):
 def test_build_script_executable(temp_project_dir):
     """Test that build.sh is executable."""
     config = ContainerMagicConfig(
-        project={"name": "test-project"},
+        names={"project": "test-project", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
@@ -102,7 +102,7 @@ def test_build_script_executable(temp_project_dir):
 def test_build_script_help_output(temp_project_dir):
     """Test that build.sh --help shows all available targets."""
     config = ContainerMagicConfig(
-        project={"name": "test-project"},
+        names={"project": "test-project", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
@@ -132,7 +132,7 @@ def test_build_script_help_output(temp_project_dir):
 def test_build_script_invalid_target(temp_project_dir):
     """Test that build.sh rejects invalid targets."""
     config = ContainerMagicConfig(
-        project={"name": "test-project"},
+        names={"project": "test-project", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
@@ -156,7 +156,7 @@ def test_build_script_invalid_target(temp_project_dir):
 def test_build_script_accepts_all_stages(temp_project_dir):
     """Test that build.sh syntax is valid for all stage names."""
     config = ContainerMagicConfig(
-        project={"name": "test-project"},
+        names={"project": "test-project", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},

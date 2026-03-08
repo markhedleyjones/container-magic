@@ -1,6 +1,5 @@
 """Tests for path translation when running commands from different directories."""
 
-
 import pytest
 
 from container_magic.core.config import ContainerMagicConfig
@@ -28,7 +27,7 @@ def test_project(tmp_path):
 
     # Create config
     config = ContainerMagicConfig(
-        project={"name": "test-paths", "workspace": "workspace"},
+        names={"project": "test-paths", "workspace": "workspace", "user": "root"},
         stages={
             "base": {"from": "python:3.11-slim"},
             "development": {"from": "base"},
