@@ -1,12 +1,8 @@
 # Test config with custom stage
-project:
-  name: test-custom-stage
+names:
+  project: test-custom-stage
   workspace: workspace
-
-runtime:
-  backend: auto
-  privileged: false
-  features: []
+  user: root
 
 stages:
   base:

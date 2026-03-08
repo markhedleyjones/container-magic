@@ -1,12 +1,8 @@
 # Test config with custom commands
-project:
-  name: test-commands
+names:
+  project: test-commands
   workspace: workspace
-
-runtime:
-  backend: auto
-  privileged: false
-  features: []
+  user: root
 
 stages:
   base:

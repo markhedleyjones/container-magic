@@ -1,7 +1,8 @@
 # Test config with additional volumes and devices
-project:
-  name: test-mounts
+names:
+  project: test-mounts
   workspace: workspace
+  user: root
 
 runtime:
   backend: auto

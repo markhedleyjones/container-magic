@@ -9,6 +9,8 @@ Three step categories determined by YAML structure:
    - run: string or list, generates RUN
    - copy: string or list, generates COPY lines (with --chown if user active)
    - env: dict of key/value, generates ENV lines
+   - create: keyword step ('user' only)
+   - become: switches active user context
 
 3. Dict with any other key - command builder. Keys flatten into command,
    list items become arguments. Registry lookup for flags and cleanup.
@@ -30,14 +32,14 @@ KEYWORDS: set = set()
 # Removed keywords with migration messages
 _REMOVED_KEYWORDS = {
     "copy_workspace": "Use 'copy: workspace' instead",
-    "create_user": "Use 'create_user: <username>' instead",
+    "create_user": "Use '{create: user}' and define the username in 'names.user'",
     "become_user": "Use 'become: <username>' instead",
     "become_root": "Use 'become: root' instead",
     "copy_as_user": "Use 'copy' after 'become: <username>', or uppercase 'COPY --chown=...'",
     "copy_as_root": "Use 'copy' after 'become: root', or uppercase 'COPY'",
     "switch_user": "Use 'become: <username>' instead",
     "switch_root": "Use 'become: root' instead",
-    "create-user": "Use 'create_user: <username>' instead",
+    "create-user": "Use '{create: user}' and define the username in 'names.user'",
     "become-user": "Use 'become: <username>' instead",
     "become-root": "Use 'become: root' instead",
     "copy-workspace": "Use 'copy: workspace' instead",
@@ -48,7 +50,7 @@ _REMOVED_KEYWORDS = {
 }
 
 # Known dict keys with special handling
-_KNOWN_DICT_KEYS = {"run", "copy", "env", "create_user", "become"}
+_KNOWN_DICT_KEYS = {"run", "copy", "env", "create", "become"}
 
 # Dockerfile instructions that should pass through without RUN prefix
 _DOCKERFILE_INSTRUCTIONS = {
@@ -224,7 +226,7 @@ def parse_dict_step(
 ) -> Dict[str, Any]:
     """Parse a dict step into a processed step dict.
 
-    Known keys (run, copy, env) get special handling.
+    Known keys (run, copy, env, create, become) get special handling.
     Other keys go through the command builder with registry lookup.
     """
     if len(step) != 1:
@@ -235,36 +237,23 @@ def parse_dict_step(
     key = next(iter(step))
     value = step[key]
 
-    # Migration error for old {create: user} syntax
+    # create: user (keyword) or create: <literal username>
     if key == "create":
-        raise ValueError(
-            "'create: user' is no longer supported. Use 'create_user: <username>' instead."
-        )
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("'create' requires a non-empty username string")
+        name = value.strip()
+        if name == "root":
+            raise ValueError("'create: root' is not valid (root always exists)")
+        if name == "user":
+            return {"type": "create_user"}
+        return {"type": "create_user_literal", "name": name}
 
-    # Dict steps: create_user and become
+    # Migration error for old create_user syntax
     if key == "create_user":
-        if isinstance(value, str):
-            if not value.strip():
-                raise ValueError("'create_user' requires a non-empty username")
-            return {
-                "type": "create_user",
-                "username": value.strip(),
-                "uid": None,
-                "gid": None,
-            }
-        elif isinstance(value, dict):
-            if "name" not in value:
-                raise ValueError("'create_user' dict must have a 'name' field")
-            return {
-                "type": "create_user",
-                "username": value["name"],
-                "uid": value.get("uid"),
-                "gid": value.get("gid"),
-            }
-        else:
-            raise ValueError(
-                f"'create_user' value must be a string or dict, got {type(value).__name__}"
-            )
+        raise ValueError(
+            "'create_user' is no longer supported. "
+            "Use '{create: user}' and set the username in 'names.user'"
+        )
 
     if key == "become":
         if not isinstance(value, str) or not value.strip():
@@ -339,13 +328,11 @@ def parse_step(
         raise ValueError(f"Step must be a string or dict, got {type(step).__name__}")
 
 
-def find_create_user_in_stages(stages) -> Optional[Dict[str, Any]]:
-    """Find user info from create_user steps across all stages.
+def has_create_user_in_stages(stages) -> bool:
+    """Check if any stage has a {create: user} step.
 
-    Scans all stages for create_user steps and returns the first match.
+    Scans all stages for create: user steps.
     Handles both StageConfig objects and raw dicts.
-
-    Returns {"username": str, "uid": int|None, "gid": int|None} or None.
     """
     for stage in stages.values() if isinstance(stages, dict) else stages:
         if isinstance(stage, dict):
@@ -354,14 +341,6 @@ def find_create_user_in_stages(stages) -> Optional[Dict[str, Any]]:
             steps = stage.steps or []
 
         for step in steps:
-            if isinstance(step, dict) and "create_user" in step:
-                value = step["create_user"]
-                if isinstance(value, str):
-                    return {"username": value, "uid": None, "gid": None}
-                elif isinstance(value, dict):
-                    return {
-                        "username": value["name"],
-                        "uid": value.get("uid"),
-                        "gid": value.get("gid"),
-                    }
-    return None
+            if isinstance(step, dict) and "create" in step and step["create"] == "user":
+                return True
+    return False

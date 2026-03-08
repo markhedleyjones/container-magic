@@ -1,6 +1,6 @@
 # Cached Assets
 
-Container-magic can download external resources (files, models, datasets) and cache them locally to avoid re-downloading on every build. Assets are defined under `project.assets` and copied into the image using `copy:` steps.
+Container-magic can download external resources (files, models, datasets) and cache them locally to avoid re-downloading on every build. Assets are defined at the root level of `cm.yaml` and copied into the image using `copy:` steps.
 
 **Use cases:**
 
@@ -11,14 +11,16 @@ Container-magic can download external resources (files, models, datasets) and ca
 
 ## Configuration
 
-Define assets under `project.assets`:
+Define assets at the root level of your `cm.yaml`:
 
 ```yaml
-project:
-  name: my-project
-  assets:
-    - https://example.com/model.tar.gz
-    - my-model.bin: https://huggingface.co/bert-base/resolve/main/model.safetensors
+names:
+  project: my-project
+  user: root
+
+assets:
+  - https://example.com/model.tar.gz
+  - my-model.bin: https://huggingface.co/bert-base/resolve/main/model.safetensors
 ```
 
 Each asset can be either:
@@ -55,10 +57,12 @@ cm cache clear   # Clear all cached assets
 ## Example: ML Model in Production Image
 
 ```yaml
-project:
-  name: ml-service
-  assets:
-    - model.bin: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/pytorch_model.bin
+names:
+  project: ml-service
+  user: nonroot
+
+assets:
+  - model.bin: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/pytorch_model.bin
 
 stages:
   base:
@@ -68,9 +72,12 @@ stages:
           install:
             - transformers
             - flask
-      - create_user: user
+      - create: user
       - become: user
       - copy: model.bin /models/model.bin
+
+  development:
+    from: base
 
   production:
     from: base
@@ -81,23 +88,31 @@ stages:
 ## Multiple Assets
 
 ```yaml
-project:
-  name: ml-pipeline
-  assets:
-    - tokenizer.json: https://example.com/tokenizer.json
-    - model.safetensors: https://example.com/model.safetensors
-    - config.json: https://example.com/config.json
+names:
+  project: ml-pipeline
+  user: nonroot
+
+assets:
+  - tokenizer.json: https://example.com/tokenizer.json
+  - model.safetensors: https://example.com/model.safetensors
+  - config.json: https://example.com/config.json
 
 stages:
   base:
     from: pytorch/pytorch:latest
     steps:
-      - create_user: nonroot
-      - become: nonroot
+      - create: user
+      - become: user
       - copy:
           - tokenizer.json /models/tokenizer.json
           - model.safetensors /models/model.safetensors
           - config.json /models/config.json
+
+  development:
+    from: base
+
+  production:
+    from: base
 ```
 
 The `copy:` step accepts a list to copy multiple files. Each item follows the same `source dest` format.

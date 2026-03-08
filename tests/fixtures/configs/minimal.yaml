@@ -1,26 +1,22 @@
 # Minimal test config
-project:
-  name: test-minimal
+names:
+  project: test-minimal
   workspace: workspace
-
-runtime:
-  backend: auto
-  privileged: false
-  features: []
+  user: appuser
 
 stages:
   base:
     from: python:3.11-slim
     steps:
-      - {create_user: appuser,}
+      - {create: user,}
 
   development:
     from: base
     steps:
-      - {become: appuser,}
+      - {become: user,}
 
   production:
     from: base
     steps:
-      - {become: appuser}
+      - {become: user}
       - copy: workspace

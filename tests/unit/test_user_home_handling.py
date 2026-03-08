@@ -33,13 +33,13 @@ def _generate_run_script(config_dict):
 
 class TestRunScriptHomePath:
     def test_default_home_works(self):
-        """When create_user is used, /home/{name} should be used."""
+        """When create: user is used, /home/{name} should be used."""
         config_dict = {
-            "project": {"name": "test", "workspace": "workspace"},
+            "names": {"project": "test", "workspace": "workspace", "user": "app"},
             "stages": {
                 "base": {
                     "from": "python:3-slim",
-                    "steps": [{"create_user": "app"}],
+                    "steps": [{"create": "user"}],
                 },
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
@@ -59,11 +59,11 @@ class TestToYamlStepsField:
         """to_yaml should write 'steps' key."""
         config = ContainerMagicConfig(
             **{
-                "project": {"name": "test", "workspace": "workspace"},
+                "names": {"project": "test", "workspace": "workspace", "user": "app"},
                 "stages": {
                     "base": {
                         "from": "python:3-slim",
-                        "steps": [{"create_user": "app"}],
+                        "steps": [{"create": "user"}],
                     },
                     "development": {"from": "base", "steps": []},
                     "production": {"from": "base", "steps": []},

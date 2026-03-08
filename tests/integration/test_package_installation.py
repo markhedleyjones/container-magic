@@ -40,9 +40,10 @@ def test_package_installation_python_slim():
     """Test that packages install and are accessible in python:3.11-slim base."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-python
+names:
+  project: test-python
   workspace: workspace
+  user: root
 
 stages:
   base:
@@ -98,9 +99,10 @@ def test_package_installation_ubuntu():
     """Test that packages install and are accessible in ubuntu:22.04 base."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-ubuntu
+names:
+  project: test-ubuntu
   workspace: workspace
+  user: root
 
 stages:
   base:
@@ -156,9 +158,10 @@ def test_package_installation_debian():
     """Test that packages install and are accessible in debian:bookworm base."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-debian
+names:
+  project: test-debian
   workspace: workspace
+  user: root
 
 stages:
   base:
@@ -214,9 +217,10 @@ def test_package_installation_alpine():
     """Test that packages install and are accessible in alpine:latest base."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-alpine
+names:
+  project: test-alpine
   workspace: workspace
+  user: root
 
 stages:
   base:
@@ -272,9 +276,10 @@ def test_package_installation_ubuntu_24_04():
     """Test that packages install and are accessible in ubuntu:24.04 base."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-ubuntu-24
+names:
+  project: test-ubuntu-24
   workspace: workspace
+  user: root
 
 stages:
   base:
@@ -330,9 +335,10 @@ def test_multiple_packages_installation():
     """Test that multiple packages install and are accessible."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-multi
+names:
+  project: test-multi
   workspace: workspace
+  user: root
 
 stages:
   base:

@@ -48,31 +48,26 @@ pytestmark = [
 def _write_config(project_dir: Path, base_image: str):
     """Write a cm.yaml that exercises user creation and shell detection."""
     config = f"""\
-project:
-  name: {_image_name(base_image)}
+names:
+  project: {_image_name(base_image)}
   workspace: workspace
-
-runtime:
-  backend: auto
+  user: testuser
 
 stages:
   base:
     from: {base_image}
     steps:
-    - create_user:
-        name: testuser
-        uid: 1500
-        gid: 1500
+    - create: user
 
   development:
     from: base
     steps:
-    - become: testuser
+    - become: user
 
   production:
     from: base
     steps:
-    - become: testuser
+    - become: user
     - copy: workspace
 """
     (project_dir / "cm.yaml").write_text(config)
@@ -188,11 +183,11 @@ def test_user_created_correctly(built_project, base_image):
     assert result.returncode == 0, (
         f"id testuser failed for {base_image}:\n{result.stdout}\n{result.stderr}"
     )
-    assert "uid=1500" in result.stdout, (
-        f"Expected uid=1500 for {base_image}, got: {result.stdout}"
+    assert "uid=1000" in result.stdout, (
+        f"Expected uid=1000 for {base_image}, got: {result.stdout}"
     )
-    assert "gid=1500" in result.stdout, (
-        f"Expected gid=1500 for {base_image}, got: {result.stdout}"
+    assert "gid=1000" in result.stdout, (
+        f"Expected gid=1000 for {base_image}, got: {result.stdout}"
     )
 
 

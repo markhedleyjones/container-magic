@@ -2,15 +2,23 @@
 
 Container-magic is configured through a single YAML file (`cm.yaml`).
 
-## Project
+## Names
 
 ```yaml
-project:
-  name: my-project      # Required: image name
-  workspace: workspace  # Required: directory with your code
+names:
+  project: my-project      # Required: image name
+  workspace: workspace     # Workspace directory name (default: workspace)
+  user: nonroot            # Required: container username
 ```
 
-Generated files are automatically regenerated when your config changes. To disable this, set `auto_update: false` under `project:`.
+All three fields are shown above but only `project` and `user` are required (`workspace` defaults to `workspace`).
+
+**`user`** controls the container's user identity:
+
+- `user: root` - the container runs as root. No user creation is needed (or allowed - `create: user` and `become: user` are errors when `user` is `root`).
+- `user: <name>` (any other value, e.g. `nonroot`, `appuser`) - a custom user will be created by `create: user` steps and referenced by `become: user` steps. See [User Handling](user-handling.md) for details.
+
+Generated files are automatically regenerated when your config changes. To disable this, set `auto_update: false` at the root level of `cm.yaml`.
 
 ## Runtime
 

@@ -144,9 +144,9 @@ Command scripts (e.g., `train.sh`, `deploy.sh`) are only generated for commands 
 A minimal `cm.yaml`:
 
 ```yaml
-project:
-  name: my-project
-  workspace: workspace
+names:
+  project: my-project
+  user: nonroot
 
 stages:
   base:
@@ -160,6 +160,8 @@ stages:
           install:
             - numpy
             - pandas
+      - create: user
+      - become: user
 
   development:
     from: base
@@ -171,9 +173,9 @@ stages:
 ## Example with Features
 
 ```yaml
-project:
-  name: ml-training
-  workspace: workspace
+names:
+  project: ml-training
+  user: nonroot
 
 runtime:
   features:
@@ -190,6 +192,8 @@ stages:
             - datasets
       - env:
           HF_HOME: /models
+      - create: user
+      - become: user
 
   development:
     from: base

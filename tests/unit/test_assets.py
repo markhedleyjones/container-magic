@@ -1,4 +1,4 @@
-"""Tests for the project.assets manifest system."""
+"""Tests for the assets manifest system."""
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -27,9 +27,9 @@ def _generate(config_dict):
 
 
 def _base_config(**overrides):
-    """Minimal valid config with overrides applied to the project or base stage."""
+    """Minimal valid config with overrides applied at root level."""
     config = {
-        "project": {"name": "test", "workspace": "workspace"},
+        "names": {"project": "test", "workspace": "workspace", "user": "root"},
         "stages": {
             "base": {"from": "python:3-slim", "steps": []},
             "development": {"from": "base", "steps": []},
@@ -110,32 +110,30 @@ class TestParseAssetItems:
         assert items[0].url == "http://example.com/file.bin"
 
 
-class TestProjectConfigAssets:
+class TestConfigAssets:
     def test_config_with_assets(self):
         config = ContainerMagicConfig(
-            project={
-                "name": "test",
-                "assets": ["https://example.com/model.bin"],
-            },
+            names={"project": "test", "user": "root"},
+            assets=["https://example.com/model.bin"],
             stages={
                 "base": {"from": "python:3-slim", "steps": []},
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
             },
         )
-        assert len(config.project.assets) == 1
-        assert config.project.assets[0].filename == "model.bin"
+        assert len(config.assets) == 1
+        assert config.assets[0].filename == "model.bin"
 
     def test_config_without_assets(self):
         config = ContainerMagicConfig(
-            project={"name": "test"},
+            names={"project": "test", "user": "root"},
             stages={
                 "base": {"from": "python:3-slim", "steps": []},
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
             },
         )
-        assert config.project.assets == []
+        assert config.assets == []
 
 
 class TestBuildAssetMap:
@@ -180,11 +178,7 @@ class TestResolveCopySource:
 class TestDockerfileAssetCopyResolution:
     def test_copy_step_resolves_asset(self):
         config = _base_config(
-            project={
-                "name": "test",
-                "workspace": "workspace",
-                "assets": ["https://example.com/cuda-keyring_1.1-1_all.deb"],
-            },
+            assets=["https://example.com/cuda-keyring_1.1-1_all.deb"],
         )
         config["stages"]["base"]["steps"] = [
             {"copy": "cuda-keyring_1.1-1_all.deb /tmp/cuda-keyring.deb"},
@@ -195,11 +189,7 @@ class TestDockerfileAssetCopyResolution:
 
     def test_copy_step_non_asset_unchanged(self):
         config = _base_config(
-            project={
-                "name": "test",
-                "workspace": "workspace",
-                "assets": ["https://example.com/model.bin"],
-            },
+            assets=["https://example.com/model.bin"],
         )
         config["stages"]["base"]["steps"] = [
             {"copy": "local-config.txt /etc/config"},
@@ -216,4 +206,4 @@ class TestAssetFixtureConfig:
         )
         if fixture_path.exists():
             config = ContainerMagicConfig.from_yaml(fixture_path)
-            assert len(config.project.assets) > 0
+            assert len(config.assets) > 0

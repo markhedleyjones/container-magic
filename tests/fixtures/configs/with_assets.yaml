@@ -1,10 +1,12 @@
-# Test config with project-level assets (new syntax)
-project:
-  name: test-assets
+# Test config with root-level assets
+names:
+  project: test-assets
   workspace: workspace
-  assets:
-    - https://httpbin.org/uuid
-    - test-model.bin: https://example.com/download?file=model&v=2
+  user: modeluser
+
+assets:
+  - https://httpbin.org/uuid
+  - test-model.bin: https://example.com/download?file=model&v=2
 
 stages:
   base:
@@ -12,7 +14,7 @@ stages:
     steps:
       - pip: {install: [requests]}
       - {env: {MODEL_PATH: /models}}
-      - {create_user: modeluser}
+      - {create: user}
       - copy: uuid /models/uuid.json
       - copy: test-model.bin /models/model.bin
 

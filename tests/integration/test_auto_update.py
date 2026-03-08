@@ -42,9 +42,8 @@ def test_auto_update_disabled_requires_manual_update(test_project):
     # Disable auto_update explicitly
     config_path = test_project / "cm.yaml"
     config = config_path.read_text()
-    config += "\n  auto_update: false\n" if "project:" in config else config
-    # Insert auto_update under project section
-    config = config.replace("project:\n", "project:\n  auto_update: false\n", 1)
+    # Insert auto_update at root level (after names block)
+    config = config.replace("stages:\n", "auto_update: false\n\nstages:\n", 1)
     config_path.write_text(config)
 
     # Regenerate with new setting

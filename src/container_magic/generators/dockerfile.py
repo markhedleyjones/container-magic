@@ -11,7 +11,7 @@ from container_magic.core.config import (
     StageConfig,
 )
 from container_magic.core.registry import load_registry
-from container_magic.core.steps import find_create_user_in_stages, parse_step
+from container_magic.core.steps import has_create_user_in_stages, parse_step
 from container_magic.core.templates import (
     detect_package_manager,
     detect_shell,
@@ -28,18 +28,27 @@ def _step_is_become(step: Union[str, Dict[str, Any]]) -> Optional[str]:
 
 
 def _step_is_create_user(step: Union[str, Dict[str, Any]]) -> bool:
-    """Check if a step is a create_user dict step."""
-    return isinstance(step, dict) and len(step) == 1 and "create_user" in step
+    """Check if a step is a {create: user} step."""
+    return (
+        isinstance(step, dict)
+        and len(step) == 1
+        and "create" in step
+        and step["create"] == "user"
+    )
 
 
 def _get_parent_user_context(
     stage_name: str,
     stages_dict: Dict[str, StageConfig],
+    production_user: str = "root",
 ) -> Optional[str]:
     """Get the user context from the parent stage hierarchy.
 
     Walks up the stage tree via `frm` references. For each stage, looks at the
     last become step. Returns the username if become is active, None otherwise.
+
+    The keyword ``"user"`` in become steps is resolved to *production_user* so
+    that callers receive the actual username rather than the raw keyword.
     """
     visited: set = set()
     current = stages_dict.get(stage_name)
@@ -60,7 +69,12 @@ def _get_parent_user_context(
             for step in steps:
                 become_target = _step_is_become(step)
                 if become_target is not None:
-                    last_user = None if become_target == "root" else become_target
+                    if become_target == "root":
+                        last_user = None
+                    elif become_target == "user":
+                        last_user = production_user
+                    else:
+                        last_user = become_target
             if last_user is not None:
                 return last_user
 
@@ -195,7 +209,7 @@ def process_stage_steps(
         return name
 
     # Track current user context: None = root, string = username or ${USER_NAME}
-    parent_context = _get_parent_user_context(stage_name, stages_dict)
+    parent_context = _get_parent_user_context(stage_name, stages_dict, production_user)
     if parent_context is not None:
         current_user = _resolve_user_ref(parent_context)
     else:
@@ -217,13 +231,23 @@ def process_stage_steps(
             ordered_steps.append({"type": "create_user"})
             user_created_via_args = True
 
+        elif step_type == "create_user_literal":
+            ordered_steps.append(
+                {"type": "create_user_literal", "name": parsed["name"]}
+            )
+
         elif step_type == "become":
             name = parsed["name"]
-            if name == "root":
+            if name == "user":
+                # Keyword 'user' resolves to the configured production user
+                current_user = _resolve_user_ref(production_user)
+                ordered_steps.append({"type": "become", "name": current_user or "root"})
+            elif name == "root":
                 current_user = None
+                ordered_steps.append({"type": "become", "name": "root"})
             else:
                 current_user = _resolve_user_ref(name)
-            ordered_steps.append({"type": "become", "name": current_user or "root"})
+                ordered_steps.append({"type": "become", "name": current_user or "root"})
 
         elif step_type == "copy_v1":
             chown = parsed["chown"]
@@ -276,16 +300,16 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
     # Build stages dict with defaults if needed
     stages = dict(config.stages)
 
-    # Find user info from create_user steps
-    user_info = find_create_user_in_stages(stages)
-    user_name = user_info["username"] if user_info else "root"
+    # Get user info from config.names
+    has_user = has_create_user_in_stages(stages)
+    user_name = config.names.user
 
     if "development" not in stages:
         from container_magic.core.config import StageConfig
 
         dev_steps = []
-        if user_info:
-            dev_steps.append({"become": user_info["username"]})
+        if has_user:
+            dev_steps.append({"become": "user"})
         stages["development"] = StageConfig(frm="base", steps=dev_steps)
 
     if "production" not in stages:
@@ -297,9 +321,13 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
         project_overrides=config.command_registry if config.command_registry else None
     )
 
-    # Build asset map from project-level assets
+    # Build asset map from root-level assets
     project_dir = output_path.parent
-    asset_map = build_asset_map(project_dir, config.project.assets)
+    asset_map = build_asset_map(project_dir, config.assets)
+
+    user_uid = 1000 if has_user else 0
+    user_gid = 1000 if has_user else 0
+    user_home = f"/home/{user_name}" if has_user else "/root"
 
     stages_data = []
     for stage_name, stage_config in stages.items():
@@ -317,7 +345,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
             project_dir,
             stages,
             user_name,
-            config.project.workspace,
+            config.names.workspace,
             registry,
             asset_map,
         )
@@ -326,18 +354,6 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
 
         needs_user_args = _stage_needs_user_args(ordered_steps)
         from_is_image = ":" in base_image or "/" in base_image
-
-        user_uid = (
-            (user_info["uid"] if user_info and user_info["uid"] is not None else 1000)
-            if user_info
-            else 0
-        )
-        user_gid = (
-            (user_info["gid"] if user_info and user_info["gid"] is not None else 1000)
-            if user_info
-            else 0
-        )
-        user_home = f"/home/{user_name}" if user_info else "/root"
 
         stages_data.append(
             {
@@ -358,7 +374,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
 
     dockerfile_content = template.render(
         stages=stages_data,
-        workspace_name=config.project.workspace,
+        workspace_name=config.names.workspace,
     )
 
     with open(output_path, "w") as f:

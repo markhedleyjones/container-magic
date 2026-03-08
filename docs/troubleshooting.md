@@ -51,16 +51,25 @@ Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://pe
     !!! warning
         Only use `--break-system-packages` if you understand the security implications.
 
-## "Error: no user is configured"
+## Missing `names.user`
 
-Add a `create_user` step to your build stages:
+The `names.user` field is required. If it is missing, you will get a validation error. Add it to your config:
+
+```yaml
+names:
+  project: my-project
+  user: nonroot           # or 'root' if no custom user is needed
+```
+
+If you set `user` to anything other than `root`, add `create: user` and `become: user` steps to your base stage:
 
 ```yaml
 stages:
   base:
     from: python:3.11-slim
     steps:
-      - create_user: nonroot
+      - create: user
+      - become: user
 ```
 
 ## Custom Step Not Producing Expected Output
@@ -77,13 +86,15 @@ For other Dockerfile instructions (`ENV`, `COPY`, `WORKDIR`, etc.), use the uppe
 
 ## Build Takes Too Long When Downloading Assets
 
-Use `project.assets` to download once and cache locally:
+Use `assets` to download once and cache locally:
 
 ```yaml
-project:
-  name: my-project
-  assets:
-    - model.tar.gz: https://large-file.example.com/model.tar.gz
+names:
+  project: my-project
+  user: root
+
+assets:
+  - model.tar.gz: https://large-file.example.com/model.tar.gz
 
 stages:
   base:
@@ -100,7 +111,7 @@ Use lowercase `copy` instead of uppercase `COPY` - it automatically sets ownersh
 
 ```yaml
 steps:
-  - create_user: user
+  - create: user
   - become: user
   - copy: config.yaml /etc/myservice/config.yaml
 ```

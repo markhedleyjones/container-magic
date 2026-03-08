@@ -189,17 +189,17 @@ def init(
     base_image = f"{template}:latest" if ":" not in template else template
 
     config = ContainerMagicConfig(
-        project={
-            "name": name,
-            "workspace": "workspace",
-        },
+        names={"project": name, "workspace": "workspace", "user": "nonroot"},
         stages={
             "base": {
                 "from": base_image,
-                "steps": [{"create_user": "nonroot"}],
+                "steps": [{"create": "user"}, {"become": "user"}],
             },
-            "development": {"from": "base", "steps": [{"become": "nonroot"}]},
-            "production": {"from": "base"},
+            "development": {"from": "base"},
+            "production": {
+                "from": "base",
+                "steps": [{"copy": "workspace"}],
+            },
         },
     )
 
@@ -261,7 +261,7 @@ def _download_assets(config: ContainerMagicConfig, project_dir: Path):
 
     has_assets = False
 
-    for item in config.project.assets:
+    for item in config.assets:
         if not has_assets:
             click.echo("Downloading assets...")
             has_assets = True

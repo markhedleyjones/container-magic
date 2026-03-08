@@ -21,7 +21,7 @@ def _generate(config_dict):
 def _base_config(**overrides):
     """Minimal valid config with overrides applied to the base stage."""
     config = {
-        "project": {"name": "test", "workspace": "workspace"},
+        "names": {"project": "test", "workspace": "workspace", "user": "root"},
         "stages": {
             "base": {"from": "python:3-slim", **overrides},
             "development": {"from": "base", "steps": []},
@@ -174,13 +174,13 @@ def _get_stage_block(content, stage_name):
 
 class TestStagePreamble:
     def test_image_stage_with_user_args(self):
-        """FROM Docker image with create_user step: full ARG block + WORKSPACE + WORKDIR."""
+        """FROM Docker image with create: user step: full ARG block + WORKSPACE + WORKDIR."""
         config = {
-            "project": {"name": "test", "workspace": "ws"},
+            "names": {"project": "test", "workspace": "ws", "user": "app"},
             "stages": {
                 "base": {
                     "from": "python:3-slim",
-                    "steps": [{"create_user": "app"}, {"become": "app"}],
+                    "steps": [{"create": "user"}, {"become": "user"}],
                 },
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
@@ -213,13 +213,13 @@ class TestStagePreamble:
     def test_child_stage_with_become_configured_user(self):
         """FROM another stage with become referencing configured user: needs ARGs."""
         config = {
-            "project": {"name": "test", "workspace": "ws"},
+            "names": {"project": "test", "workspace": "ws", "user": "app"},
             "stages": {
-                "base": {"from": "python:3-slim", "steps": [{"create_user": "app"}]},
+                "base": {"from": "python:3-slim", "steps": [{"create": "user"}]},
                 "development": {"from": "base", "steps": []},
                 "production": {
                     "from": "base",
-                    "steps": [{"become": "app"}, {"copy": "workspace"}],
+                    "steps": [{"become": "user"}, {"copy": "workspace"}],
                 },
             },
         }

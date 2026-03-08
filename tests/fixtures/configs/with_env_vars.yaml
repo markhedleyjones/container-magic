@@ -1,12 +1,8 @@
 # Test config with environment variables
-project:
-  name: test-env-vars
+names:
+  project: test-env-vars
   workspace: workspace
-
-runtime:
-  backend: auto
-  privileged: false
-  features: []
+  user: appuser
 
 stages:
   base:
@@ -17,19 +13,19 @@ stages:
           DATABASE_URL: postgresql://localhost/mydb
           API_KEY: test-key-123
           LOG_LEVEL: debug
-      - {create_user: appuser,}
+      - {create: user,}
 
   development:
     from: base
     steps:
       - {env: {DEBUG: "true"}}
-      - {become: appuser,}
+      - {become: user,}
 
   production:
     from: base
     steps:
       - {env: {DEBUG: "false"}}
-      - {become: appuser,}
+      - {become: user,}
 
 commands:
   env-check:

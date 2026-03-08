@@ -1,7 +1,8 @@
 # Test config with GPU and audio features
-project:
-  name: test-gpu-audio
+names:
+  project: test-gpu-audio
   workspace: workspace
+  user: root
 
 runtime:
   backend: auto

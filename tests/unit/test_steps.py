@@ -191,54 +191,43 @@ class TestParseDictStep:
     def setup_method(self):
         self.registry = load_registry()
 
-    def test_create_user_string(self):
-        result = parse_dict_step({"create_user": "appuser"}, self.registry)
-        assert result == {
-            "type": "create_user",
-            "username": "appuser",
-            "uid": None,
-            "gid": None,
-        }
+    def test_create_user_keyword(self):
+        result = parse_dict_step({"create": "user"}, self.registry)
+        assert result == {"type": "create_user"}
 
-    def test_create_user_dict(self):
-        result = parse_dict_step(
-            {"create_user": {"name": "app", "uid": 2000, "gid": 2000}}, self.registry
-        )
-        assert result == {
-            "type": "create_user",
-            "username": "app",
-            "uid": 2000,
-            "gid": 2000,
-        }
+    def test_create_literal_user(self):
+        result = parse_dict_step({"create": "mark"}, self.registry)
+        assert result == {"type": "create_user_literal", "name": "mark"}
 
-    def test_create_user_dict_name_only(self):
-        result = parse_dict_step({"create_user": {"name": "app"}}, self.registry)
-        assert result == {
-            "type": "create_user",
-            "username": "app",
-            "uid": None,
-            "gid": None,
-        }
+    def test_create_root_raises(self):
+        with pytest.raises(ValueError, match="root always exists"):
+            parse_dict_step({"create": "root"}, self.registry)
 
-    def test_create_user_empty_raises(self):
-        with pytest.raises(ValueError, match="non-empty username"):
-            parse_dict_step({"create_user": ""}, self.registry)
+    def test_create_empty_raises(self):
+        with pytest.raises(ValueError, match="non-empty"):
+            parse_dict_step({"create": ""}, self.registry)
 
-    def test_create_user_dict_missing_name_raises(self):
-        with pytest.raises(ValueError, match="must have a 'name' field"):
-            parse_dict_step({"create_user": {"uid": 1000}}, self.registry)
-
-    def test_old_create_syntax_raises_migration_error(self):
+    def test_old_create_user_raises_migration_error(self):
         with pytest.raises(ValueError, match="no longer supported"):
-            parse_dict_step({"create": "user"}, self.registry)
+            parse_dict_step({"create_user": "appuser"}, self.registry)
+
+    def test_old_create_user_dict_raises_migration_error(self):
+        with pytest.raises(ValueError, match="no longer supported"):
+            parse_dict_step(
+                {"create_user": {"name": "app", "uid": 2000}}, self.registry
+            )
 
     def test_become_user(self):
-        result = parse_dict_step({"become": "appuser"}, self.registry)
-        assert result == {"type": "become", "name": "appuser"}
+        result = parse_dict_step({"become": "user"}, self.registry)
+        assert result == {"type": "become", "name": "user"}
 
     def test_become_root(self):
         result = parse_dict_step({"become": "root"}, self.registry)
         assert result == {"type": "become", "name": "root"}
+
+    def test_become_arbitrary(self):
+        result = parse_dict_step({"become": "www-data"}, self.registry)
+        assert result == {"type": "become", "name": "www-data"}
 
     def test_become_empty_raises(self):
         with pytest.raises(ValueError, match="non-empty username"):
@@ -370,15 +359,14 @@ class TestParseStep:
         result = parse_step({"run": "echo hello"}, self.registry)
         assert result["type"] == "run"
 
-    def test_create_user_dict_step(self):
-        result = parse_step({"create_user": "appuser"}, self.registry)
+    def test_create_user_keyword_step(self):
+        result = parse_step({"create": "user"}, self.registry)
         assert result["type"] == "create_user"
-        assert result["username"] == "appuser"
 
     def test_become_dict_step(self):
-        result = parse_step({"become": "appuser"}, self.registry)
+        result = parse_step({"become": "user"}, self.registry)
         assert result["type"] == "become"
-        assert result["name"] == "appuser"
+        assert result["name"] == "user"
 
     def test_invalid_type_raises(self):
         with pytest.raises(ValueError, match="must be a string or dict"):

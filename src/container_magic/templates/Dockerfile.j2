@@ -84,6 +84,14 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
         chown ${USER_UID}:${USER_GID} ${USER_HOME}; \
     fi
 {% endif %}
+{% elif step.type == "create_user_literal" %}
+{% if stage.user_creation_style == "alpine" %}
+RUN addgroup -g 1000 {{ step.name }} 2>/dev/null || true && \
+    adduser -D -u 1000 -G {{ step.name }} -h /home/{{ step.name }} {{ step.name }}
+{% else %}
+RUN groupadd --gid 1000 {{ step.name }} 2>/dev/null || true && \
+    useradd --uid 1000 --gid 1000 --home-dir /home/{{ step.name }} --create-home {{ step.name }}
+{% endif %}
 {% elif step.type == "become" %}
 USER {{ step.name }}
 {% elif step.type == "copy_workspace" %}

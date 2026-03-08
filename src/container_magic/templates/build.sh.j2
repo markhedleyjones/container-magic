@@ -26,7 +26,28 @@ else
 fi
 
 # Parse arguments
-TARGET="${1:-$DEFAULT_TARGET}"
+TARGET=""
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	--uid)
+		USER_UID="$2"
+		shift 2
+		;;
+	--gid)
+		USER_GID="$2"
+		shift 2
+		;;
+	--help | -h)
+		TARGET="--help"
+		shift
+		;;
+	*)
+		TARGET="$1"
+		shift
+		;;
+	esac
+done
+TARGET="${TARGET:-$DEFAULT_TARGET}"
 
 # Determine tag based on target
 if [[ "$TARGET" == "production" ]]; then
@@ -36,13 +57,17 @@ else
 fi
 
 # Show help if requested
-if [[ "$TARGET" == "--help" || "$TARGET" == "-h" ]]; then
-	echo "Usage: $0 [target]"
+if [[ "$TARGET" == "--help" ]]; then
+	echo "Usage: $0 [options] [target]"
 	echo ""
 	echo "Build a Docker image for the specified target stage."
 	echo ""
 	echo "Arguments:"
-	echo "  target    Build target (default: $DEFAULT_TARGET)"
+	echo "  target        Build target (default: $DEFAULT_TARGET)"
+	echo ""
+	echo "Options:"
+	echo "  --uid UID     Override user UID (default: $USER_UID)"
+	echo "  --gid GID     Override user GID (default: $USER_GID)"
 	echo ""
 	echo "Available targets:"
 	for t in "${AVAILABLE_TARGETS[@]}"; do

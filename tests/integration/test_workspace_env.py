@@ -117,10 +117,11 @@ def test_project_no_user():
     with tempfile.TemporaryDirectory() as tmpdir:
         project_dir = Path(tmpdir)
 
-        # Create cm.yaml with no user section
-        config_content = """project:
-  name: test-no-user
+        # Create cm.yaml with no user section (runs as root)
+        config_content = """names:
+  project: test-no-user
   workspace: workspace
+  user: root
 
 stages:
   base:

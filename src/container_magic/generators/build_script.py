@@ -6,7 +6,7 @@ from pathlib import Path
 from jinja2 import Environment, PackageLoader
 
 from container_magic.core.config import ContainerMagicConfig
-from container_magic.core.steps import find_create_user_in_stages
+from container_magic.core.steps import has_create_user_in_stages
 
 
 def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> None:
@@ -28,20 +28,16 @@ def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> No
     # Get all available stages for validation
     available_stages = list(config.stages.keys())
 
-    # Get user info from create_user steps
-    user_info = find_create_user_in_stages(config.stages)
-    production_user_name = user_info["username"] if user_info else "root"
-    production_user_uid = (
-        (user_info["uid"] if user_info["uid"] is not None else 1000) if user_info else 0
-    )
-    production_user_gid = (
-        (user_info["gid"] if user_info["gid"] is not None else 1000) if user_info else 0
-    )
-    production_user_home = f"/home/{production_user_name}" if user_info else "/root"
+    # Get user info from config.names
+    has_user = has_create_user_in_stages(config.stages)
+    production_user_name = config.names.user or "root"
+    production_user_uid = 1000 if has_user else 0
+    production_user_gid = 1000 if has_user else 0
+    production_user_home = f"/home/{production_user_name}" if has_user else "/root"
 
     content = template.render(
-        project_name=config.project.name,
-        workspace_name=config.project.workspace,
+        project_name=config.names.project,
+        workspace_name=config.names.workspace,
         default_target=default_target,
         available_stages=available_stages,
         production_user_name=production_user_name,

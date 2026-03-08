@@ -80,36 +80,36 @@ def _parse_asset_items(raw_assets: list) -> List[AssetItem]:
             url = entry
             if not url.startswith(("http://", "https://")):
                 raise ValueError(
-                    f"project.assets[{i}]: URL must start with http:// or https://, got '{url}'"
+                    f"assets[{i}]: URL must start with http:// or https://, got '{url}'"
                 )
             filename = extract_filename_from_url(url)
             if not filename or filename == "asset":
                 raise ValueError(
-                    f"project.assets[{i}]: cannot derive filename from URL '{url}'. "
+                    f"assets[{i}]: cannot derive filename from URL '{url}'. "
                     "Use explicit naming: {{ my-file.bin: {url} }}"
                 )
         elif isinstance(entry, dict):
             if len(entry) != 1:
                 raise ValueError(
-                    f"project.assets[{i}]: named asset must be a single-key dict "
+                    f"assets[{i}]: named asset must be a single-key dict "
                     f"(filename: url), got {len(entry)} keys"
                 )
             filename, url = next(iter(entry.items()))
             if not isinstance(url, str) or not url.startswith(("http://", "https://")):
                 raise ValueError(
-                    f"project.assets[{i}]: URL must start with http:// or https://, got '{url}'"
+                    f"assets[{i}]: URL must start with http:// or https://, got '{url}'"
                 )
             if not filename:
-                raise ValueError(f"project.assets[{i}]: filename must not be empty")
+                raise ValueError(f"assets[{i}]: filename must not be empty")
         else:
             raise ValueError(
-                f"project.assets[{i}]: must be a URL string or a {{filename: url}} dict, "
+                f"assets[{i}]: must be a URL string or a {{filename: url}} dict, "
                 f"got {type(entry).__name__}"
             )
 
         if filename in seen_filenames:
             raise ValueError(
-                f"project.assets[{i}]: duplicate filename '{filename}' "
+                f"assets[{i}]: duplicate filename '{filename}' "
                 f"(first seen at index {seen_filenames[filename]})"
             )
         seen_filenames[filename] = i
@@ -118,29 +118,14 @@ def _parse_asset_items(raw_assets: list) -> List[AssetItem]:
     return items
 
 
-class ProjectConfig(BaseModel):
-    """Project configuration."""
+class NamesConfig(BaseModel):
+    """Naming configuration for the project."""
 
     model_config = ConfigDict(extra="allow")
 
-    name: str = Field(description="Project name")
+    project: str = Field(description="Project name")
     workspace: str = Field(default="workspace", description="Workspace directory name")
-    auto_update: bool = Field(
-        default=True,
-        description="Automatically regenerate files when config changes",
-    )
-    assets: List[AssetItem] = Field(
-        default_factory=list,
-        description="Assets to download and cache (URLs or {filename: url} dicts)",
-    )
-
-    @field_validator("assets", mode="before")
-    @classmethod
-    def parse_assets(cls, v):
-        """Parse raw asset list into AssetItem objects."""
-        if not v:
-            return []
-        return _parse_asset_items(v)
+    user: str = Field(description="Container username (or 'root' if no custom user)")
 
 
 class RuntimeConfig(BaseModel):
@@ -287,7 +272,15 @@ class ContainerMagicConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    project: ProjectConfig
+    names: NamesConfig
+    auto_update: bool = Field(
+        default=True,
+        description="Automatically regenerate files when config changes",
+    )
+    assets: List[AssetItem] = Field(
+        default_factory=list,
+        description="Assets to download and cache (URLs or {filename: url} dicts)",
+    )
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     stages: Dict[str, StageConfig]
     commands: Dict[str, CustomCommand] = Field(
@@ -299,19 +292,40 @@ class ContainerMagicConfig(BaseModel):
     )
     build_script: BuildScriptConfig = Field(default_factory=BuildScriptConfig)
 
+    @field_validator("assets", mode="before")
+    @classmethod
+    def parse_assets(cls, v):
+        """Parse raw asset list into AssetItem objects."""
+        if not v:
+            return []
+        return _parse_asset_items(v)
+
     @model_validator(mode="before")
     @classmethod
-    def reject_user_block(cls, data):
-        """Reject any user: config block with migration message."""
-        if isinstance(data, dict) and "user" in data:
+    def reject_removed_blocks(cls, data):
+        """Reject removed config blocks with migration messages."""
+        if not isinstance(data, dict):
+            return data
+
+        if "user" in data:
             raise ValueError(
                 "The 'user' config block is no longer supported. "
-                "Use 'create_user' in your build steps instead:\n"
-                "  stages:\n"
-                "    base:\n"
-                "      steps:\n"
-                "        - create_user: appuser"
+                "Define the username in 'names.user' instead:\n"
+                "  names:\n"
+                "    project: my-project\n"
+                "    user: appuser"
             )
+
+        if "project" in data:
+            raise ValueError(
+                "The 'project' config block has been replaced by 'names'. "
+                "Rename 'project' to 'names' and move 'name' to 'project':\n"
+                "  names:\n"
+                "    project: my-project\n"
+                "    workspace: workspace\n"
+                "    user: appuser"
+            )
+
         return data
 
     @classmethod
@@ -333,13 +347,16 @@ class ContainerMagicConfig(BaseModel):
         """Save configuration to YAML file."""
         data = self.model_dump(exclude_none=True, by_alias=True)
 
-        # Remove auto_update from output when it matches the default (True)
-        # It's noise in the config — users only need it when opting out
-        if data.get("project", {}).get("auto_update") is True:
-            data["project"].pop("auto_update", None)
+        # Remove auto_update when it matches the default (True)
+        if data.get("auto_update") is True:
+            data.pop("auto_update", None)
 
-        # Serialise assets back to YAML-friendly format (list of URLs / {name: url} dicts)
-        raw_assets = data.get("project", {}).get("assets", [])
+        # Remove names.user when None (already excluded by exclude_none, but be safe)
+        names = data.get("names", {})
+        names.pop("user", None) if names.get("user") is None else None
+
+        # Serialise assets back to YAML-friendly format
+        raw_assets = data.get("assets", [])
         if raw_assets:
             from container_magic.core.cache import extract_filename_from_url
 
@@ -352,9 +369,22 @@ class ContainerMagicConfig(BaseModel):
                     yaml_assets.append(url)
                 else:
                     yaml_assets.append({filename: url})
-            data["project"]["assets"] = yaml_assets
+            data["assets"] = yaml_assets
         else:
-            data["project"].pop("assets", None)
+            data.pop("assets", None)
+
+        # Omit default-valued blocks to keep scaffold minimal
+        if data.get("commands") == {}:
+            data.pop("commands", None)
+        if data.get("command_registry") == {}:
+            data.pop("command_registry", None)
+        build_script = data.get("build_script", {})
+        if build_script == {"default_target": "production"} or build_script == {}:
+            data.pop("build_script", None)
+        runtime = data.get("runtime", {})
+        default_runtime = RuntimeConfig().model_dump(exclude_none=True)
+        if runtime == {} or runtime == default_runtime:
+            data.pop("runtime", None)
 
         # Custom YAML dumper that adds blank lines between top-level sections
         class BlankLineDumper(yaml.SafeDumper):
@@ -382,7 +412,6 @@ class ContainerMagicConfig(BaseModel):
         lines = output.split("\n")
         formatted_lines = []
         for i, line in enumerate(lines):
-            # Add blank line before top-level keys (no leading whitespace)
             if line and not line[0].isspace() and i > 0 and formatted_lines:
                 formatted_lines.append("")
             formatted_lines.append(line)
@@ -406,11 +435,11 @@ class ContainerMagicConfig(BaseModel):
                 capture_output=True,
             )
 
-    @field_validator("project")
+    @field_validator("names")
     @classmethod
-    def validate_project_name(cls, v: ProjectConfig) -> ProjectConfig:
+    def validate_names_project(cls, v: NamesConfig) -> NamesConfig:
         """Validate project name doesn't contain invalid characters."""
-        if not v.name.replace("-", "").replace("_", "").isalnum():
+        if not v.project.replace("-", "").replace("_", "").isalnum():
             raise ValueError(
                 "Project name must contain only alphanumeric characters, hyphens, and underscores"
             )
@@ -433,4 +462,68 @@ class ContainerMagicConfig(BaseModel):
                 f"build_script.default_target '{self.build_script.default_target}' "
                 f"does not exist in stages. Available stages: {', '.join(self.stages.keys())}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_user_and_workspace_steps(self) -> "ContainerMagicConfig":
+        """Validate user and workspace step consistency.
+
+        User rules:
+        - 'create: user' and 'become: user' require names.user != 'root'
+        - 'create: root' is rejected at step parse time
+        - 'create: <literal>' is allowed (secondary users)
+
+        Workspace rules (single-token 'copy:' steps only):
+        - 'copy: workspace' (matching names.workspace) is the primary mechanism
+        - 'copy: <other>' without also copying the workspace is a warning
+        - 'copy: <other>' alongside the workspace copy is an info
+        """
+        has_workspace_copy = False
+        literal_copies = []
+
+        for stage in self.stages.values():
+            if not stage.steps:
+                continue
+            for step in stage.steps:
+                if not isinstance(step, dict) or len(step) != 1:
+                    continue
+                key = next(iter(step))
+                value = step[key]
+                if key == "create" and value == "user":
+                    if self.names.user == "root":
+                        raise ValueError(
+                            "'create: user' cannot be used when names.user is 'root' "
+                            "(root always exists). Set names.user to a non-root username."
+                        )
+                elif key == "create" and isinstance(value, str) and value != "root":
+                    pass
+                if key == "become" and value == "user" and self.names.user == "root":
+                    raise ValueError(
+                        "'become: user' is redundant when names.user is 'root' "
+                        "(containers run as root by default). Remove the step."
+                    )
+                if key == "copy" and isinstance(value, str):
+                    # Single-token copies are workspace-style (copied into home)
+                    if " " not in value.strip():
+                        if value.strip() == self.names.workspace:
+                            has_workspace_copy = True
+                        else:
+                            literal_copies.append(value.strip())
+
+        for name in literal_copies:
+            if has_workspace_copy:
+                print(
+                    f"Info: 'copy: {name}' copies a directory that is not the "
+                    f"defined workspace ('{self.names.workspace}')",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"Warning: 'copy: {name}' copies a directory that is not the "
+                    f"defined workspace ('{self.names.workspace}'). "
+                    f"Use 'copy: {self.names.workspace}' to copy the workspace, "
+                    f"or update names.workspace if '{name}' is your workspace.",
+                    file=sys.stderr,
+                )
+
         return self
