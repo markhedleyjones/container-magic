@@ -119,7 +119,7 @@ def test_project_no_user():
 
         # Create cm.yaml with no user section (runs as root)
         config_content = """names:
-  project: test-no-user
+  image: test-no-user
   workspace: workspace
   user: root
 

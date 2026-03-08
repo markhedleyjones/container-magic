@@ -41,7 +41,7 @@ def test_package_installation_python_slim():
     runtime = get_runtime()
     config = """
 names:
-  project: test-python
+  image: test-python
   workspace: workspace
   user: root
 
@@ -100,7 +100,7 @@ def test_package_installation_ubuntu():
     runtime = get_runtime()
     config = """
 names:
-  project: test-ubuntu
+  image: test-ubuntu
   workspace: workspace
   user: root
 
@@ -159,7 +159,7 @@ def test_package_installation_debian():
     runtime = get_runtime()
     config = """
 names:
-  project: test-debian
+  image: test-debian
   workspace: workspace
   user: root
 
@@ -218,7 +218,7 @@ def test_package_installation_alpine():
     runtime = get_runtime()
     config = """
 names:
-  project: test-alpine
+  image: test-alpine
   workspace: workspace
   user: root
 
@@ -277,7 +277,7 @@ def test_package_installation_ubuntu_24_04():
     runtime = get_runtime()
     config = """
 names:
-  project: test-ubuntu-24
+  image: test-ubuntu-24
   workspace: workspace
   user: root
 
@@ -336,7 +336,7 @@ def test_multiple_packages_installation():
     runtime = get_runtime()
     config = """
 names:
-  project: test-multi
+  image: test-multi
   workspace: workspace
   user: root
 

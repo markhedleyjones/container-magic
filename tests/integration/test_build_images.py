@@ -49,7 +49,7 @@ def _write_config(project_dir: Path, base_image: str):
     """Write a cm.yaml that exercises user creation and shell detection."""
     config = f"""\
 names:
-  project: {_image_name(base_image)}
+  image: {_image_name(base_image)}
   workspace: workspace
   user: testuser
 

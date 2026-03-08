@@ -362,7 +362,9 @@ class ContainerMagicConfig(BaseModel):
                 loc = (
                     ".".join(str(part) for part in error["loc"]) if error["loc"] else ""
                 )
-                msg = error["msg"].removeprefix("Value error, ")
+                msg = error["msg"]
+                if msg.startswith("Value error, "):
+                    msg = msg[len("Value error, ") :]
                 if loc:
                     print(f"Error: {loc}: {msg}", file=sys.stderr)
                 else:
