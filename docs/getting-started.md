@@ -25,7 +25,7 @@ The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `p
 
 ```bash
 # Build the container
-just build         # or: cm build
+just build
 
 # Run commands inside the container
 just run python --version
@@ -33,7 +33,7 @@ just run bash -c "echo Hello from container"
 just run           # starts an interactive shell
 ```
 
-`just` works from anywhere in your project by searching upward for the Justfile. The `cm build`, `cm run`, and `cm shell` commands are convenience wrappers that call the corresponding Justfile recipes.
+`just` works from anywhere in your project by searching upward for the Justfile.
 
 !!! tip "The `run` alias"
     Container-magic also provides `build` and `run` shell aliases. The `run` alias adds automatic working directory translation - the container's working directory matches your position in the repository:
@@ -78,11 +78,6 @@ cm init --here <image>        # Initialise in current dir
 
 # Regenerate files after editing YAML
 cm update
-
-# Build and run (wrappers around just build / just run)
-cm build
-cm run <command>
-cm shell                      # Interactive shell in container
 
 # Cache management
 cm cache list                 # List cached assets with size and URL
@@ -145,7 +140,7 @@ A minimal `cm.yaml`:
 
 ```yaml
 names:
-  project: my-project
+  image: my-project
   user: nonroot
 
 stages:
@@ -174,7 +169,7 @@ stages:
 
 ```yaml
 names:
-  project: ml-training
+  image: ml-training
   user: nonroot
 
 runtime:

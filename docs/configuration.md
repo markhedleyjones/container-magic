@@ -6,12 +6,12 @@ Container-magic is configured through a single YAML file (`cm.yaml`).
 
 ```yaml
 names:
-  project: my-project      # Required: image name
+  image: my-project        # Required: image name
   workspace: workspace     # Workspace directory name (default: workspace)
   user: nonroot            # Required: container username
 ```
 
-All three fields are shown above but only `project` and `user` are required (`workspace` defaults to `workspace`).
+All three fields are shown above but only `image` and `user` are required (`workspace` defaults to `workspace`).
 
 **`user`** controls the container's user identity:
 
@@ -20,11 +20,18 @@ All three fields are shown above but only `project` and `user` are required (`wo
 
 Generated files are automatically regenerated when your config changes. To disable this, set `auto_update: false` at the root level of `cm.yaml`.
 
+## Backend
+
+```yaml
+backend: docker      # docker, podman, or auto (default: auto, omit for auto)
+```
+
+When set to `auto` (the default), container-magic will use whichever of `podman` or `docker` is available, preferring `podman`.
+
 ## Runtime
 
 ```yaml
 runtime:
-  backend: auto      # docker, podman, or auto
   privileged: false  # privileged mode
   network_mode: host # host, bridge, or none (optional)
   ipc: shareable     # IPC namespace mode (optional)
@@ -53,7 +60,7 @@ Per-command overrides are supported via the `ipc` field on individual commands.
 
 ### Container Names
 
-Development containers are named `<project-name>-development` and production containers are named `<project-name>`. If a container with the same name is already running, `just run` will exec into the existing container instead of starting a new one. Use `just stop` to stop a running container and `just clean` to remove it.
+Development containers are named `<image-name>-development` and production containers are named `<image-name>`. If a container with the same name is already running, `just run` will exec into the existing container instead of starting a new one. Use `just stop` to stop a running container and `just clean` to remove it.
 
 ### Detached Mode
 
@@ -263,20 +270,19 @@ Configure the standalone `build.sh` script behaviour:
 
 ```yaml
 build_script:
-  default_target: production  # Optional: default stage to build (default: production)
+  default_target: production  # Optional: stage to build (default: production)
 ```
 
-The `build.sh` script can build any defined stage:
+The `build.sh` script builds the configured target stage:
 
 ```bash
-./build.sh              # Builds the default target (production) - tagged as 'latest'
-./build.sh production   # Builds production stage - tagged as 'latest'
-./build.sh testing      # Builds testing stage - tagged as 'testing'
-./build.sh development  # Builds development stage - tagged as 'development'
-./build.sh --help       # Shows all available targets
+./build.sh              # Builds production stage, tagged as 'latest'
+./build.sh --tag v1.0   # Builds production stage, tagged as 'v1.0'
+./build.sh --help       # Shows available options
 ```
 
-**Image tagging:**
+**Options:**
 
-- Production stage is tagged as `<project-name>:latest`
-- All other stages are tagged as `<project-name>:<stage-name>`
+- `--tag TAG` - override the image tag (default: `latest`)
+- `--uid UID` - override the user UID
+- `--gid GID` - override the user GID

@@ -12,7 +12,7 @@ Creates a user account in the container image.
 
 ```yaml
 names:
-  project: my-project
+  image: my-project
   user: nonroot
 
 stages:
@@ -55,7 +55,7 @@ Switches the current user context. Sets the Dockerfile `USER` directive and cont
 
 ```yaml
 names:
-  project: my-project
+  image: my-project
   user: nonroot
 
 stages:
@@ -109,7 +109,7 @@ User-context-aware file copy. Behaves like Docker's `COPY` but automatically add
 
 ```yaml
 names:
-  project: my-project
+  image: my-project
   user: nonroot
 
 stages:
@@ -528,7 +528,7 @@ All three are combined into a single `RUN` instruction to keep the layer count d
 
 ```yaml
 names:
-  project: my-app
+  image: my-app
   user: nonroot
 
 stages:
@@ -561,7 +561,7 @@ stages:
 
 ```yaml
 names:
-  project: ml-service
+  image: ml-service
   user: nonroot
 
 assets:

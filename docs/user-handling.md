@@ -38,7 +38,7 @@ The standalone production scripts use the user defined by `names.user` in your c
 
 ```yaml
 names:
-  project: my-project
+  image: my-project
   user: nonroot             # This user is baked into the image
 
 stages:
@@ -71,7 +71,7 @@ User context is inherited from parent stages -- if a parent ends with `become: u
 
 ```yaml
 names:
-  project: my-project
+  image: my-project
   user: nonroot
 
 stages:
@@ -92,7 +92,7 @@ When you run `cm init`, the generated `cm.yaml` places `create: user` and `becom
 
 ```yaml
 names:
-  project: my-project
+  image: my-project
   user: nonroot
 
 stages:

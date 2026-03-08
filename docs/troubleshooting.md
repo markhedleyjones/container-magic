@@ -57,7 +57,7 @@ The `names.user` field is required. If it is missing, you will get a validation 
 
 ```yaml
 names:
-  project: my-project
+  image: my-project
   user: nonroot           # or 'root' if no custom user is needed
 ```
 
@@ -90,7 +90,7 @@ Use `assets` to download once and cache locally:
 
 ```yaml
 names:
-  project: my-project
+  image: my-project
   user: root
 
 assets:

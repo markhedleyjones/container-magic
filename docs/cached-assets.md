@@ -15,7 +15,7 @@ Define assets at the root level of your `cm.yaml`:
 
 ```yaml
 names:
-  project: my-project
+  image: my-project
   user: root
 
 assets:
@@ -41,7 +41,7 @@ stages:
 
 ## How It Works
 
-1. Run `cm update` or `cm build` - assets are downloaded (if not cached)
+1. Run `cm update` - assets are downloaded (if not cached)
 2. Files cached in `.cm-cache/assets/<hash>/` with metadata
 3. Use `copy:` steps to place cached files into the image
 4. Subsequent builds reuse cached files, skipping downloads
@@ -58,7 +58,7 @@ cm cache clear   # Clear all cached assets
 
 ```yaml
 names:
-  project: ml-service
+  image: ml-service
   user: nonroot
 
 assets:
@@ -89,7 +89,7 @@ stages:
 
 ```yaml
 names:
-  project: ml-pipeline
+  image: ml-pipeline
   user: nonroot
 
 assets:
