@@ -12,7 +12,7 @@ from container_magic.generators.dockerfile import generate_dockerfile
 def test_no_user_keywords_no_warnings(capsys):
     """No warnings if no create or become steps used."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "root"},
+        "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -34,7 +34,7 @@ def test_no_user_keywords_no_warnings(capsys):
 def test_become_root_no_validation_needed(capsys):
     """become: root should not trigger any validation warnings."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "myuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "myuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -59,7 +59,7 @@ def test_become_root_no_validation_needed(capsys):
 def test_no_create_user_no_user_args(capsys):
     """When no create_user step exists, user ARGs should not appear."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "root"},
+        "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
             "base": {"from": "python:3-slim"},
             "development": {"from": "base", "steps": []},
@@ -82,7 +82,7 @@ def test_no_create_user_no_user_args(capsys):
 def test_create_user_with_defaults():
     """create: user uses default uid/gid (1000/1000)."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -107,7 +107,7 @@ def test_create_user_with_defaults():
 def test_create_user_default_home_path():
     """create: user uses /home/{name} as default home."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -133,7 +133,7 @@ def test_create_user_default_home_path():
 def test_copy_after_become_user_gets_chown():
     """Lowercase copy after become gets --chown with username."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -159,7 +159,7 @@ def test_copy_after_become_user_gets_chown():
 def test_copy_before_become_no_chown():
     """Lowercase copy before become should not get --chown."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -186,7 +186,7 @@ def test_copy_before_become_no_chown():
 def test_copy_after_become_root_no_chown():
     """Lowercase copy after become: root should not get --chown."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -218,7 +218,7 @@ def test_copy_after_become_root_no_chown():
 def test_copy_inherits_user_from_parent():
     """Lowercase copy in child stage should inherit user context from parent."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -246,7 +246,7 @@ def test_copy_inherits_user_from_parent():
 def test_copy_parent_ends_with_become_root():
     """Lowercase copy in child stage should not get --chown if parent ends with become: root."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -280,7 +280,7 @@ def test_copy_parent_ends_with_become_root():
 def test_uppercase_copy_unchanged():
     """Uppercase COPY should not get --chown even after become."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -310,7 +310,7 @@ def test_uppercase_copy_unchanged():
 def test_multiple_copy_steps_mixed_context():
     """Multiple copy steps should each reflect their position relative to user context changes."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -360,7 +360,7 @@ def test_multiple_copy_steps_mixed_context():
 def test_become_produces_user_directive():
     """become should produce USER directive with the username."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -382,7 +382,7 @@ def test_become_produces_user_directive():
 def test_become_root_produces_user_root_directive():
     """become: root should produce USER root directive."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -408,7 +408,7 @@ def test_become_root_produces_user_root_directive():
 def test_become_arbitrary_user():
     """become with an arbitrary username should produce correct USER directive."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "root"},
+        "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
             "base": {
                 "from": "python:3-slim",
@@ -430,7 +430,7 @@ def test_become_arbitrary_user():
 def test_alpine_child_stage_uses_adduser():
     """Child stage inheriting from Alpine base should use adduser -D."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
                 "from": "alpine:3.19",
@@ -465,7 +465,7 @@ def test_alpine_child_stage_uses_adduser():
 def test_copy_with_from_in_root_context():
     """copy --from=builder in root context has no --chown."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "root"},
+        "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
             "builder": {"from": "ubuntu:24.04", "steps": []},
             "base": {
@@ -490,7 +490,7 @@ def test_copy_with_from_in_root_context():
 def test_copy_with_from_in_user_context():
     """copy --from=builder in user context passes through with --chown prepended."""
     config_dict = {
-        "names": {"project": "test", "workspace": "workspace", "user": "appuser"},
+        "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "builder": {"from": "ubuntu:24.04", "steps": []},
             "base": {

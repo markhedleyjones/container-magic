@@ -5,7 +5,7 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 import click
 
@@ -189,7 +189,7 @@ def init(
     base_image = f"{template}:latest" if ":" not in template else template
 
     config = ContainerMagicConfig(
-        names={"project": name, "workspace": "workspace", "user": "nonroot"},
+        names={"image": name, "workspace": "workspace", "user": "nonroot"},
         stages={
             "base": {
                 "from": base_image,
@@ -226,7 +226,7 @@ def init(
     click.echo(f"✓ Created {name}")
     click.echo("Next steps:")
     click.echo(f"  cd {name}")
-    click.echo("  cm build")
+    click.echo("  just build")
 
 
 @cli.command()
@@ -274,51 +274,6 @@ def _download_assets(config: ContainerMagicConfig, project_dir: Path):
         except Exception as e:
             click.echo(f"  Failed to download {item.url}: {e}", err=True)
             sys.exit(1)
-
-
-@cli.command()
-@click.option(
-    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
-)
-def build(path: Path):
-    """Build container image (regenerates if config changed)."""
-    config_path = find_config_file(path)
-
-    # Load config to check for assets
-    config = ContainerMagicConfig.from_yaml(config_path)
-
-    _download_assets(config, path)
-
-    # Check if just is available
-    if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        _show_just_install_help()
-        sys.exit(1)
-
-    # Call just build
-    result = subprocess.run(["just", "build"], cwd=path, stdout=None, stderr=None)
-    sys.exit(result.returncode)
-
-
-@cli.command()
-@click.argument("command", nargs=-1, required=False)
-@click.option(
-    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
-)
-def run(command: Tuple[str, ...], path: Path):
-    """Run a command in the container."""
-    find_config_file(path)
-
-    # Check if just is available
-    if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        _show_just_install_help()
-        sys.exit(1)
-
-    # Call just run with command
-    just_args = ["just", "run"]
-    if command:
-        just_args.extend(command)
-    result = subprocess.run(just_args, cwd=path, stdout=None, stderr=None)
-    sys.exit(result.returncode)
 
 
 @cli.group()
@@ -376,24 +331,6 @@ def cache_path(path: Path):
 
     cache_dir = get_cache_dir(path)
     click.echo(str(cache_dir))
-
-
-@cli.command()
-@click.option(
-    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
-)
-def shell(path: Path):
-    """Open an interactive shell in the container."""
-    find_config_file(path)
-
-    # Check if just is available
-    if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        _show_just_install_help()
-        sys.exit(1)
-
-    # Call just shell
-    result = subprocess.run(["just", "shell"], cwd=path, stdout=None, stderr=None)
-    sys.exit(result.returncode)
 
 
 def main():

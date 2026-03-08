@@ -1,6 +1,6 @@
 # Test config with root-level assets
 names:
-  project: test-assets
+  image: test-assets
   workspace: workspace
   user: modeluser
 

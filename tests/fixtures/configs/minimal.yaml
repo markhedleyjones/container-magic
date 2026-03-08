@@ -1,6 +1,6 @@
 # Minimal test config
 names:
-  project: test-minimal
+  image: test-minimal
   workspace: workspace
   user: appuser
 

@@ -29,7 +29,7 @@ def _generate(config_dict):
 def _base_config(**overrides):
     """Minimal valid config with overrides applied at root level."""
     config = {
-        "names": {"project": "test", "workspace": "workspace", "user": "root"},
+        "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
             "base": {"from": "python:3-slim", "steps": []},
             "development": {"from": "base", "steps": []},
@@ -113,7 +113,7 @@ class TestParseAssetItems:
 class TestConfigAssets:
     def test_config_with_assets(self):
         config = ContainerMagicConfig(
-            names={"project": "test", "user": "root"},
+            names={"image": "test", "user": "root"},
             assets=["https://example.com/model.bin"],
             stages={
                 "base": {"from": "python:3-slim", "steps": []},
@@ -126,7 +126,7 @@ class TestConfigAssets:
 
     def test_config_without_assets(self):
         config = ContainerMagicConfig(
-            names={"project": "test", "user": "root"},
+            names={"image": "test", "user": "root"},
             stages={
                 "base": {"from": "python:3-slim", "steps": []},
                 "development": {"from": "base", "steps": []},

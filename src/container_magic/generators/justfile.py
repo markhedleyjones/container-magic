@@ -41,7 +41,7 @@ def generate_justfile(
     config_hash = calculate_config_hash(config_path)
 
     # Determine runtime
-    runtime = get_runtime(config.runtime.backend)
+    runtime = get_runtime(config.backend)
 
     # Determine which stage to use for development
     # Prefer "development" stage if it exists, otherwise use "base"
@@ -70,7 +70,7 @@ def generate_justfile(
 
     justfile_content = template.render(
         config_hash=config_hash,
-        project_name=config.names.project,
+        project_name=config.names.image,
         workspace_name=config.names.workspace,
         auto_update=config.auto_update,
         runtime=runtime.value,
@@ -109,7 +109,7 @@ def generate_justfile(
                 ports=command_spec.ports,
                 runtime=runtime.value,
                 network=config.runtime.network_mode,
-                image_name=config.names.project,
+                image_name=config.names.image,
                 image_tag="development",
                 shell=shell,
                 workspace_name=config.names.workspace,

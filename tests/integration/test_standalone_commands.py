@@ -15,7 +15,7 @@ from tests.utils.validation import validate_shell_script
 def config_with_standalone_commands():
     """Configuration with standalone commands enabled."""
     return ContainerMagicConfig(
-        names={"project": "test-standalone", "workspace": "workspace", "user": "root"},
+        names={"image": "test-standalone", "workspace": "workspace", "user": "root"},
         stages={
             "base": {"from": "python:3.11-slim"},
             "development": {"from": "base"},
@@ -47,7 +47,7 @@ def config_without_standalone():
     """Configuration without standalone commands."""
     return ContainerMagicConfig(
         names={
-            "project": "test-no-standalone",
+            "image": "test-no-standalone",
             "workspace": "workspace",
             "user": "root",
         },
@@ -171,7 +171,7 @@ def test_standalone_script_no_consecutive_blank_lines(
 def test_standalone_commands_in_minimal_config(tmp_path):
     """Test standalone command generation with minimal configuration."""
     config = ContainerMagicConfig(
-        names={"project": "minimal", "workspace": "workspace", "user": "root"},
+        names={"image": "minimal", "workspace": "workspace", "user": "root"},
         stages={
             "base": {"from": "ubuntu:22.04"},
             "development": {"from": "base"},
@@ -198,7 +198,7 @@ def test_standalone_commands_in_minimal_config(tmp_path):
 def test_empty_commands_returns_empty_list(tmp_path):
     """Test that empty commands dict returns empty list."""
     config = ContainerMagicConfig(
-        names={"project": "no-commands", "workspace": "workspace", "user": "root"},
+        names={"image": "no-commands", "workspace": "workspace", "user": "root"},
         stages={
             "base": {"from": "python:3.11-slim"},
             "development": {"from": "base"},
@@ -214,7 +214,7 @@ def test_orphaned_scripts_not_cleaned_up(tmp_path):
     """Test that old scripts are NOT automatically removed (user must clean up)."""
     # Create initial config with standalone train command
     config1 = ContainerMagicConfig(
-        names={"project": "test-orphan", "workspace": "workspace", "user": "root"},
+        names={"image": "test-orphan", "workspace": "workspace", "user": "root"},
         stages={
             "base": {"from": "python:3.11-slim"},
             "development": {"from": "base"},
@@ -240,7 +240,7 @@ def test_orphaned_scripts_not_cleaned_up(tmp_path):
 
     # Change config: remove test command, make train non-standalone
     config2 = ContainerMagicConfig(
-        names={"project": "test-orphan", "workspace": "workspace", "user": "root"},
+        names={"image": "test-orphan", "workspace": "workspace", "user": "root"},
         stages={
             "base": {"from": "python:3.11-slim"},
             "development": {"from": "base"},
@@ -266,7 +266,7 @@ def test_orphaned_scripts_when_command_removed(tmp_path):
     """Test that scripts remain when commands are removed (user cleanup)."""
     # Create config with standalone command
     config1 = ContainerMagicConfig(
-        names={"project": "test-removed", "workspace": "workspace", "user": "root"},
+        names={"image": "test-removed", "workspace": "workspace", "user": "root"},
         stages={
             "base": {"from": "python:3.11-slim"},
             "development": {"from": "base"},
@@ -285,7 +285,7 @@ def test_orphaned_scripts_when_command_removed(tmp_path):
 
     # Remove command entirely
     config2 = ContainerMagicConfig(
-        names={"project": "test-removed", "workspace": "workspace", "user": "root"},
+        names={"image": "test-removed", "workspace": "workspace", "user": "root"},
         stages={
             "base": {"from": "python:3.11-slim"},
             "development": {"from": "base"},
@@ -314,7 +314,7 @@ def test_build_and_run_scripts_not_cleaned_up(tmp_path):
 
     # Create config with no commands
     config = ContainerMagicConfig(
-        names={"project": "test-system", "workspace": "workspace", "user": "root"},
+        names={"image": "test-system", "workspace": "workspace", "user": "root"},
         stages={
             "base": {"from": "python:3.11-slim"},
             "development": {"from": "base"},
@@ -338,7 +338,7 @@ def test_unrelated_shell_scripts_not_deleted(tmp_path):
 
     # Create config with a command named "train"
     config = ContainerMagicConfig(
-        names={"project": "test-unrelated", "workspace": "workspace", "user": "root"},
+        names={"image": "test-unrelated", "workspace": "workspace", "user": "root"},
         stages={
             "base": {"from": "python:3.11-slim"},
             "development": {"from": "base"},

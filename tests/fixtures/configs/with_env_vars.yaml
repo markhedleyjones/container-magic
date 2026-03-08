@@ -1,6 +1,6 @@
 # Test config with environment variables
 names:
-  project: test-env-vars
+  image: test-env-vars
   workspace: workspace
   user: appuser
 

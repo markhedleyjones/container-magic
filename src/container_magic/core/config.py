@@ -5,7 +5,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 
 def _collect_extra_fields(model: BaseModel, path: str = "") -> List[str]:
@@ -123,9 +130,20 @@ class NamesConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    project: str = Field(description="Project name")
+    image: str = Field(description="Image name")
     workspace: str = Field(default="workspace", description="Workspace directory name")
     user: str = Field(description="Container username (or 'root' if no custom user)")
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_renamed_fields(cls, data):
+        """Reject fields that were renamed in v2 with migration messages."""
+        if isinstance(data, dict) and "project" in data and "image" not in data:
+            raise ValueError(
+                "names.project has been renamed to names.image. "
+                "Replace 'project' with 'image' in your names block."
+            )
+        return data
 
 
 class RuntimeConfig(BaseModel):
@@ -133,9 +151,6 @@ class RuntimeConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    backend: Literal["auto", "docker", "podman"] = Field(
-        default="auto", description="Container runtime to use"
-    )
     privileged: bool = Field(
         default=False, description="Run containers in privileged mode"
     )
@@ -159,17 +174,20 @@ class RuntimeConfig(BaseModel):
         description="IPC namespace mode (e.g. shareable, container:<name>, host, private)",
     )
 
-    @model_validator(mode="after")
-    def reject_removed_fields(self):
+    @model_validator(mode="before")
+    @classmethod
+    def reject_removed_fields(cls, data):
         """Reject fields that were removed in v2 with migration messages."""
+        if not isinstance(data, dict):
+            return data
         removed = {
             "network": "Use 'network_mode' instead",
+            "backend": "Use root-level 'backend' instead of 'runtime.backend'",
         }
-        if self.model_extra:
-            for key, message in removed.items():
-                if key in self.model_extra:
-                    raise ValueError(f"runtime.{key} is not valid. {message}")
-        return self
+        for key, message in removed.items():
+            if key in data:
+                raise ValueError(f"runtime.{key} is not valid. {message}")
+        return data
 
     @field_validator("volumes")
     @classmethod
@@ -272,6 +290,9 @@ class ContainerMagicConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
+    backend: Literal["auto", "docker", "podman"] = Field(
+        default="auto", description="Container runtime to use"
+    )
     names: NamesConfig
     auto_update: bool = Field(
         default=True,
@@ -312,16 +333,16 @@ class ContainerMagicConfig(BaseModel):
                 "The 'user' config block is no longer supported. "
                 "Define the username in 'names.user' instead:\n"
                 "  names:\n"
-                "    project: my-project\n"
+                "    image: my-project\n"
                 "    user: appuser"
             )
 
         if "project" in data:
             raise ValueError(
                 "The 'project' config block has been replaced by 'names'. "
-                "Rename 'project' to 'names' and move 'name' to 'project':\n"
+                "Rename 'project' to 'names' and move 'name' to 'image':\n"
                 "  names:\n"
-                "    project: my-project\n"
+                "    image: my-project\n"
                 "    workspace: workspace\n"
                 "    user: appuser"
             )
@@ -333,7 +354,20 @@ class ContainerMagicConfig(BaseModel):
         """Load configuration from YAML file."""
         with open(path) as f:
             data = yaml.safe_load(f)
-        config = cls(**data)
+
+        try:
+            config = cls(**data)
+        except ValidationError as e:
+            for error in e.errors():
+                loc = (
+                    ".".join(str(part) for part in error["loc"]) if error["loc"] else ""
+                )
+                msg = error["msg"].removeprefix("Value error, ")
+                if loc:
+                    print(f"Error: {loc}: {msg}", file=sys.stderr)
+                else:
+                    print(f"Error: {msg}", file=sys.stderr)
+            sys.exit(1)
 
         extra_fields = _collect_extra_fields(config)
         for field_path in extra_fields:
@@ -346,6 +380,10 @@ class ContainerMagicConfig(BaseModel):
     def to_yaml(self, path: Path) -> None:
         """Save configuration to YAML file."""
         data = self.model_dump(exclude_none=True, by_alias=True)
+
+        # Remove backend when it matches the default ("auto")
+        if data.get("backend") == "auto":
+            data.pop("backend", None)
 
         # Remove auto_update when it matches the default (True)
         if data.get("auto_update") is True:
@@ -437,11 +475,11 @@ class ContainerMagicConfig(BaseModel):
 
     @field_validator("names")
     @classmethod
-    def validate_names_project(cls, v: NamesConfig) -> NamesConfig:
-        """Validate project name doesn't contain invalid characters."""
-        if not v.project.replace("-", "").replace("_", "").isalnum():
+    def validate_names_image(cls, v: NamesConfig) -> NamesConfig:
+        """Validate image name doesn't contain invalid characters."""
+        if not v.image.replace("-", "").replace("_", "").isalnum():
             raise ValueError(
-                "Project name must contain only alphanumeric characters, hyphens, and underscores"
+                "Image name must contain only alphanumeric characters, hyphens, and underscores"
             )
         return v
 

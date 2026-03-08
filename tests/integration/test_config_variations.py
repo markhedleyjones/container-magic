@@ -298,9 +298,9 @@ def test_production_workspace_permissions(fixtures_dir, temp_project):
     )
     assert result.returncode == 0
 
-    # Build production image
+    # Build production image (build.sh targets production by default)
     result = subprocess.run(
-        ["./build.sh", "production"],
+        ["./build.sh"],
         cwd=temp_project,
         capture_output=True,
         text=True,
@@ -348,7 +348,7 @@ def test_production_workspace_permissions(fixtures_dir, temp_project):
 
 
 def test_image_tagging_by_target(fixtures_dir, temp_project):
-    """Test that images are tagged correctly based on build target."""
+    """Test that images are tagged correctly: default 'latest' and --tag override."""
     # Use config with custom stage
     fixture_path = fixtures_dir / "with_custom_stage.yaml"
     config_path = temp_project / "cm.yaml"
@@ -371,17 +371,17 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
     else:
         pytest.skip("Neither podman nor docker found")
 
-    # Test 1: Build production - should be tagged as 'latest'
+    # Test 1: Default build - should be tagged as 'latest'
     result = subprocess.run(
-        ["./build.sh", "production"],
+        ["./build.sh"],
         cwd=temp_project,
         capture_output=True,
         text=True,
         timeout=300,
     )
-    assert result.returncode == 0, f"Production build failed:\n{result.stderr}"
+    assert result.returncode == 0, f"Default build failed:\n{result.stderr}"
     assert "test-custom-stage:latest" in result.stdout, (
-        "Production should be tagged as 'latest'"
+        "Default build should be tagged as 'latest'"
     )
 
     # Verify image exists with latest tag
@@ -398,20 +398,20 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
     )
     assert "test-custom-stage:latest" in result.stdout
 
-    # Test 2: Build development - should be tagged as 'development'
+    # Test 2: Build with --tag override
     result = subprocess.run(
-        ["./build.sh", "development"],
+        ["./build.sh", "--tag", "v1.0.0"],
         cwd=temp_project,
         capture_output=True,
         text=True,
         timeout=300,
     )
-    assert result.returncode == 0, f"Development build failed:\n{result.stderr}"
-    assert "test-custom-stage:development" in result.stdout, (
-        "Development should be tagged as 'development'"
+    assert result.returncode == 0, f"Tagged build failed:\n{result.stderr}"
+    assert "test-custom-stage:v1.0.0" in result.stdout, (
+        "Build with --tag should use the specified tag"
     )
 
-    # Verify image exists with development tag
+    # Verify image exists with custom tag
     result = subprocess.run(
         [
             runtime,
@@ -423,34 +423,7 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
         capture_output=True,
         text=True,
     )
-    assert "test-custom-stage:development" in result.stdout
-
-    # Test 3: Build custom stage (testing) - should be tagged as 'testing'
-    result = subprocess.run(
-        ["./build.sh", "testing"],
-        cwd=temp_project,
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-    assert result.returncode == 0, f"Testing build failed:\n{result.stderr}"
-    assert "test-custom-stage:testing" in result.stdout, (
-        "Custom stage 'testing' should be tagged as 'testing'"
-    )
-
-    # Verify image exists with testing tag
-    result = subprocess.run(
-        [
-            runtime,
-            "images",
-            "--format",
-            "{{.Repository}}:{{.Tag}}",
-            "test-custom-stage",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    assert "test-custom-stage:testing" in result.stdout
+    assert "test-custom-stage:v1.0.0" in result.stdout
 
     # Cleanup - remove test images
     subprocess.run(
@@ -458,8 +431,7 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
             runtime,
             "rmi",
             "test-custom-stage:latest",
-            "test-custom-stage:development",
-            "test-custom-stage:testing",
+            "test-custom-stage:v1.0.0",
         ],
         capture_output=True,
     )

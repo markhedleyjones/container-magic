@@ -1,11 +1,10 @@
 # Test config with GPU and audio features
 names:
-  project: test-gpu-audio
+  image: test-gpu-audio
   workspace: workspace
   user: root
 
 runtime:
-  backend: auto
   privileged: true
   features:
     - gpu

@@ -27,7 +27,7 @@ def test_project(tmp_path):
 
     # Create config
     config = ContainerMagicConfig(
-        names={"project": "test-paths", "workspace": "workspace", "user": "root"},
+        names={"image": "test-paths", "workspace": "workspace", "user": "root"},
         stages={
             "base": {"from": "python:3.11-slim"},
             "development": {"from": "base"},

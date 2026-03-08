@@ -49,7 +49,7 @@ def generate_standalone_command_scripts(
     )
 
     # Determine backend
-    backend = config.runtime.backend if config.runtime else "auto"
+    backend = config.backend
 
     # Determine workdir from config.names
     has_user = has_create_user_in_stages(config.stages)
@@ -80,7 +80,7 @@ def generate_standalone_command_scripts(
             content = template.render(
                 command_name=command_name,
                 description=command_spec.description,
-                project_name=config.names.project,
+                project_name=config.names.image,
                 workdir=workdir,
                 shell=shell,
                 backend=backend,

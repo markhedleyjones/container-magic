@@ -1,6 +1,6 @@
 # Test config with custom stage
 names:
-  project: test-custom-stage
+  image: test-custom-stage
   workspace: workspace
   user: root
 

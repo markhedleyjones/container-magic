@@ -1,6 +1,6 @@
 # Test config with custom commands
 names:
-  project: test-commands
+  image: test-commands
   workspace: workspace
   user: root
 

@@ -1,11 +1,10 @@
 # Test config with additional volumes and devices
 names:
-  project: test-mounts
+  image: test-mounts
   workspace: workspace
   user: root
 
 runtime:
-  backend: auto
   features:
     - display
   volumes:

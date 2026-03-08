@@ -21,7 +21,7 @@ def _generate(config_dict):
 def _base_config(**overrides):
     """Minimal valid config with overrides applied to the base stage."""
     config = {
-        "names": {"project": "test", "workspace": "workspace", "user": "root"},
+        "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
             "base": {"from": "python:3-slim", **overrides},
             "development": {"from": "base", "steps": []},
@@ -178,7 +178,7 @@ class TestStagePreamble:
     def test_image_stage_with_user_args(self):
         """FROM Docker image with create: user step: full ARG block + WORKSPACE + WORKDIR."""
         config = {
-            "names": {"project": "test", "workspace": "ws", "user": "app"},
+            "names": {"image": "test", "workspace": "ws", "user": "app"},
             "stages": {
                 "base": {
                     "from": "python:3-slim",
@@ -215,7 +215,7 @@ class TestStagePreamble:
     def test_child_stage_with_become_configured_user(self):
         """FROM another stage with become referencing configured user: needs ARGs."""
         config = {
-            "names": {"project": "test", "workspace": "ws", "user": "app"},
+            "names": {"image": "test", "workspace": "ws", "user": "app"},
             "stages": {
                 "base": {"from": "python:3-slim", "steps": [{"create": "user"}]},
                 "development": {"from": "base", "steps": []},

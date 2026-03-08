@@ -24,7 +24,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     template = env.get_template("run.sh.j2")
 
     # Determine runtime backend
-    backend = config.runtime.backend if config.runtime else "auto"
+    backend = config.backend
 
     # Get user and workspace info from config.names
     has_user = has_create_user_in_stages(config.stages)
@@ -62,7 +62,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     }
 
     content = template.render(
-        project_name=config.names.project,
+        project_name=config.names.image,
         workspace_name=workspace_name,
         workdir=workdir,
         shell=shell,
