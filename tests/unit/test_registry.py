@@ -58,6 +58,23 @@ class TestProjectOverrides:
         assert entry.flags == "-y"
         assert entry.cleanup == ""
 
+    def test_override_includes_setup(self):
+        overrides = {
+            "apt-get": {
+                "install": {
+                    "setup": "apt-get update -qq",
+                    "flags": "-y",
+                    "cleanup": "rm -rf /var/lib/apt/lists/*",
+                },
+            },
+        }
+        registry = load_registry(project_overrides=overrides)
+        entry = lookup(registry, "apt-get", "install")
+        assert entry is not None
+        assert entry.setup == "apt-get update -qq"
+        assert entry.flags == "-y"
+        assert entry.cleanup == "rm -rf /var/lib/apt/lists/*"
+
     def test_override_adds_new_tool(self):
         overrides = {
             "my-tool": {

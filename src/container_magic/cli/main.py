@@ -146,7 +146,7 @@ def init(
     path: Optional[Path],
     in_place: bool,
 ):
-    """Initialize a new container-magic project from a template."""
+    """Initialise a new container-magic project from a template."""
     # Determine project name
     if name is None:
         if in_place:
@@ -159,7 +159,7 @@ def init(
             )
             sys.exit(1)
 
-    click.echo(f"Initializing {name} from {template} template...")
+    click.echo(f"Initialising {name} from {template} template...")
 
     # Determine project path
     if in_place:

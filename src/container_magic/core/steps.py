@@ -43,10 +43,10 @@ _REMOVED_KEYWORDS = {
     "become-user": "Use 'become: <username>' instead",
     "become-root": "Use 'become: root' instead",
     "copy-workspace": "Use 'copy: workspace' instead",
-    "install_system_packages": "Remove this step; packages from the packages config are installed automatically",
-    "install_pip_packages": "Remove this step; packages from the packages config are installed automatically",
-    "copy_cached_assets": "Use project.assets with copy: steps instead",
-    "copy-cached-assets": "Use project.assets with copy: steps instead",
+    "install_system_packages": "Use 'apt-get:', 'apk:', or 'dnf:' steps instead",
+    "install_pip_packages": "Use 'pip: {install: [...]}' instead",
+    "copy_cached_assets": "Use 'assets:' at root level with 'copy:' steps instead",
+    "copy-cached-assets": "Use 'assets:' at root level with 'copy:' steps instead",
 }
 
 # Known dict keys with special handling

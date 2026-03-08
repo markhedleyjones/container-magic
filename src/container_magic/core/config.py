@@ -23,7 +23,7 @@ def _collect_extra_fields(model: BaseModel, path: str = "") -> List[str]:
         for key in model.model_extra:
             extras.append(f"{path}.{key}" if path else key)
 
-    for field_name in model.model_fields:
+    for field_name in type(model).model_fields:
         value = getattr(model, field_name)
         field_path = f"{path}.{field_name}" if path else field_name
 
@@ -390,10 +390,6 @@ class ContainerMagicConfig(BaseModel):
         # Remove auto_update when it matches the default (True)
         if data.get("auto_update") is True:
             data.pop("auto_update", None)
-
-        # Remove names.user when None (already excluded by exclude_none, but be safe)
-        names = data.get("names", {})
-        names.pop("user", None) if names.get("user") is None else None
 
         # Serialise assets back to YAML-friendly format
         raw_assets = data.get("assets", [])

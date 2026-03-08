@@ -72,6 +72,7 @@ def load_registry(
                 if not isinstance(entry_data, dict):
                     continue
                 registry[tool_name][subcommand] = RegistryEntry(
+                    setup=entry_data.get("setup", ""),
                     flags=entry_data.get("flags", ""),
                     cleanup=entry_data.get("cleanup", ""),
                 )
