@@ -115,7 +115,9 @@ class TestMultiLineSteps:
         # Should have pip install with packages as continuation lines, not && separated
         lines = content.split("\n")
         pip_lines = [
-            l for l in lines if "pip install" in l or "numpy" in l or "flask" in l
+            line
+            for line in lines
+            if "pip install" in line or "numpy" in line or "flask" in line
         ]
         for line in pip_lines:
             if "numpy" in line or "flask" in line:
