@@ -88,6 +88,41 @@ class TestMultiLineSteps:
         assert "apt-get update" in content
         assert "apt-get install -y curl" in content
 
+    def test_pip_multi_package_not_joined_with_ampersand(self):
+        """Pip install with multiple packages should not get && between them."""
+        config = _base_config(
+            steps=[{"pip": {"install": ["numpy", "flask", "requests"]}}],
+        )
+        content = _generate(config)
+        assert "pip install --no-cache-dir" in content
+        assert "numpy" in content
+        assert "flask" in content
+        # Packages should NOT be joined with &&
+        assert (
+            "&&"
+            not in content.split("pip install")[1]
+            .split("\n\n")[0]
+            .replace("&& \\\n    rm", "&& rm")
+            or "&&" not in content.split("pip install")[1].split("rm")[0]
+        )
+
+    def test_pip_packages_are_arguments_not_commands(self):
+        """Each pip package should be an argument to pip install, not a separate command."""
+        config = _base_config(
+            steps=[{"pip": {"install": ["numpy", "flask"]}}],
+        )
+        content = _generate(config)
+        # Should have pip install with packages as continuation lines, not && separated
+        lines = content.split("\n")
+        pip_lines = [
+            l for l in lines if "pip install" in l or "numpy" in l or "flask" in l
+        ]
+        for line in pip_lines:
+            if "numpy" in line or "flask" in line:
+                assert "&& \\" not in line, (
+                    f"Package line should not have '&& \\\\': {line}"
+                )
+
 
 # ---------------------------------------------------------------------------
 # 1.4 Empty copy step arguments

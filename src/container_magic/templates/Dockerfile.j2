@@ -85,10 +85,8 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
     fi
 {% endif %}
 {% elif step.type == "become" %}
-# Become {{ step.name }}
 USER {{ step.name }}
 {% elif step.type == "copy_workspace" %}
-# Copy workspace into image
 {% if step.chown %}
 COPY --chown={{ step.chown }}:{{ step.chown }} {{ workspace_name }} ${WORKSPACE}
 {% else %}
