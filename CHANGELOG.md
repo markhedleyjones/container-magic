@@ -2,6 +2,112 @@
 
 <!-- version list -->
 
+## v2.0.0 (2026-03-09)
+
+### Bug Fixes
+
+- Address review findings
+  ([`7ced3c7`](https://github.com/markhedleyjones/container-magic/commit/7ced3c753d28dce947925871a918c27a7b716a99))
+
+- Clean up user-facing error messages and remove stale --compact flag
+  ([`8bcd2ad`](https://github.com/markhedleyjones/container-magic/commit/8bcd2adb5dc441b85491846bf300e7b796c9a0f2))
+
+- Correct multi-line run step detection and remove template comments
+  ([`899b0ca`](https://github.com/markhedleyjones/container-magic/commit/899b0cab5deff4e791d72968cf9417217e4f8c99))
+
+- Registry setup field and double-continuation in generated commands
+  ([`a8c54b6`](https://github.com/markhedleyjones/container-magic/commit/a8c54b6a4b39881b0f3b83944e2fea917b08f658))
+
+- Rename ambiguous loop variable in test
+  ([`6214510`](https://github.com/markhedleyjones/container-magic/commit/6214510884e2edc8c32df42aa9c86eb1379641a3))
+
+- Rename ambiguous variable in test
+  ([`b0ec7cd`](https://github.com/markhedleyjones/container-magic/commit/b0ec7cdd3b857f8e1cfe073a5e06bffc6697b413))
+
+- Rename remaining names.project references in integration tests
+  ([`e8c7ab0`](https://github.com/markhedleyjones/container-magic/commit/e8c7ab001fef43ee1931106ae1e983ec74b051ad))
+
+- Update remaining test files to v2 names config syntax
+  ([`853944c`](https://github.com/markhedleyjones/container-magic/commit/853944cf82c98e4cafefa85c4b8a2a951ac752e7))
+
+### Chores
+
+- Add examples directory to gitignore
+  ([`e5dd99d`](https://github.com/markhedleyjones/container-magic/commit/e5dd99d2f935aecd00766964e543a2d569e23cf9))
+
+### Documentation
+
+- Document env step syntax and vary example usernames
+  ([`5bb0285`](https://github.com/markhedleyjones/container-magic/commit/5bb02856226bf9fabb6bcd1474e45dd024f78b42))
+
+- Document run list form and remove pipe block examples
+  ([`7ea8d9a`](https://github.com/markhedleyjones/container-magic/commit/7ea8d9af40db6d79fe698f0edc4439e5c226451f))
+
+- Expand package lists and document registry defaults
+  ([`70f7e6c`](https://github.com/markhedleyjones/container-magic/commit/70f7e6cfa825a8b6a61a9dc61fbaf284c8e40c36))
+
+- Fix mixed ownership example in user-handling
+  ([`73c5baf`](https://github.com/markhedleyjones/container-magic/commit/73c5bafe6cacc734b6f128228b53b543e22fb073))
+
+- Standardise on copy: dict form throughout
+  ([`a585a8f`](https://github.com/markhedleyjones/container-magic/commit/a585a8fa6ca13a824d799e78324e2df50d060bfc))
+
+- Update documentation for create_user and copy: workspace
+  ([`222ff38`](https://github.com/markhedleyjones/container-magic/commit/222ff387df2717a45636b269ad858099c6f986e1))
+
+- Update documentation for v2
+  ([`917f985`](https://github.com/markhedleyjones/container-magic/commit/917f9853e0e212b1b7f3b84317ea08c8dbe1572d))
+
+- Update for v2 config syntax
+  ([`cd6c4c7`](https://github.com/markhedleyjones/container-magic/commit/cd6c4c75789688ec73ab7681b5516ba680e30983))
+
+- Use auxiliary files in copy examples, not application code
+  ([`461ba20`](https://github.com/markhedleyjones/container-magic/commit/461ba201f7691bac96f05727b53a9c06e247c64d))
+
+### Features
+
+- Clean up Dockerfile preamble and merge ENV output
+  ([`16f7b81`](https://github.com/markhedleyjones/container-magic/commit/16f7b81d1612e29f9597880bb5485f85755d4aec))
+
+- Drop all backwards compatibility for v2
+  ([`f17b9ad`](https://github.com/markhedleyjones/container-magic/commit/f17b9ada4fd809f21e949a5a2976089230ac3f4a))
+
+- Finalise v2 config syntax
+  ([`1af548a`](https://github.com/markhedleyjones/container-magic/commit/1af548aba8701fc7add3b1cb6d26ab5755479998))
+
+- Project-level assets with copy resolution
+  ([`82d75d4`](https://github.com/markhedleyjones/container-magic/commit/82d75d44f7dd15fbda1543c7f1578e6621132e8e))
+
+- Remove packages and env config from stages
+  ([`2f5a450`](https://github.com/markhedleyjones/container-magic/commit/2f5a45082dcc217af10ff29d4121d43531885da8))
+
+- Replace project config with names block
+  ([`c7e4ccc`](https://github.com/markhedleyjones/container-magic/commit/c7e4ccc3887fb43509dc124460c08abd3fea0eb3))
+
+- Replace user config with create_user step
+  ([`88356c9`](https://github.com/markhedleyjones/container-magic/commit/88356c9a9ff391d5729be4030328fe99c8e791b6))
+
+- Structured step syntax (v2) with command registry
+  ([`dbe414d`](https://github.com/markhedleyjones/container-magic/commit/dbe414de84612c1087e5f41a04725cfbe10a6c6b))
+
+- Support list syntax for env steps
+  ([`622c0c1`](https://github.com/markhedleyjones/container-magic/commit/622c0c192fa34bbd0a1a8a23f4a65cd28d557f98))
+
+- Use nonroot as default username in cm init
+  ([`a90cc63`](https://github.com/markhedleyjones/container-magic/commit/a90cc633114aa162edf7daa1949b1838b998c89f))
+
+### Testing
+
+- Remove redundant tests and parametrise near-duplicates
+  ([`d7648d0`](https://github.com/markhedleyjones/container-magic/commit/d7648d047f3510f362e5b30c8c6672febfe402fd))
+
+- Remove ROS1 Noetic integration test
+  ([`fae9ce2`](https://github.com/markhedleyjones/container-magic/commit/fae9ce26ace5d8a4bf484dee3be5597474a65cd3))
+
+- Update tests for create_user step and copy: workspace
+  ([`5ea398b`](https://github.com/markhedleyjones/container-magic/commit/5ea398bcae17a87139c94cfdc292fa4daa3e182e))
+
+
 ## v1.12.5 (2026-03-02)
 
 ### Bug Fixes
