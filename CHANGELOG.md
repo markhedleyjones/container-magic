@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v2.2.1 (2026-03-09)
+
+### Bug Fixes
+
+- Add missing .env and privileged support to production templates
+  ([#35](https://github.com/markhedleyjones/container-magic/pull/35),
+  [`a22ec5e`](https://github.com/markhedleyjones/container-magic/commit/a22ec5ee38a272a84dedafcdc09464398b234422))
+
+
 ## v2.2.0 (2026-03-09)
 
 ### Bug Fixes
