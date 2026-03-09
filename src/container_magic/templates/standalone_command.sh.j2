@@ -67,6 +67,11 @@ RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:${WORKDIR}/{{ workspace_name }}:z")
 
 {{ symlink_mounts(workspace_name, "${WORKDIR}", workspace_symlinks) }}
 {% endif %}
+
+# Load .env file if present
+if [[ -f "$(pwd)/.env" ]]; then
+	RUN_ARGS+=("--env-file" "$(pwd)/.env")
+fi
 {% if volumes %}
 
 # Additional bind mounts
