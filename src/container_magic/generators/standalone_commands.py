@@ -7,6 +7,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.core.steps import has_create_user_in_stages
+from container_magic.core.symlinks import scan_workspace_symlinks
 from container_magic.core.templates import detect_shell, resolve_base_image
 
 
@@ -58,6 +59,9 @@ def generate_standalone_command_scripts(
     else:
         workdir = "/root"
 
+    # Scan workspace for external symlinks
+    workspace_symlinks = scan_workspace_symlinks(output_dir / config.names.workspace)
+
     generated_scripts = []
 
     for command_name, command_spec in config.commands.items():
@@ -95,6 +99,7 @@ def generate_standalone_command_scripts(
                 workspace_name=config.names.workspace,
                 ipc=command_spec.ipc
                 or (config.runtime.ipc if config.runtime else None),
+                workspace_symlinks=workspace_symlinks,
             )
 
             script_path.write_text(content)

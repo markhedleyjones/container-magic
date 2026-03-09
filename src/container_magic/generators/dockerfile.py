@@ -12,6 +12,7 @@ from container_magic.core.config import (
 )
 from container_magic.core.registry import load_registry
 from container_magic.core.steps import has_create_user_in_stages, parse_step
+from container_magic.core.symlinks import scan_workspace_symlinks
 from container_magic.core.templates import (
     detect_package_manager,
     detect_shell,
@@ -170,11 +171,15 @@ def process_stage_steps(
     workspace_name: str,
     registry: Dict = None,
     asset_map: Dict[str, str] = None,
+    workspace_symlinks: List[tuple] = None,
 ) -> List[Dict]:
     """Process build steps for a stage.
 
     When asset_map is provided, copy sources matching asset filenames are
     rewritten to their cache paths.
+
+    When workspace_symlinks is provided, copy_workspace steps include
+    symlink overlay data for the Dockerfile template.
 
     Returns:
         ordered_steps list
@@ -183,6 +188,8 @@ def process_stage_steps(
         registry = load_registry()
     if asset_map is None:
         asset_map = {}
+    if workspace_symlinks is None:
+        workspace_symlinks = []
 
     # Default build order if not specified
     is_default_production = False
@@ -261,8 +268,13 @@ def process_stage_steps(
                 resolved_args = _resolve_copy_source(args, asset_map)
                 # Single token matching workspace name becomes copy_workspace
                 if args.strip() == workspace_name:
+                    symlink_data = [{"rel_path": rel} for rel in workspace_symlinks]
                     ordered_steps.append(
-                        {"type": "copy_workspace", "chown": current_user}
+                        {
+                            "type": "copy_workspace",
+                            "chown": current_user,
+                            "symlinks": symlink_data,
+                        }
                     )
                 else:
                     ordered_steps.append(
@@ -325,6 +337,10 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
     project_dir = output_path.parent
     asset_map = build_asset_map(project_dir, config.assets)
 
+    # Scan workspace for external symlinks
+    workspace_path = project_dir / config.names.workspace
+    workspace_symlinks = scan_workspace_symlinks(workspace_path)
+
     user_uid = 1000 if has_user else 0
     user_gid = 1000 if has_user else 0
     user_home = f"/home/{user_name}" if has_user else "/root"
@@ -348,6 +364,7 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
             config.names.workspace,
             registry,
             asset_map,
+            workspace_symlinks,
         )
 
         ordered_steps = _merge_consecutive_env_steps(ordered_steps)

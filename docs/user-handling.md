@@ -11,6 +11,20 @@ Every `cm.yaml` must include `names.user`. This field controls the container's u
 
 The `cm init` scaffold sets `user: nonroot` by default and places `create: user` and `become: user` in the base stage.
 
+!!! info "How the container user is resolved"
+
+    === "Development"
+
+        The container runs as **your host user** (matching UID, GID, and
+        home directory). File permissions work seamlessly between host and
+        container.
+
+    === "Production"
+
+        The container runs as the user defined by `names.user`, created by
+        `create: user` with uid/gid 1000. Override with `./build.sh --uid`
+        and `--gid` if needed.
+
 ## Development (`just build` and `just run`)
 
 When you run `just build` or `just run`, the container is built and run as **your current system user**:

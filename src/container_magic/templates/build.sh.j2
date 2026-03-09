@@ -64,7 +64,19 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "Building image: ${IMAGE_NAME}:${TAG} (target: ${TARGET})"
+{% if workspace_symlinks %}
 
+# Stage resolved symlink targets for Docker build context
+STAGING_DIR=".cm-build-staging"
+rm -rf "${STAGING_DIR}"
+trap 'rm -rf "${STAGING_DIR}"' EXIT
+
+{% for rel_path in workspace_symlinks %}
+echo "Staging symlink: {{ workspace_name }}/{{ rel_path }}"
+mkdir -p "${STAGING_DIR}/$(dirname "{{ rel_path }}")"
+cp -rL "{{ workspace_name }}/{{ rel_path }}" "${STAGING_DIR}/{{ rel_path }}"
+{% endfor %}
+{% endif %}
 ${RUNTIME} build \
 	--target "${TARGET}" \
 	--build-arg USER_NAME="${USER_NAME}" \

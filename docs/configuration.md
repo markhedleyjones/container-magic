@@ -18,7 +18,7 @@ All three fields are shown above but only `image` and `user` are required (`work
 - `user: root` - the container runs as root. No user creation is needed (or allowed - `create: user` and `become: user` are errors when `user` is `root`).
 - `user: <name>` (any other value, e.g. `nonroot`, `appuser`) - a custom user will be created by `create: user` steps and referenced by `become: user` steps. See [User Handling](user-handling.md) for details.
 
-Generated files are automatically regenerated when your config changes. To disable this, set `auto_update: false` at the root level of `cm.yaml`.
+Generated files are always regenerated before each build (`just build` runs `cm update` automatically). You can also run `cm update` manually after editing `cm.yaml`.
 
 ## Backend
 
@@ -27,6 +27,27 @@ backend: docker      # docker, podman, or auto (default: auto, omit for auto)
 ```
 
 When set to `auto` (the default), container-magic will use whichever of `podman` or `docker` is available, preferring `podman`.
+
+## Workspace Symlinks
+
+When your workspace contains symlinks pointing outside the workspace directory, container-magic detects them and handles them automatically. No configuration is needed -- `cm update` scans the workspace and generates the appropriate entries.
+
+After adding or removing symlinks, run `cm update` to pick up the changes.
+
+!!! info "How symlinks are handled"
+
+    === "Development"
+
+        Symlink targets are bind-mounted into the container at the matching
+        workspace path. No rebuild needed -- run `cm update` then `just run`.
+
+    === "Production"
+
+        Symlink targets are resolved and copied into a staging directory,
+        then baked into the image with additional `COPY` instructions.
+        `just build` runs `cm update` automatically before building.
+
+Relative symlinks pointing within the workspace work naturally and aren't touched. Absolute symlinks pointing inside the workspace trigger a warning suggesting they be made relative for container compatibility. Dangling symlinks (where the target doesn't exist) are silently skipped.
 
 ## Runtime
 
