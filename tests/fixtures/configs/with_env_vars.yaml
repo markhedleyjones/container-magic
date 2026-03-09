@@ -6,9 +6,8 @@ names:
 
 stages:
   base:
-    from: ubuntu:22.04
+    from: python:3-slim
     steps:
-      - apt-get: {install: [python3, python3-pip]}
       - env:
           DATABASE_URL: postgresql://localhost/mydb
           API_KEY: test-key-123
