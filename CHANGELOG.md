@@ -2,6 +2,30 @@
 
 <!-- version list -->
 
+## v2.1.0 (2026-03-09)
+
+### Bug Fixes
+
+- Use os.readlink for Python 3.8 compatibility
+  ([#32](https://github.com/markhedleyjones/container-magic/pull/32),
+  [`8c5195e`](https://github.com/markhedleyjones/container-magic/commit/8c5195e22b7ea4514e106d98379818af38403ea6))
+
+### Documentation
+
+- Add symlink documentation and dev/production callouts
+  ([#32](https://github.com/markhedleyjones/container-magic/pull/32),
+  [`8c5195e`](https://github.com/markhedleyjones/container-magic/commit/8c5195e22b7ea4514e106d98379818af38403ea6))
+
+- Update README for v2 config syntax
+  ([`611ac0f`](https://github.com/markhedleyjones/container-magic/commit/611ac0fc344a3f6918d34cbb7f53adf19c967a5f))
+
+### Features
+
+- Symlink-aware workspace handling
+  ([#32](https://github.com/markhedleyjones/container-magic/pull/32),
+  [`8c5195e`](https://github.com/markhedleyjones/container-magic/commit/8c5195e22b7ea4514e106d98379818af38403ea6))
+
+
 ## v2.0.0 (2026-03-09)
 
 ### Bug Fixes
