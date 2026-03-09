@@ -6,7 +6,7 @@ names:
 
 stages:
   base:
-    from: ubuntu:22.04
+    from: ubuntu:24.04
     steps:
       - apt-get: {install: [python3, python3-pip]}
       - env:
