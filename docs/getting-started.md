@@ -133,6 +133,7 @@ my-project/
 +-- <command>.sh         # Generated for standalone commands (committed)
 +-- Justfile             # Generated locally for dev (gitignored)
 +-- workspace/           # Your code
++-- .env                 # Environment variables for the container (optional)
 +-- .cm-cache/           # Downloaded assets (gitignored)
 +-- .cm-build-staging/   # Resolved symlinks for build (gitignored, temporary)
 ```

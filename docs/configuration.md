@@ -49,6 +49,18 @@ After adding or removing symlinks, run `cm update` to pick up the changes.
 
 Relative symlinks pointing within the workspace work naturally and aren't touched. Absolute symlinks pointing inside the workspace trigger a warning suggesting they be made relative for container compatibility. Dangling symlinks (where the target doesn't exist) are silently skipped.
 
+## Environment File
+
+If a `.env` file exists in the project root, its variables are automatically passed to the container via `--env-file`. No configuration is needed.
+
+```
+# .env
+DATABASE_URL=postgres://localhost/mydb
+API_KEY=secret123
+```
+
+This works in development (`just run`), custom commands, and standalone scripts (`run.sh`, `<command>.sh`). If no `.env` file is present, nothing happens.
+
 ## Runtime
 
 ```yaml

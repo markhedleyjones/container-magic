@@ -97,6 +97,11 @@ run *args:
     {{ symlink_mounts(workspace_name, container_home, workspace_symlinks) | indent(4) }}
     {% endif %}
     {% endif %}
+
+    # Load .env file if present
+    if [[ -f "$(pwd)/.env" ]]; then
+        RUN_ARGS+=("--env-file" "$(pwd)/.env")
+    fi
     {% if volumes %}
 
     # Additional bind mounts
