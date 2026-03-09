@@ -21,7 +21,7 @@ Container-magic takes a single YAML configuration file and generates:
 2. A **Justfile** for development (with live workspace mounting)
 3. Standalone **build.sh** and **run.sh** scripts for production
 
-The generated files are committed to your repository, so anyone can use your project with just `docker` or `podman` — no need to install container-magic.
+The generated files are committed to your repository, so anyone can use your project with just `docker` or `podman` - no need to install container-magic.
 
 ## Quick Start
 
@@ -36,37 +36,44 @@ just run python --version
 A minimal `cm.yaml`:
 
 ```yaml
-project:
-  name: my-project
+names:
+  image: my-project
   workspace: workspace
+  user: nonroot
 
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt:
-        - git
-        - build-essential
-      pip:
-        - numpy
-        - pandas
+    steps:
+      - apt-get:
+          install:
+            - git
+            - build-essential
+      - pip:
+          install:
+            - numpy
+            - pandas
+      - create: user
+      - become: user
 
   development:
     from: base
 
   production:
     from: base
+    steps:
+      - copy: workspace
 ```
 
 ## Key Features
 
-* **YAML configuration** — Single source of truth for your container setup
-* **Transparent execution** — Run commands from anywhere in your repo with automatic path translation
-* **Custom commands** — Define commands once, use in both dev and prod
-* **Smart features** — GPU, display (X11/Wayland), and audio support
-* **Multi-stage builds** — Separate base, development, and production stages
-* **Cached assets** — Download models/datasets once, reuse across builds
-* **Standalone scripts** — Production needs only docker/podman
+* **YAML configuration** - single source of truth for your container setup
+* **Transparent execution** - run commands from anywhere in your repo with automatic path translation
+* **Custom commands** - define commands once, use in both dev and prod
+* **Smart features** - GPU, display (X11/Wayland), and audio support
+* **Multi-stage builds** - separate base, development, and production stages
+* **Cached assets** - download models/datasets once, reuse across builds
+* **Standalone scripts** - production needs only docker/podman
 
 ## Documentation
 
@@ -74,9 +81,9 @@ Full documentation is available at **[markhedleyjones.com/container-magic](https
 
 | Page | Contents |
 |------|----------|
-| [Getting Started](https://markhedleyjones.com/container-magic/getting-started/) | Installation, first project, workflow, project structure |
-| [Configuration](https://markhedleyjones.com/container-magic/configuration/) | Full YAML reference — project, runtime, user, stages, commands |
-| [Build Steps](https://markhedleyjones.com/container-magic/build-steps/) | All 10 built-in steps, custom commands, defaults, ordering |
+| [Getting Started](https://markhedleyjones.com/container-magic/getting-started/) | Installation, first project, workflow |
+| [Configuration](https://markhedleyjones.com/container-magic/configuration/) | Full YAML reference -- names, runtime, stages, commands |
+| [Build Steps](https://markhedleyjones.com/container-magic/build-steps/) | Built-in steps, package managers, custom commands, layer caching |
 | [Cached Assets](https://markhedleyjones.com/container-magic/cached-assets/) | Asset downloading, caching, and cache management |
 | [User Handling](https://markhedleyjones.com/container-magic/user-handling/) | Dev vs prod users, copy ownership, permissions |
 | [Troubleshooting](https://markhedleyjones.com/container-magic/troubleshooting/) | Common issues and solutions |
