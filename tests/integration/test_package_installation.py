@@ -35,7 +35,6 @@ def run_command(cmd, cwd, timeout=300):
     return result.returncode, result.stdout, result.stderr
 
 
-@pytest.mark.slow
 def test_package_installation_python_slim():
     """Test that packages install and are accessible in python:3.11-slim base."""
     runtime = get_runtime()
