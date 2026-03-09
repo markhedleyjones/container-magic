@@ -180,7 +180,9 @@ class TestDockerfileSymlinks:
 
         content = _generate_with_symlinks(self._config(), tmp_path, setup)
         # The production stage has become: user, so chown should be present
-        staging_lines = [l for l in content.splitlines() if ".cm-build-staging" in l]
+        staging_lines = [
+            line for line in content.splitlines() if ".cm-build-staging" in line
+        ]
         assert len(staging_lines) >= 1
         assert "--chown=" in staging_lines[0]
 

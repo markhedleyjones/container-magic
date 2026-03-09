@@ -106,17 +106,21 @@ just clean-images             # Remove built images
 
 ## Development vs Production
 
-**Development:**
+Container-magic generates two sets of files for different workflows:
 
-- Workspace mounted from host (edit code live, not baked into image)
-- Runs as your user (correct permissions)
-- Includes dev dependencies
+!!! tip "How the workspace is handled"
 
-**Production** (build.sh/run.sh):
+    === "Development"
 
-- Workspace baked into image
-- Standalone scripts (only need docker/podman)
-- Minimal dependencies
+        The workspace directory is **bind-mounted** from your host. Edit code
+        locally and run it in the container immediately -- no rebuild needed.
+        The container runs as your host user for correct file permissions.
+
+    === "Production"
+
+        The workspace is **baked into the image** via `copy: workspace`.
+        Standalone scripts (`build.sh`, `run.sh`) need only docker/podman
+        installed -- no container-magic or just dependency.
 
 ## Project Structure
 
@@ -130,6 +134,7 @@ my-project/
 +-- Justfile             # Generated locally for dev (gitignored)
 +-- workspace/           # Your code
 +-- .cm-cache/           # Downloaded assets (gitignored)
++-- .cm-build-staging/   # Resolved symlinks for build (gitignored, temporary)
 ```
 
 Command scripts (e.g., `train.sh`, `deploy.sh`) are only generated for commands with `standalone: true`.
