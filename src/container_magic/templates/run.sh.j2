@@ -166,6 +166,11 @@ if [[ -d "$HOME/.aws" ]]; then
 fi
 {%- endif %}
 
+# Load .env file if present
+if [[ -f "$(pwd)/.env" ]]; then
+	BASE_RUN_ARGS+=("--env-file" "$(pwd)/.env")
+fi
+
 {%- if commands %}
 
 # Custom command handlers
