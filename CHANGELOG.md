@@ -2,6 +2,37 @@
 
 <!-- version list -->
 
+## v2.2.0 (2026-03-09)
+
+### Bug Fixes
+
+- **ci**: Bump test fixture from ubuntu 22.04 to 24.04
+  ([#34](https://github.com/markhedleyjones/container-magic/pull/34),
+  [`71b7885`](https://github.com/markhedleyjones/container-magic/commit/71b78853d0e60f36daaf77cd0a4cc1bb378ccb4c))
+
+- **ci**: Use python:3-slim instead of ubuntu base in test fixture
+  ([#34](https://github.com/markhedleyjones/container-magic/pull/34),
+  [`71b7885`](https://github.com/markhedleyjones/container-magic/commit/71b78853d0e60f36daaf77cd0a4cc1bb378ccb4c))
+
+### Documentation
+
+- Add environment file section to configuration
+  ([#33](https://github.com/markhedleyjones/container-magic/pull/33),
+  [`a995bdf`](https://github.com/markhedleyjones/container-magic/commit/a995bdfcbbe2f8bce26f5600e514c5350583aeb6))
+
+### Features
+
+- Load .env file as environment variables in containers
+  ([#33](https://github.com/markhedleyjones/container-magic/pull/33),
+  [`a995bdf`](https://github.com/markhedleyjones/container-magic/commit/a995bdfcbbe2f8bce26f5600e514c5350583aeb6))
+
+### Testing
+
+- **ci**: Promote apt-get installation test to run in CI
+  ([#34](https://github.com/markhedleyjones/container-magic/pull/34),
+  [`71b7885`](https://github.com/markhedleyjones/container-magic/commit/71b78853d0e60f36daaf77cd0a4cc1bb378ccb4c))
+
+
 ## v2.1.0 (2026-03-09)
 
 ### Bug Fixes
