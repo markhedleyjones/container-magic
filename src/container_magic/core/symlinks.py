@@ -5,6 +5,7 @@ and container bind mounts.
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import List
 
@@ -50,7 +51,7 @@ def scan_workspace_symlinks(
             continue
 
         # Read the raw link target (before resolution)
-        raw_target = item.readlink()
+        raw_target = Path(os.readlink(item))
 
         # Resolve to absolute path for classification
         try:
