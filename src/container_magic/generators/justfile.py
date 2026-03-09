@@ -123,6 +123,7 @@ def generate_justfile(
                 features=features,
                 volumes=config.runtime.volumes,
                 devices=config.runtime.devices,
+                privileged=config.runtime.privileged if config.runtime else False,
                 ipc=command_spec.ipc
                 or (config.runtime.ipc if config.runtime else None),
                 workspace_symlinks=workspace_symlinks,

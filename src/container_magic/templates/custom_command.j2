@@ -55,6 +55,11 @@
     RUN_ARGS+=("--userns=keep-id")
     RUN_ARGS+=("--env-host=false")
     {% endif %}
+    {% if privileged %}
+
+    # Privileged mode
+    RUN_ARGS+=("--privileged")
+    {% endif %}
 
     # Mount workspace
     RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:{{ container_home }}/{{ workspace_name }}:z")
