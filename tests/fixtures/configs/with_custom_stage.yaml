@@ -1,34 +1,20 @@
 # Test config with custom stage
-project:
-  name: test-custom-stage
+names:
+  image: test-custom-stage
   workspace: workspace
-
-user:
-  production:
-    name: appuser
-    uid: 1000
-    gid: 1000
-
-runtime:
-  backend: auto
-  privileged: false
-  features: []
+  user: root
 
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt: []
-      pip: []
 
   development:
     from: base
 
   testing:
     from: base
-    packages:
-      pip:
-        - pytest
+    steps:
+      - pip: {install: [pytest]}
 
   production:
     from: base

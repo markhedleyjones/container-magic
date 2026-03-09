@@ -18,9 +18,9 @@ def temp_project_dir():
 
 
 def test_build_script_default_target_production(temp_project_dir):
-    """Test that build.sh defaults to production target."""
+    """Test that build.sh uses production target."""
     config = ContainerMagicConfig(
-        project={"name": "test-project"},
+        names={"image": "test-project", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
@@ -33,58 +33,14 @@ def test_build_script_default_target_production(temp_project_dir):
 
     assert build_script.exists()
     content = build_script.read_text()
-    assert 'DEFAULT_TARGET="production"' in content
-
-
-def test_build_script_custom_default_target(temp_project_dir):
-    """Test that build.sh uses custom default target."""
-    config = ContainerMagicConfig(
-        project={"name": "test-project"},
-        stages={
-            "base": {"from": "python:3-slim"},
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-            "testing": {"from": "base"},
-        },
-        build_script={"default_target": "testing"},
-    )
-
-    generate_build_script(config, temp_project_dir)
-    build_script = temp_project_dir / "build.sh"
-
-    assert build_script.exists()
-    content = build_script.read_text()
-    assert 'DEFAULT_TARGET="testing"' in content
-
-
-def test_build_script_available_targets(temp_project_dir):
-    """Test that build.sh includes all available targets."""
-    config = ContainerMagicConfig(
-        project={"name": "test-project"},
-        stages={
-            "base": {"from": "python:3-slim"},
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-            "testing": {"from": "base"},
-            "staging": {"from": "base"},
-        },
-    )
-
-    generate_build_script(config, temp_project_dir)
-    build_script = temp_project_dir / "build.sh"
-
-    content = build_script.read_text()
-    assert '"base"' in content
-    assert '"development"' in content
-    assert '"production"' in content
-    assert '"testing"' in content
-    assert '"staging"' in content
+    assert 'TARGET="production"' in content
+    assert 'TAG="latest"' in content
 
 
 def test_build_script_executable(temp_project_dir):
     """Test that build.sh is executable."""
     config = ContainerMagicConfig(
-        project={"name": "test-project"},
+        names={"image": "test-project", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
@@ -100,16 +56,14 @@ def test_build_script_executable(temp_project_dir):
 
 
 def test_build_script_help_output(temp_project_dir):
-    """Test that build.sh --help shows all available targets."""
+    """Test that build.sh --help shows usage information."""
     config = ContainerMagicConfig(
-        project={"name": "test-project"},
+        names={"image": "test-project", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
-            "testing": {"from": "base"},
         },
-        build_script={"default_target": "testing"},
     )
 
     generate_build_script(config, temp_project_dir)
@@ -122,17 +76,35 @@ def test_build_script_help_output(temp_project_dir):
         check=True,
     )
 
-    assert "Available targets:" in result.stdout
-    assert "base" in result.stdout
-    assert "development" in result.stdout
-    assert "production" in result.stdout
-    assert "testing (default)" in result.stdout
+    assert "Usage:" in result.stdout
+    assert "--tag" in result.stdout
+    assert "--uid" in result.stdout
+    assert "--gid" in result.stdout
 
 
-def test_build_script_invalid_target(temp_project_dir):
-    """Test that build.sh rejects invalid targets."""
+def test_build_script_tag_override(temp_project_dir):
+    """Test that build.sh --tag overrides the default tag."""
     config = ContainerMagicConfig(
-        project={"name": "test-project"},
+        names={"image": "test-project", "user": "root"},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+    )
+
+    generate_build_script(config, temp_project_dir)
+    build_script = temp_project_dir / "build.sh"
+
+    content = build_script.read_text()
+    assert 'TAG="latest"' in content
+    assert "--tag" in content
+
+
+def test_build_script_rejects_unknown_args(temp_project_dir):
+    """Test that build.sh rejects unknown positional arguments."""
+    config = ContainerMagicConfig(
+        names={"image": "test-project", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
@@ -144,35 +116,10 @@ def test_build_script_invalid_target(temp_project_dir):
     build_script = temp_project_dir / "build.sh"
 
     result = subprocess.run(
-        [str(build_script), "nonexistent"],
+        [str(build_script), "production"],
         capture_output=True,
         text=True,
     )
 
     assert result.returncode != 0
-    assert "Invalid target" in result.stderr
-
-
-def test_build_script_accepts_all_stages(temp_project_dir):
-    """Test that build.sh syntax is valid for all stage names."""
-    config = ContainerMagicConfig(
-        project={"name": "test-project"},
-        stages={
-            "base": {"from": "python:3-slim"},
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-            "testing": {"from": "base"},
-            "staging": {"from": "base"},
-        },
-    )
-
-    generate_build_script(config, temp_project_dir)
-    build_script = temp_project_dir / "build.sh"
-
-    for stage in ["base", "development", "production", "testing", "staging"]:
-        result = subprocess.run(
-            ["bash", "-n", str(build_script)],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0, f"Syntax error in build.sh for stage {stage}"
+    assert "Unknown argument" in result.stderr

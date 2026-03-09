@@ -1,0 +1,25 @@
+# Test config with root-level assets
+names:
+  image: test-assets
+  workspace: workspace
+  user: modeluser
+
+assets:
+  - https://httpbin.org/uuid
+  - test-model.bin: https://example.com/download?file=model&v=2
+
+stages:
+  base:
+    from: python:3-slim
+    steps:
+      - pip: {install: [requests]}
+      - {env: {MODEL_PATH: /models}}
+      - {create: user}
+      - copy: uuid /models/uuid.json
+      - copy: test-model.bin /models/model.bin
+
+  development:
+    from: base
+
+  production:
+    from: base

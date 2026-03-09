@@ -17,9 +17,6 @@ cd my-project
 
 # Or initialise in the current directory
 cm init --here python:3.11
-
-# Use cm.yaml instead of container-magic.yaml
-cm init --compact python:3.11 my-project
 ```
 
 The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, etc.
@@ -28,7 +25,7 @@ The `<image>` can be any Docker Hub image like `python:3.11`, `ubuntu:22.04`, `p
 
 ```bash
 # Build the container
-just build         # or: cm build
+just build
 
 # Run commands inside the container
 just run python --version
@@ -36,37 +33,37 @@ just run bash -c "echo Hello from container"
 just run           # starts an interactive shell
 ```
 
-`just` works from anywhere in your project by searching upward for the Justfile. The `cm build`, `cm run`, and `cm shell` commands are convenience wrappers that call the corresponding Justfile recipes.
+`just` works from anywhere in your project by searching upward for the Justfile.
 
 !!! tip "The `run` alias"
-    Container-magic also provides `build` and `run` shell aliases. The `run` alias adds automatic working directory translation — the container's working directory matches your position in the repository:
+    Container-magic also provides `build` and `run` shell aliases. The `run` alias adds automatic working directory translation - the container's working directory matches your position in the repository:
 
     ```bash
     cd workspace/src
-    run python utils.py        # Works — runs from workspace/src inside the container
-    just run python utils.py   # Fails — just always runs from the project root
+    run python utils.py        # Works - runs from workspace/src inside the container
+    just run python utils.py   # Fails - just always runs from the project root
     ```
 
 ## Workflow
 
 ```
-┌─────────────────────┐
-│   cm.yaml           │  ← You edit this
-│  (central config)   │
-└──────────┬──────────┘
-           │
-           │  cm init / cm update
-           │
-           ├─────────────┬──────────────────┬──────────────────┐
-           ▼             ▼                  ▼                  ▼
-      Dockerfile     Development        Production      Command Scripts
-                  ┌───────────────┐  ┌──────────────┐  ┌──────────────┐
-                  │ • Justfile    │  │ • build.sh   │  │ • <cmd>.sh   │
-                  │               │  │ • run.sh     │  │   (optional) │
-                  │ (mounts live  │  │              │  │              │
-                  │  workspace)   │  │ (standalone, │  │ (standalone, │
-                  └───────────────┘  │  no cm deps) │  │  no cm deps) │
-                                     └──────────────┘  └──────────────┘
++---------------------+
+|   cm.yaml           |  <- You edit this
+|  (central config)   |
++----------+----------+
+           |
+           |  cm init / cm update
+           |
+           +-------------+-----------------+-----------------+
+           |             |                 |                 |
+      Dockerfile     Development       Production     Command Scripts
+                  +---------------+  +--------------+  +--------------+
+                  | Justfile      |  | build.sh     |  | <cmd>.sh     |
+                  |               |  | run.sh       |  |   (optional) |
+                  | (mounts live  |  |              |  |              |
+                  |  workspace)   |  | (standalone, |  | (standalone, |
+                  +---------------+  |  no cm deps) |  |  no cm deps) |
+                                     +--------------+  +--------------+
 ```
 
 Production files (Dockerfile, build.sh, run.sh, command scripts) are committed to git.
@@ -78,15 +75,9 @@ The Justfile is generated locally for developers.
 # Create new project
 cm init <image> <name>
 cm init --here <image>        # Initialise in current dir
-cm init --compact <image>     # Use cm.yaml instead of container-magic.yaml
 
 # Regenerate files after editing YAML
-cm update                     # Or: cm generate (alias)
-
-# Build and run (wrappers around just build / just run)
-cm build
-cm run <command>
-cm shell                      # Interactive shell in container
+cm update
 
 # Cache management
 cm cache list                 # List cached assets with size and URL
@@ -131,14 +122,14 @@ just clean-images             # Remove built images
 
 ```
 my-project/
-├── cm.yaml              # Your config (committed)
-├── Dockerfile           # Generated (committed)
-├── build.sh             # Generated (committed)
-├── run.sh               # Generated (committed)
-├── <command>.sh         # Generated for standalone commands (committed)
-├── Justfile             # Generated locally for dev (gitignored)
-├── workspace/           # Your code
-└── .cm-cache/           # Downloaded assets (gitignored)
++-- cm.yaml              # Your config (committed)
++-- Dockerfile           # Generated (committed)
++-- build.sh             # Generated (committed)
++-- run.sh               # Generated (committed)
++-- <command>.sh         # Generated for standalone commands (committed)
++-- Justfile             # Generated locally for dev (gitignored)
++-- workspace/           # Your code
++-- .cm-cache/           # Downloaded assets (gitignored)
 ```
 
 Command scripts (e.g., `train.sh`, `deploy.sh`) are only generated for commands with `standalone: true`.
@@ -148,20 +139,24 @@ Command scripts (e.g., `train.sh`, `deploy.sh`) are only generated for commands 
 A minimal `cm.yaml`:
 
 ```yaml
-project:
-  name: my-project
-  workspace: workspace
+names:
+  image: my-project
+  user: nonroot
 
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt:
-        - git
-        - build-essential
-      pip:
-        - numpy
-        - pandas
+    steps:
+      - apt-get:
+          install:
+            - git
+            - build-essential
+      - pip:
+          install:
+            - numpy
+            - pandas
+      - create: user
+      - become: user
 
   development:
     from: base
@@ -173,9 +168,9 @@ stages:
 ## Example with Features
 
 ```yaml
-project:
-  name: ml-training
-  workspace: workspace
+names:
+  image: ml-training
+  user: nonroot
 
 runtime:
   features:
@@ -185,19 +180,23 @@ runtime:
 stages:
   base:
     from: pytorch/pytorch
-    packages:
-      pip:
-        - transformers
-        - datasets
-    env:
-      HF_HOME: /models
+    steps:
+      - pip:
+          install:
+            - transformers
+            - datasets
+      - env:
+          HF_HOME: /models
+      - create: user
+      - become: user
 
   development:
     from: base
-    packages:
-      pip:
-        - pytest
-        - ipython
+    steps:
+      - pip:
+          install:
+            - pytest
+            - ipython
 
   production:
     from: base

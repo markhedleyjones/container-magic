@@ -1,35 +1,33 @@
 """Tests for configuration schema and validation."""
 
-import warnings
-
 import pytest
 from pydantic import ValidationError
 
 from container_magic.core.config import ContainerMagicConfig
 
 
-def test_valid_project_name():
-    """Test that valid project names are accepted."""
+def test_valid_image_name():
+    """Test that valid image names are accepted."""
     valid_names = ["my-project", "my_project", "myproject", "my-project-123"]
     for name in valid_names:
         config = ContainerMagicConfig(
-            project={"name": name, "workspace": "workspace"},
+            names={"image": name, "workspace": "workspace", "user": "root"},
             stages={
                 "base": {"from": "python:3-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
         )
-        assert config.project.name == name
+        assert config.names.image == name
 
 
-def test_invalid_project_name():
-    """Test that invalid project names are rejected."""
+def test_invalid_image_name():
+    """Test that invalid image names are rejected."""
     invalid_names = ["my project", "my/project", "my.project", "my@project"]
     for name in invalid_names:
         with pytest.raises(ValidationError):
             ContainerMagicConfig(
-                project={"name": name, "workspace": "workspace"},
+                names={"image": name, "workspace": "workspace", "user": "root"},
                 stages={
                     "base": {"from": "python:3-slim"},
                     "development": {"from": "base"},
@@ -41,7 +39,7 @@ def test_invalid_project_name():
 def test_default_values():
     """Test that default values are set correctly."""
     config = ContainerMagicConfig(
-        project={"name": "test"},
+        names={"image": "test", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
@@ -49,8 +47,10 @@ def test_default_values():
         },
     )
 
-    assert config.project.workspace == "workspace"
-    assert config.runtime.backend == "auto"
+    assert config.names.workspace == "workspace"
+    assert config.names.user == "root"
+    assert config.auto_update is True
+    assert config.backend == "auto"
     assert config.runtime.privileged is False
     assert config.runtime.features == []
     assert config.runtime.volumes == []
@@ -58,10 +58,23 @@ def test_default_values():
     assert config.runtime.network_mode is None
 
 
+def test_names_user_required():
+    """Test that names.user must be provided."""
+    with pytest.raises(ValidationError, match="user"):
+        ContainerMagicConfig(
+            names={"image": "test"},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+
 def test_config_with_features():
     """Test configuration with features enabled."""
     config = ContainerMagicConfig(
-        project={"name": "test"},
+        names={"image": "test", "user": "root"},
         runtime={"features": ["display", "gpu", "audio"]},
         stages={
             "base": {"from": "python:3-slim"},
@@ -76,7 +89,7 @@ def test_config_with_features():
 def test_config_with_volumes():
     """Test configuration with volumes."""
     config = ContainerMagicConfig(
-        project={"name": "test"},
+        names={"image": "test", "user": "root"},
         runtime={"volumes": ["/tmp/data:/data:ro", "/var/log:/logs"]},
         stages={
             "base": {"from": "python:3-slim"},
@@ -91,7 +104,7 @@ def test_config_with_volumes():
 def test_config_with_devices():
     """Test configuration with devices."""
     config = ContainerMagicConfig(
-        project={"name": "test"},
+        names={"image": "test", "user": "root"},
         runtime={"devices": ["/dev/ttyUSB0", "/dev/video0:/dev/video0:rw"]},
         stages={
             "base": {"from": "python:3-slim"},
@@ -107,7 +120,7 @@ def test_invalid_volume_format():
     """Test that invalid volume strings are rejected."""
     with pytest.raises(ValidationError, match="Invalid volume format"):
         ContainerMagicConfig(
-            project={"name": "test"},
+            names={"image": "test", "user": "root"},
             runtime={"volumes": ["no-colon"]},
             stages={
                 "base": {"from": "python:3-slim"},
@@ -121,7 +134,7 @@ def test_invalid_volume_empty_parts():
     """Test that volume strings with empty host or container are rejected."""
     with pytest.raises(ValidationError, match="Invalid volume format"):
         ContainerMagicConfig(
-            project={"name": "test"},
+            names={"image": "test", "user": "root"},
             runtime={"volumes": [":/container"]},
             stages={
                 "base": {"from": "python:3-slim"},
@@ -131,12 +144,25 @@ def test_invalid_volume_empty_parts():
         )
 
 
-def test_deprecated_network_migration():
-    """Test that runtime.network migrates to runtime.network_mode with warning."""
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        config = ContainerMagicConfig(
-            project={"name": "test"},
+def test_removed_runtime_backend_raises():
+    """Test that runtime.backend is rejected with a migration message."""
+    with pytest.raises(ValidationError, match="root-level"):
+        ContainerMagicConfig(
+            names={"image": "test", "user": "root"},
+            runtime={"backend": "docker"},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+
+def test_removed_network_field_raises():
+    """Test that runtime.network is rejected with a migration message."""
+    with pytest.raises(ValidationError, match="network_mode"):
+        ContainerMagicConfig(
+            names={"image": "test", "user": "root"},
             runtime={"network": "host"},
             stages={
                 "base": {"from": "python:3-slim"},
@@ -145,101 +171,11 @@ def test_deprecated_network_migration():
             },
         )
 
-    assert config.runtime.network_mode == "host"
-    assert config.runtime.network is None
-    deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
-    assert len(deprecation_warnings) == 1
-    assert "network_mode" in str(deprecation_warnings[0].message)
-
-
-def test_config_with_packages():
-    """Test configuration with package lists."""
-    config = ContainerMagicConfig(
-        project={"name": "test"},
-        stages={
-            "base": {
-                "from": "python:3-slim",
-                "packages": {"apt": ["git", "curl"], "pip": ["numpy", "pandas"]},
-            },
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-        },
-    )
-
-    assert config.stages["base"].packages.apt == ["git", "curl"]
-    assert config.stages["base"].packages.pip == ["numpy", "pandas"]
-
-
-def test_packages_apk_and_dnf_default_none():
-    """Test that apk and dnf fields default to None when not set."""
-    config = ContainerMagicConfig(
-        project={"name": "test"},
-        stages={
-            "base": {"from": "python:3-slim"},
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-        },
-    )
-
-    assert config.stages["base"].packages.apk is None
-    assert config.stages["base"].packages.dnf is None
-    assert config.stages["base"].packages.apt is None
-
-
-def test_config_with_apk_packages():
-    """Test configuration with apk package list."""
-    config = ContainerMagicConfig(
-        project={"name": "test"},
-        stages={
-            "base": {
-                "from": "alpine:latest",
-                "packages": {"apk": ["curl", "git"]},
-            },
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-        },
-    )
-
-    assert config.stages["base"].packages.apk == ["curl", "git"]
-    assert config.stages["base"].packages.apt is None
-
-
-def test_config_with_dnf_packages():
-    """Test configuration with dnf package list."""
-    config = ContainerMagicConfig(
-        project={"name": "test"},
-        stages={
-            "base": {
-                "from": "fedora:latest",
-                "packages": {"dnf": ["curl", "git"]},
-            },
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-        },
-    )
-
-    assert config.stages["base"].packages.dnf == ["curl", "git"]
-    assert config.stages["base"].packages.apt is None
-
-
-def test_build_script_default_target_default():
-    """Test that build_script.default_target defaults to 'production'."""
-    config = ContainerMagicConfig(
-        project={"name": "test"},
-        stages={
-            "base": {"from": "python:3-slim"},
-            "development": {"from": "base"},
-            "production": {"from": "base"},
-        },
-    )
-
-    assert config.build_script.default_target == "production"
-
 
 def test_build_script_custom_default_target():
     """Test that build_script.default_target can be customised."""
     config = ContainerMagicConfig(
-        project={"name": "test"},
+        names={"image": "test", "user": "root"},
         stages={
             "base": {"from": "python:3-slim"},
             "development": {"from": "base"},
@@ -256,7 +192,7 @@ def test_build_script_invalid_default_target():
     """Test that build_script.default_target must exist in stages."""
     with pytest.raises(ValidationError) as exc_info:
         ContainerMagicConfig(
-            project={"name": "test"},
+            names={"image": "test", "user": "root"},
             stages={
                 "base": {"from": "python:3-slim"},
                 "development": {"from": "base"},
@@ -266,3 +202,136 @@ def test_build_script_invalid_default_target():
         )
 
     assert "does not exist in stages" in str(exc_info.value)
+
+
+def test_user_block_rejected():
+    """Test that user: config block raises a migration error."""
+    with pytest.raises(ValidationError, match="no longer supported"):
+        ContainerMagicConfig(
+            names={"image": "test", "user": "root"},
+            user={"name": "appuser"},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+
+def test_project_block_rejected():
+    """Test that project: config block raises a migration error."""
+    with pytest.raises(ValidationError, match="replaced by 'names'"):
+        ContainerMagicConfig(
+            project={"name": "test"},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+
+def test_create_user_rejected_when_user_is_root():
+    """Test that create: user with names.user='root' raises an error."""
+    with pytest.raises(ValidationError, match="root always exists"):
+        ContainerMagicConfig(
+            names={"image": "test", "user": "root"},
+            stages={
+                "base": {"from": "python:3-slim", "steps": [{"create": "user"}]},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+
+def test_become_user_rejected_when_user_is_root():
+    """Test that become: user with names.user='root' raises an error."""
+    with pytest.raises(ValidationError, match="redundant"):
+        ContainerMagicConfig(
+            names={"image": "test", "user": "root"},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base", "steps": [{"become": "user"}]},
+                "production": {"from": "base"},
+            },
+        )
+
+
+def test_become_literal_with_root_user():
+    """Test that become: www-data works when names.user is 'root'."""
+    config = ContainerMagicConfig(
+        names={"image": "test", "user": "root"},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base", "steps": [{"become": "www-data"}]},
+            "production": {"from": "base"},
+        },
+    )
+    assert config.names.user == "root"
+
+
+def test_copy_non_workspace_without_workspace_warns(capsys):
+    """Test that copying a non-workspace directory without workspace copy warns."""
+    ContainerMagicConfig(
+        names={"image": "test", "user": "root", "workspace": "workspace"},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base", "steps": [{"copy": "app"}]},
+        },
+    )
+    captured = capsys.readouterr()
+    assert "Warning" in captured.err
+    assert "app" in captured.err
+    assert "workspace" in captured.err
+
+
+def test_copy_non_workspace_with_workspace_infos(capsys):
+    """Test that copying a non-workspace directory alongside workspace emits info."""
+    ContainerMagicConfig(
+        names={"image": "test", "user": "root", "workspace": "workspace"},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {
+                "from": "base",
+                "steps": [{"copy": "workspace"}, {"copy": "extras"}],
+            },
+        },
+    )
+    captured = capsys.readouterr()
+    assert "Info" in captured.err
+    assert "extras" in captured.err
+
+
+def test_copy_workspace_no_warning(capsys):
+    """Test that copying only the workspace directory produces no warning."""
+    ContainerMagicConfig(
+        names={"image": "test", "user": "root", "workspace": "workspace"},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base", "steps": [{"copy": "workspace"}]},
+        },
+    )
+    captured = capsys.readouterr()
+    assert "Warning" not in captured.err
+    assert "Info" not in captured.err
+
+
+def test_copy_with_dest_no_warning(capsys):
+    """Test that multi-token copy (source dest) does not trigger workspace warnings."""
+    ContainerMagicConfig(
+        names={"image": "test", "user": "root", "workspace": "workspace"},
+        stages={
+            "base": {"from": "python:3-slim"},
+            "development": {"from": "base"},
+            "production": {
+                "from": "base",
+                "steps": [{"copy": "config.yaml /etc/config.yaml"}],
+            },
+        },
+    )
+    captured = capsys.readouterr()
+    assert "Warning" not in captured.err
+    assert "Info" not in captured.err

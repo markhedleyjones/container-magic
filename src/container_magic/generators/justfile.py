@@ -8,7 +8,6 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.core.runtime import get_runtime
 from container_magic.core.templates import detect_shell, resolve_base_image
-from container_magic.generators.dockerfile import get_user_config
 
 
 def calculate_config_hash(config_path: Path) -> str:
@@ -42,7 +41,7 @@ def generate_justfile(
     config_hash = calculate_config_hash(config_path)
 
     # Determine runtime
-    runtime = get_runtime(config.runtime.backend)
+    runtime = get_runtime(config.backend)
 
     # Determine which stage to use for development
     # Prefer "development" stage if it exists, otherwise use "base"
@@ -62,51 +61,18 @@ def generate_justfile(
         "aws_credentials": "aws_credentials" in config.runtime.features,
     }
 
-    # Determine if development uses host user or fixed values
-    dev_user_config = get_user_config(config, target="development")
-    use_host_user = True  # Default to host user
-    dev_user_name = None
-    dev_user_uid = None
-    dev_user_gid = None
-    dev_user_home = None
+    # Development always uses host user
+    use_host_user = True
 
-    if dev_user_config:
-        if dev_user_config.host is True:
-            # host: true explicitly set - use host user
-            use_host_user = True
-        elif dev_user_config.host is False or (
-            dev_user_config.name
-            or dev_user_config.uid is not None
-            or dev_user_config.gid is not None
-        ):
-            # Fixed values specified - use those
-            use_host_user = False
-            dev_user_name = dev_user_config.name or "user"
-            dev_user_uid = dev_user_config.uid or 1000
-            dev_user_gid = dev_user_config.gid or 1000
-            dev_user_home = dev_user_config.home or f"/home/{dev_user_name}"
-
-    # Determine container home directory for volume mounts (must match Dockerfile)
-    if use_host_user:
-        # Host user mode - home directory is determined at runtime
-        container_home = "$(echo ~)"
-    elif dev_user_config:
-        # Fixed development user
-        container_home = dev_user_config.home or f"/home/{dev_user_config.name}"
-    else:
-        # No development user config, check production
-        prod_user_config = get_user_config(config, target="production")
-        container_home = (
-            (prod_user_config.home or f"/home/{prod_user_config.name}")
-            if prod_user_config
-            else "/root"
-        )
+    # Container home directory for volume mounts
+    # Development uses host user, so home is resolved at runtime via $(echo ~)
+    container_home = "$(echo ~)"
 
     justfile_content = template.render(
         config_hash=config_hash,
-        project_name=config.project.name,
-        workspace_name=config.project.workspace,
-        auto_update=config.project.auto_update,
+        project_name=config.names.image,
+        workspace_name=config.names.workspace,
+        auto_update=config.auto_update,
         runtime=runtime.value,
         privileged=config.runtime.privileged,
         network=config.runtime.network_mode,
@@ -118,10 +84,6 @@ def generate_justfile(
         dev_stage=dev_stage,
         container_home=container_home,
         use_host_user=use_host_user,
-        dev_user_name=dev_user_name,
-        dev_user_uid=dev_user_uid,
-        dev_user_gid=dev_user_gid,
-        dev_user_home=dev_user_home,
         ipc=config.runtime.ipc if config.runtime else None,
     )
 
@@ -129,9 +91,6 @@ def generate_justfile(
     custom_commands_content = ""
     if config.commands:
         command_template = env.get_template("custom_command.j2")
-        # Merge stage environment variables with command-specific ones
-        stage_env = dev_stage_config.env or {}
-
         for command_name, command_spec in config.commands.items():
             # Escape dollar signs in command so they expand in the container
             command_escaped = command_spec.command.replace("$", r"\$")
@@ -140,8 +99,7 @@ def generate_justfile(
             command_escaped = "; ".join(
                 line for line in command_escaped.splitlines() if line.strip()
             )
-            # Merge stage env with command env (command env takes precedence)
-            merged_env = {**stage_env, **(command_spec.env or {})}
+            merged_env = command_spec.env or {}
             custom_commands_content += "\n" + command_template.render(
                 command_name=command_name,
                 description=command_spec.description,
@@ -151,10 +109,10 @@ def generate_justfile(
                 ports=command_spec.ports,
                 runtime=runtime.value,
                 network=config.runtime.network_mode,
-                image_name=config.project.name,
+                image_name=config.names.image,
                 image_tag="development",
                 shell=shell,
-                workspace_name=config.project.workspace,
+                workspace_name=config.names.workspace,
                 container_home=container_home,
                 features=features,
                 volumes=config.runtime.volumes,

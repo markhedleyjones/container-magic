@@ -14,13 +14,11 @@ _check-config force="":
     #!/usr/bin/env bash
     expected="{{ config_hash }}"
 
-    # Find config file (prefer cm.yaml over container-magic.yaml)
+    # Find config file
     if [ -f "cm.yaml" ]; then
         config_file="cm.yaml"
-    elif [ -f "container-magic.yaml" ]; then
-        config_file="container-magic.yaml"
     else
-        echo "⚠️  No config file found (cm.yaml or container-magic.yaml)"
+        echo "No config file found (cm.yaml)"
         exit 1
     fi
 
@@ -53,7 +51,6 @@ build force="": (_check-config force)
         --build-arg USER_UID=$(id --user) \
         --build-arg USER_NAME=$(id --user --name) \
         --build-arg USER_HOME=$(echo ~) \
-        --build-arg WORKDIR=$(echo ~) \
         --tag {{ project_name }}:development \
         .
     {% else %}
@@ -63,7 +60,6 @@ build force="": (_check-config force)
         --build-arg USER_UID={{ dev_user_uid }} \
         --build-arg USER_NAME={{ dev_user_name }} \
         --build-arg USER_HOME={{ dev_user_home }} \
-        --build-arg WORKDIR={{ dev_user_home }} \
         --tag {{ project_name }}:development \
         .
     {% endif %}

@@ -1,22 +1,37 @@
 # Configuration
 
-Container-magic is configured through a single YAML file (`cm.yaml` or `container-magic.yaml`).
+Container-magic is configured through a single YAML file (`cm.yaml`).
 
-## Project
+## Names
 
 ```yaml
-project:
-  name: my-project      # Required: image name
-  workspace: workspace  # Required: directory with your code
+names:
+  image: my-project        # Required: image name
+  workspace: workspace     # Workspace directory name (default: workspace)
+  user: nonroot            # Required: container username
 ```
 
-Generated files are automatically regenerated when your config changes. To disable this, set `auto_update: false` under `project:`.
+All three fields are shown above but only `image` and `user` are required (`workspace` defaults to `workspace`).
+
+**`user`** controls the container's user identity:
+
+- `user: root` - the container runs as root. No user creation is needed (or allowed - `create: user` and `become: user` are errors when `user` is `root`).
+- `user: <name>` (any other value, e.g. `nonroot`, `appuser`) - a custom user will be created by `create: user` steps and referenced by `become: user` steps. See [User Handling](user-handling.md) for details.
+
+Generated files are automatically regenerated when your config changes. To disable this, set `auto_update: false` at the root level of `cm.yaml`.
+
+## Backend
+
+```yaml
+backend: docker      # docker, podman, or auto (default: auto, omit for auto)
+```
+
+When set to `auto` (the default), container-magic will use whichever of `podman` or `docker` is available, preferring `podman`.
 
 ## Runtime
 
 ```yaml
 runtime:
-  backend: auto      # docker, podman, or auto
   privileged: false  # privileged mode
   network_mode: host # host, bridge, or none (optional)
   ipc: shareable     # IPC namespace mode (optional)
@@ -36,16 +51,16 @@ runtime:
 
 The `ipc` field sets the IPC namespace mode for containers (`--ipc` flag). Common values:
 
-- `shareable` — allow other containers to share this container's IPC namespace
-- `container:<name>` — join another container's IPC namespace
-- `host` — use the host's IPC namespace
-- `private` — container's own private IPC namespace (default)
+- `shareable` - allow other containers to share this container's IPC namespace
+- `container:<name>` - join another container's IPC namespace
+- `host` - use the host's IPC namespace
+- `private` - container's own private IPC namespace (default)
 
 Per-command overrides are supported via the `ipc` field on individual commands.
 
 ### Container Names
 
-Development containers are named `<project-name>-development` and production containers are named `<project-name>`. If a container with the same name is already running, `just run` will exec into the existing container instead of starting a new one. Use `just stop` to stop a running container and `just clean` to remove it.
+Development containers are named `<image-name>-development` and production containers are named `<image-name>`. If a container with the same name is already running, `just run` will exec into the existing container instead of starting a new one. Use `just stop` to stop a running container and `just clean` to remove it.
 
 ### Detached Mode
 
@@ -59,46 +74,28 @@ To stop a detached container:
 - **Justfile:** `just stop`
 - **run.sh:** `./run.sh --stop`
 
-## User
-
-```yaml
-user:
-  development:
-    host: true              # Use your host UID/GID at build time
-  production:
-    name: appuser           # Required: username
-    uid: 1000               # Optional (default: 1000)
-    gid: 1000               # Optional (default: 1000)
-    home: /home/appuser     # Optional (default: /home/${name})
-```
-
-The `development` target with `host: true` captures your actual UID/GID when building, so file permissions match your host user. The `production` target defines a fixed user baked into the image.
-
-If no `user` section is defined, containers run as root.
-
-See [User Handling](user-handling.md) for more detail on how users work in development vs production.
-
 ## Stages
 
 ```yaml
 stages:
   base:
     from: python:3.11-slim    # Any Docker Hub image
-    packages:
-      apt:
-        - git
-        - curl
-      pip:
-        - numpy
-        - pandas
-    env:
-      VAR: value
+    steps:
+      - apt-get:
+          install:
+            - git
+            - curl
+      - pip:
+          install:
+            - numpy
+            - pandas
 
   development:
     from: base                # Inherit from base
-    packages:
-      pip:
-        - pytest
+    steps:
+      - pip:
+          install:
+            - pytest
 
   production:
     from: base
@@ -109,22 +106,37 @@ Each stage also supports:
 - `package_manager` - Override the auto-detected package manager (`apt`, `apk`, or `dnf`). Normally inferred from the base image.
 - `shell` - Override the default shell for the stage. Normally inferred from the base image.
 
-The package field name determines which package manager is used: `apt` uses `apt-get install`, `apk` uses `apk add`, `dnf` uses `dnf install`. Use the field that matches your base image:
+Package installation uses the command builder step syntax. The command name determines which package manager is used. Container-optimised defaults (flags, cleanup) are applied automatically -- see [Package Installation](build-steps.md#package-installation) for details.
 
 ```yaml
+# Debian / Ubuntu
+steps:
+  - apt-get:
+      install:
+        - curl
+        - git
+
 # Alpine
-packages:
-  apk: [curl, git]
+steps:
+  - apk:
+      add:
+        - curl
+        - git
 
 # Fedora / CentOS
-packages:
-  dnf: [curl, git]
+steps:
+  - dnf:
+      install:
+        - curl
+        - git
+
+# Python pip
+steps:
+  - pip:
+      install:
+        - requests
+        - numpy
 ```
-
-`cm init` scaffolds the correct field automatically based on the base image you specify.
-
-!!! tip "Inline lists"
-    Package lists can also be written inline for brevity: `pip: [pytest, black, mypy]`. Both styles are valid YAML — use whichever is clearer for the length of your list.
 
 You can use any image from Docker Hub as your base (e.g., `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, `nvidia/cuda:12.4.0-runtime-ubuntu22.04`).
 
@@ -167,21 +179,21 @@ commands:
 
 The `standalone` flag (default: `false`) controls script generation:
 
-- **`standalone: false`** (default) — Command available via `just <command>` and `./run.sh <command>` only
-- **`standalone: true`** — Also generates a dedicated `<command>.sh` script for direct execution
+- **`standalone: false`** (default) - Command available via `just <command>` and `./run.sh <command>` only
+- **`standalone: true`** - Also generates a dedicated `<command>.sh` script for direct execution
 
 **Development:**
 
-- `just train` — from anywhere in your repository
+- `just train` - from anywhere in your repository
 
 **Production (standalone: false):**
 
-- `./run.sh train` — only way to run
+- `./run.sh train` - only way to run
 
 **Production (standalone: true):**
 
-- `./run.sh deploy` — via run.sh
-- `./deploy.sh` — dedicated standalone script
+- `./run.sh deploy` - via run.sh
+- `./deploy.sh` - dedicated standalone script
 
 ### Command Arguments
 
@@ -258,20 +270,19 @@ Configure the standalone `build.sh` script behaviour:
 
 ```yaml
 build_script:
-  default_target: production  # Optional: default stage to build (default: production)
+  default_target: production  # Optional: stage to build (default: production)
 ```
 
-The `build.sh` script can build any defined stage:
+The `build.sh` script builds the configured target stage:
 
 ```bash
-./build.sh              # Builds the default target (production) → tagged as 'latest'
-./build.sh production   # Builds production stage → tagged as 'latest'
-./build.sh testing      # Builds testing stage → tagged as 'testing'
-./build.sh development  # Builds development stage → tagged as 'development'
-./build.sh --help       # Shows all available targets
+./build.sh              # Builds production stage, tagged as 'latest'
+./build.sh --tag v1.0   # Builds production stage, tagged as 'v1.0'
+./build.sh --help       # Shows available options
 ```
 
-**Image tagging:**
+**Options:**
 
-- Production stage is tagged as `<project-name>:latest`
-- All other stages are tagged as `<project-name>:<stage-name>`
+- `--tag TAG` - override the image tag (default: `latest`)
+- `--uid UID` - override the user UID
+- `--gid GID` - override the user GID

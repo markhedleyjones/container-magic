@@ -40,15 +40,16 @@ def test_package_installation_python_slim():
     """Test that packages install and are accessible in python:3.11-slim base."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-python
+names:
+  image: test-python
   workspace: workspace
+  user: root
 
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt: [curl]
+    steps:
+      - apt-get: {install: [curl]}
   development:
     from: base
   production:
@@ -98,15 +99,16 @@ def test_package_installation_ubuntu():
     """Test that packages install and are accessible in ubuntu:22.04 base."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-ubuntu
+names:
+  image: test-ubuntu
   workspace: workspace
+  user: root
 
 stages:
   base:
     from: ubuntu:22.04
-    packages:
-      apt: [curl, ca-certificates]
+    steps:
+      - apt-get: {install: [curl, ca-certificates]}
   development:
     from: base
   production:
@@ -156,15 +158,16 @@ def test_package_installation_debian():
     """Test that packages install and are accessible in debian:bookworm base."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-debian
+names:
+  image: test-debian
   workspace: workspace
+  user: root
 
 stages:
   base:
     from: debian:bookworm
-    packages:
-      apt: [curl]
+    steps:
+      - apt-get: {install: [curl]}
   development:
     from: base
   production:
@@ -214,15 +217,16 @@ def test_package_installation_alpine():
     """Test that packages install and are accessible in alpine:latest base."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-alpine
+names:
+  image: test-alpine
   workspace: workspace
+  user: root
 
 stages:
   base:
     from: alpine:latest
-    packages:
-      apk: [curl]
+    steps:
+      - apk: {add: [curl]}
   development:
     from: base
   production:
@@ -272,15 +276,16 @@ def test_package_installation_ubuntu_24_04():
     """Test that packages install and are accessible in ubuntu:24.04 base."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-ubuntu-24
+names:
+  image: test-ubuntu-24
   workspace: workspace
+  user: root
 
 stages:
   base:
     from: ubuntu:24.04
-    packages:
-      apt: [curl, ca-certificates]
+    steps:
+      - apt-get: {install: [curl, ca-certificates]}
   development:
     from: base
   production:
@@ -330,15 +335,16 @@ def test_multiple_packages_installation():
     """Test that multiple packages install and are accessible."""
     runtime = get_runtime()
     config = """
-project:
-  name: test-multi
+names:
+  image: test-multi
   workspace: workspace
+  user: root
 
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt: [curl, git, ca-certificates]
+    steps:
+      - apt-get: {install: [curl, git, ca-certificates]}
   development:
     from: base
   production:

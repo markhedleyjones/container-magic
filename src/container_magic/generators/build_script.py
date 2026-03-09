@@ -6,7 +6,7 @@ from pathlib import Path
 from jinja2 import Environment, PackageLoader
 
 from container_magic.core.config import ContainerMagicConfig
-from container_magic.generators.dockerfile import get_user_config
+from container_magic.core.steps import has_create_user_in_stages
 
 
 def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> None:
@@ -25,29 +25,22 @@ def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> No
     # Get default target from config (defaults to "production")
     default_target = config.build_script.default_target
 
-    # Get all available stages for validation
-    available_stages = list(config.stages.keys())
-
-    # Get production user config
-    user_cfg = get_user_config(config, target="production")
-    production_user_name = user_cfg.name if user_cfg else "root"
-    production_user_uid = (user_cfg.uid or 1000) if user_cfg else 0
-    production_user_gid = (user_cfg.gid or 1000) if user_cfg else 0
-    production_user_home = (
-        (user_cfg.home or f"/home/{user_cfg.name}")
-        if user_cfg and user_cfg.name
-        else "/root"
-    )
+    # Get user info from config.names
+    has_user = has_create_user_in_stages(config.stages)
+    production_user_name = config.names.user or "root"
+    production_user_uid = 1000 if has_user else 0
+    production_user_gid = 1000 if has_user else 0
+    production_user_home = f"/home/{production_user_name}" if has_user else "/root"
 
     content = template.render(
-        project_name=config.project.name,
-        workspace_name=config.project.workspace,
+        project_name=config.names.image,
+        workspace_name=config.names.workspace,
         default_target=default_target,
-        available_stages=available_stages,
         production_user_name=production_user_name,
         production_user_uid=production_user_uid,
         production_user_gid=production_user_gid,
         production_user_home=production_user_home,
+        backend=config.backend,
     )
 
     build_script = project_dir / "build.sh"

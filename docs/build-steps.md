@@ -4,266 +4,153 @@ The `steps` field in each stage defines how the image is constructed. Container-
 
 ## Built-in Steps
 
-### 1. `install_system_packages`
+### 1. `create`
 
-Installs system packages. Each field maps directly to its package manager — `packages.apt` runs `apt-get install`, `packages.apk` runs `apk add`, `packages.dnf` runs `dnf install`. Use the field that matches your base image.
+Creates a user account in the container image.
 
-**Requires:** At least one of `packages.apt`, `packages.apk`, or `packages.dnf` defined
-
-```yaml
-stages:
-  base:
-    from: ubuntu:24.04
-    packages:
-      apt:
-        - curl
-        - git
-        - build-essential
-    steps:
-      - install_system_packages
-```
-
-For Alpine images, use `apk:` instead of `apt:`:
+**`create: user`** (keyword) - creates the user defined by `names.user` in your config. This is the primary way to set up a non-root user:
 
 ```yaml
-stages:
-  base:
-    from: alpine:latest
-    packages:
-      apk:
-        - curl
-        - git
-    steps:
-      - install_system_packages
-```
-
-For Fedora/CentOS images, use `dnf:`:
-
-```yaml
-stages:
-  base:
-    from: fedora:latest
-    packages:
-      dnf:
-        - curl
-        - git
-    steps:
-      - install_system_packages
-```
-
-Each populated field generates its own install command independently. `cm init` scaffolds the correct field based on the base image.
-
-**Generated Dockerfile:** Runs the install command for each populated field (e.g., `apt-get update && apt-get install` with cleanup)
-
----
-
-### 2. `install_pip_packages`
-
-Installs Python packages using pip.
-
-**Requires:** `packages.pip` defined
-
-```yaml
-stages:
-  base:
-    from: python:3.11-slim
-    packages:
-      pip:
-        - requests
-        - pytest
-        - numpy
-    steps:
-      - install_pip_packages
-```
-
-**Generated Dockerfile:** Runs `pip install --no-cache-dir`
-
----
-
-### 3. `create_user`
-
-Creates a non-root user account for running the application.
-
-**Requires:** `user.production` defined in config (with at least `name` field)
-
-**Field defaults:**
-
-- `uid`: 1000 (if not specified)
-- `gid`: 1000 (if not specified)
-- `home`: `/home/${name}` (if not specified)
-
-```yaml
-user:
-  production:
-    name: appuser
+names:
+  image: my-project
+  user: nonroot
 
 stages:
   base:
     from: python:3.11-slim
     steps:
-      - create_user  # Creates user with uid=1000, gid=1000, home=/home/appuser
+      - create: user  # creates 'nonroot' with uid=1000, gid=1000
 ```
 
-**Generated Dockerfile:** Creates user and group with specified IDs, skips if user is "root"
+The word `user` here is a keyword that resolves to whatever `names.user` is set to. It cannot be used when `names.user` is `root` -- root always exists in every container, so creating it is an error.
+
+**`create: <literal>`** - creates a user with that exact name. Use this for secondary or additional users (e.g. service accounts), not for the primary container user:
+
+```yaml
+steps:
+  - create: www-data-custom  # creates a literal user 'www-data-custom'
+```
+
+**`create: root`** is always an error. Root exists in every container image by default, so there is nothing to create.
+
+**Defaults:**
+
+- `uid`: 1000
+- `gid`: 1000
+- `home`: `/home/<username>`
+
+For rare cases where the host uid/gid must differ, `build.sh` accepts `--uid` and `--gid` flags.
 
 ---
 
-### 4. `become_user`
+### 2. `become: <target>`
 
-Switches the current user context from root to the configured non-root user. Also sets the user context for subsequent `copy` steps.
+Switches the current user context. Sets the Dockerfile `USER` directive and controls whether subsequent `copy` steps add `--chown`.
 
-**Requires:** `create_user` step in same or parent stage, user config defined
+**`become: user`** (keyword) - switches to the user defined by `names.user`. Cannot be used when `names.user` is `root`, because containers already run as root by default -- the step would be redundant.
 
-**Alias:** `switch_user` (deprecated, still works)
+**`become: root`** - switches back to root. Useful for privileged operations after a previous `become: user`.
+
+**`become: <literal>`** - switches to any other user by name (e.g. `become: www-data`, `become: mysql`). Docker resolves the username against `/etc/passwd` at build time, so this works for users that already exist in the base image without needing a `create` step.
+
+```yaml
+names:
+  image: my-project
+  user: nonroot
+
+stages:
+  base:
+    from: python:3.11-slim
+    steps:
+      - create: user
+      - become: user                    # USER nonroot (resolved from names.user)
+      - copy: entrypoint.sh /opt/       # COPY --chown=nonroot:nonroot ...
+      - become: root                    # USER root
+      - copy: default.conf /etc/nginx/  # COPY default.conf /etc/nginx/ (no --chown)
+```
+
+**Generated Dockerfile:** `USER <username>`
+
+---
+
+### 3. `copy: workspace`
+
+The word `workspace` here is a keyword -- it resolves to the directory named by `names.workspace` (default: `workspace`). This copies the entire workspace directory into the image, typically for production builds. Context-aware -- adds `--chown` when `become` is active.
 
 ```yaml
 stages:
   production:
     from: base
     steps:
-      - create_user
-      - become_user
-      - copy app /app
-```
-
-**Generated Dockerfile:** Sets `USER user`
-
----
-
-### 5. `become_root`
-
-Switches user context back to root (if needed after `become_user`).
-
-**Requires:** `become_user` step executed previously
-
-**Alias:** `switch_root` (deprecated, still works)
-
-```yaml
-stages:
-  production:
-    steps:
-      - become_user
-      - RUN echo "running as user"
-      - become_root
-      - RUN echo "back to root"
-```
-
-**Generated Dockerfile:** Sets `USER root`
-
----
-
-### 6. `copy_cached_assets`
-
-Copies pre-downloaded assets into the image (avoids re-downloading during builds).
-
-**Requires:** `cached_assets` defined in stage
-
-**Generated Dockerfile:** Copies files from build cache into image with `--chown` applied automatically if a user is configured
-
-!!! note
-    Must be explicitly added to `steps` to copy assets into image. Assets are downloaded but not used if this step is missing.
-
-See [Cached Assets](cached-assets.md) for detailed usage and configuration.
-
----
-
-### 7. `copy_workspace`
-
-Copies the entire workspace directory into the image (typically for production builds).
-
-```yaml
-stages:
-  production:
-    from: base
-    steps:
-      - copy_workspace
+      - become: user
+      - copy: workspace
 ```
 
 **Generated Dockerfile:**
 
-- Without user: `COPY workspace ${WORKSPACE}`
-- With user: `COPY --chown=${USER_UID}:${USER_GID} workspace ${WORKSPACE}`
+- Without active user: `COPY workspace ${WORKSPACE}`
+- With active user: `COPY --chown=<username>:<username> workspace ${WORKSPACE}`
 
 !!! note
-    This is the automatic default step for the production stage if not specified.
+    This is the automatic default step for the production stage if no steps are specified.
+
+A single-token `copy:` that does not match `names.workspace` is treated as a directory copy into the user's home, but container-magic will flag it:
+
+- **Warning** if the workspace is never copied -- you probably meant `copy: workspace` or need to update `names.workspace`
+- **Info** if the workspace is also copied -- you're copying an extra directory alongside the workspace, which is fine
+
+This mirrors the `create:` step behaviour: the keyword form (`copy: workspace`) is the primary mechanism, and literal values are allowed but flagged to catch mistakes.
 
 ---
 
-### 8. `copy`
+### 4. `copy`
 
-User-context-aware file copy. Behaves like Docker's `COPY` but automatically adds `--chown=${USER_UID}:${USER_GID}` when `become_user` is active. Lowercase = smart abstraction, uppercase `COPY` = raw Dockerfile passthrough.
+User-context-aware file copy. Behaves like Docker's `COPY` but automatically adds `--chown=<username>:<username>` when `become` is active for a non-root user. Lowercase = smart abstraction, uppercase `COPY` = raw Dockerfile passthrough.
 
 ```yaml
+names:
+  image: my-project
+  user: nonroot
+
 stages:
   base:
     from: python:3.11-slim
     steps:
-      - create_user
-      - become_user
-      - copy app /app
-      - copy config.yaml /etc/app/config.yaml
+      - create: user
+      - become: user
+      - copy: config.yaml /etc/myservice/config.yaml
+      - copy: scripts/init.sh /opt/init.sh
 ```
 
 **Generated Dockerfile:**
 
 ```dockerfile
-COPY --chown=${USER_UID}:${USER_GID} app /app
-COPY --chown=${USER_UID}:${USER_GID} config.yaml /etc/app/config.yaml
+COPY --chown=nonroot:nonroot config.yaml /etc/myservice/config.yaml
+COPY --chown=nonroot:nonroot scripts/init.sh /opt/init.sh
 ```
 
-If the `copy` step appears before `become_user` or after `become_root`, it generates a plain `COPY` without `--chown`. User context is inherited from parent stages — if a parent ends with `become_user`, child stages start with user context active.
-
----
-
-### 9. `copy_as_user`
-
-Copies files with user ownership regardless of the current user context. Always adds `--chown=${USER_UID}:${USER_GID}`.
-
-```yaml
-steps:
-  - create_user
-  - copy_as_user config/app.conf /home/appuser/.config/
-  - become_user
-```
-
-**Use case:** Set up user-owned files while still running as root, before switching context.
-
----
-
-### 10. `copy_as_root`
-
-Copies files with root ownership regardless of the current user context. Never adds `--chown`.
-
-```yaml
-steps:
-  - create_user
-  - become_user
-  - copy_as_root config/system.conf /etc/app/
-  - copy app /home/appuser/app
-```
-
-**Use case:** Copy root-owned system files without needing to switch context back and forth. Equivalent to uppercase `COPY` but keeps your steps in the container-magic vocabulary.
+If the `copy` step appears before `become` or after `become: root`, it generates a plain `COPY` without `--chown`. User context is inherited from parent stages -- if a parent ends with `become: user`, child stages start with user context active.
 
 ### Copying from other stages (`--from=`)
 
-All three copy variants support Docker's `--from=<stage>` syntax for copying artefacts between stages that don't inherit from each other. This is useful for multi-stage builds where a heavy builder stage compiles dependencies and a lightweight runtime stage copies only the installed artefacts:
+The `copy` step supports Docker's `--from=<stage>` syntax for copying artefacts between stages that don't inherit from each other. This is useful for multi-stage builds where a heavy builder stage compiles dependencies and a lightweight runtime stage copies only the installed artefacts:
 
 ```yaml
 stages:
   builder:
     from: ubuntu:24.04
-    packages:
-      apt: [build-essential, cmake]
     steps:
-      - install_system_packages
+      - apt-get:
+          install:
+            - build-essential
+            - cmake
       - /tmp/build_deps.sh
 
   base:
     from: ubuntu:24.04
     steps:
-      - install_system_packages
-      - copy_as_root --from=builder /usr/local/lib /usr/local/lib
-      - copy_as_root --from=builder /usr/local/include /usr/local/include
+      - copy: --from=builder /usr/local/lib /usr/local/lib
+      - copy: --from=builder /usr/local/include /usr/local/include
       - ldconfig
 ```
 
@@ -274,17 +161,90 @@ COPY --from=builder /usr/local/lib /usr/local/lib
 COPY --from=builder /usr/local/include /usr/local/include
 ```
 
-With `copy_as_user`, `--chown` is added automatically:
+When `become` is active, `--chown` is added automatically:
 
 ```yaml
-- copy_as_user --from=builder /opt/app /home/appuser/app
+- become: user
+- copy: --from=builder /usr/local/bin/myapp /usr/local/bin/myapp
 ```
 
 ```dockerfile
-COPY --chown=${USER_UID}:${USER_GID} --from=builder /opt/app /home/appuser/app
+COPY --chown=user:user --from=builder /usr/local/bin/myapp /usr/local/bin/myapp
 ```
 
-The `--from=` argument should reference a stage name defined in the same `cm.yaml`. The stage doesn't need to be a parent — it can be any stage in the build.
+The `--from=` argument should reference a stage name defined in the same `cm.yaml`. The stage doesn't need to be a parent -- it can be any stage in the build.
+
+---
+
+### 5. `run`
+
+Combines multiple commands into a single `RUN` instruction (one Docker layer). Commands are joined with `&& \` automatically:
+
+```yaml
+steps:
+  - run:
+      - mkdir -p /opt/app
+      - cd /opt/app
+      - git clone --depth 1 https://github.com/example/repo.git
+      - cd repo
+      - make install
+```
+
+Use this when commands are logically one operation -- for example, cloning a repository and building it. Shell state (`cd`, sourced environments, shell variables) persists across lines because everything runs in a single shell invocation.
+
+For a single command, a bare string is simpler:
+
+```yaml
+steps:
+  - echo "hello"     # becomes RUN echo "hello"
+```
+
+See [Multi-command Steps](#multi-command-steps) for more examples and [Docker Layer Caching](#docker-layer-caching) for when to combine vs separate commands.
+
+---
+
+### 6. `env`
+
+Sets environment variables in the image. Accepts either a dict or a list:
+
+**Dict form:**
+
+```yaml
+steps:
+  - env:
+      DATABASE_URL: postgresql://localhost/mydb
+      API_KEY: test-key-123
+      LOG_LEVEL: debug
+```
+
+**List form:**
+
+```yaml
+steps:
+  - env:
+      - DATABASE_URL: postgresql://localhost/mydb
+      - API_KEY: test-key-123
+      - LOG_LEVEL: debug
+```
+
+Both forms generate the same Dockerfile output. The list form also accepts `KEY=value` strings:
+
+```yaml
+steps:
+  - env:
+      - DATABASE_URL=postgresql://localhost/mydb
+      - API_KEY=test-key-123
+```
+
+Consecutive `env` steps are automatically merged into a single `ENV` instruction in the Dockerfile.
+
+**Generated Dockerfile:**
+
+```dockerfile
+ENV DATABASE_URL="postgresql://localhost/mydb" \
+    API_KEY="test-key-123" \
+    LOG_LEVEL="debug"
+```
 
 ---
 
@@ -305,28 +265,27 @@ steps:
   - LABEL maintainer="you@example.com"
 
   # These are automatically wrapped with RUN
-  - pip install requests          # → RUN pip install requests
-  - apt-get update                # → RUN apt-get update
-  - echo "hello"                  # → RUN echo "hello"
+  - pip install requests          # becomes RUN pip install requests
+  - apt-get update                # becomes RUN apt-get update
+  - echo "hello"                  # becomes RUN echo "hello"
 ```
 
-This means you can write steps concisely — just write the command and container-magic adds the `RUN` for you.
+This means you can write steps concisely -- just write the command and container-magic adds the `RUN` for you.
 
-### Multi-line Steps
+### Multi-command Steps
 
-Use a YAML `|` block to combine multiple commands into a **single `RUN` instruction** (and therefore a single Docker layer). Lines are automatically joined with `&& \`:
+Use `run:` with a list to combine multiple commands into a **single `RUN` instruction** (and therefore a single Docker layer). Commands are automatically joined with `&& \`:
 
 ```yaml
 steps:
-  - install_system_packages
-  - |
-    mkdir -p /opt/my_project/src
-    cd /opt/my_project/src
-    git clone --depth 1 https://github.com/example/repo.git
-    cd repo
-    cmake -B build
-    cmake --build build
-    cmake --install build
+  - run:
+      - mkdir -p /opt/my_project/src
+      - cd /opt/my_project/src
+      - git clone --depth 1 https://github.com/example/repo.git
+      - cd repo
+      - cmake -B build
+      - cmake --build build
+      - cmake --install build
 ```
 
 **Generated Dockerfile:**
@@ -341,29 +300,28 @@ RUN mkdir -p /opt/my_project/src && \
     cmake --install build
 ```
 
-This is particularly useful when commands share shell state — `cd` changes, sourced environments, and shell variables all persist across lines because everything runs in a single shell invocation. No need for a `bash -c '...'` wrapper.
+This is particularly useful when commands share shell state -- `cd` changes, sourced environments, and shell variables all persist across lines because everything runs in a single shell invocation.
 
-**Example — building a ROS2 workspace:**
+**Example -- building a ROS2 workspace:**
 
 ```yaml
 steps:
-  - install_system_packages
-  - |
-    mkdir -p /opt/ros_ws/src
-    cd /opt/ros_ws/src
-    git clone --depth 1 https://github.com/example/ros_package.git
-    cd /opt/ros_ws
-    . /opt/ros/jazzy/setup.sh
-    colcon build
+  - run:
+      - mkdir -p /opt/ros_ws/src
+      - cd /opt/ros_ws/src
+      - git clone --depth 1 https://github.com/example/ros_package.git
+      - cd /opt/ros_ws
+      - . /opt/ros/jazzy/setup.sh
+      - colcon build
 ```
 
-The `. /opt/ros/jazzy/setup.sh` (source) sets up the ROS environment, and `colcon build` on the next line can use it — because they're in the same `RUN`.
+The `. /opt/ros/jazzy/setup.sh` (source) sets up the ROS environment, and `colcon build` on the next line can use it -- because they're in the same `RUN`.
 
-### Single-line vs Multi-line: Docker Layer Caching
+### Docker Layer Caching
 
 Each step becomes one Docker layer. This gives you explicit control over caching:
 
-**Separate steps** — each gets its own layer with independent caching:
+**Separate steps** -- each gets its own layer with independent caching:
 
 ```yaml
 steps:
@@ -374,14 +332,14 @@ steps:
 
 If only the third step changes, Docker reuses the cached layers for the first two. Good for iterating on later steps during development.
 
-**Combined step** — everything in one layer, rebuilt together:
+**Combined step** -- everything in one layer, rebuilt together:
 
 ```yaml
 steps:
-  - |
-    apt-get update
-    apt-get install -y cuda-toolkit-12-6
-    dpkg -i /tmp/some-package.deb
+  - run:
+      - apt-get update
+      - apt-get install -y cuda-toolkit-12-6
+      - dpkg -i /tmp/some-package.deb
 ```
 
 If anything changes, the entire layer rebuilds. Good for related commands that should always run together (like cloning a repo and building it).
@@ -392,10 +350,9 @@ If anything changes, the entire layer rebuilds. Good for related commands that s
 
 You can reference container-magic variables in custom steps:
 
-- `${WORKSPACE}` — Workspace directory path
-- `${WORKDIR}` — User home directory (e.g. `/home/appuser`)
-- `${USER_NAME}` — Non-root user name (if configured)
-- `${USER_UID}` / `${USER_GID}` — User IDs
+- `${WORKSPACE}` - Workspace directory path
+- `${USER_NAME}` - Non-root user name (if `create: user` was used)
+- `${USER_UID}` / `${USER_GID}` - User IDs
 
 ## Using `$WORKSPACE` in Container Scripts
 
@@ -425,7 +382,7 @@ stages:
   base:
     from: python:3.11
     steps:
-      - copy_workspace
+      - copy: workspace
       - RUN python ${WORKSPACE}/setup.py build
       - RUN ${WORKSPACE}/scripts/init.sh
 ```
@@ -436,95 +393,188 @@ If you don't specify `steps`, container-magic applies defaults based on the stag
 
 **For stages FROM Docker images** (e.g., `from: python:3.11-slim`):
 
-```python
-steps = [
-    "install_system_packages",
-    "install_pip_packages",
-    "create_user",  # Only if user.production configured
-]
-```
+No default steps.
 
 **For stages FROM other stages** (e.g., `from: base`):
 
-```python
-steps = []  # Inherits packages from parent
-```
+No default steps.
 
-**For production stage:**
+**For the production stage:**
 
-```python
-steps = ["copy_workspace"]  # If not overridden
-```
+If no steps are specified, `copy: workspace` is added automatically.
 
 ## Step Ordering Rules
 
-1. **Steps execute in order** — left to right, top to bottom
-2. **User creation before switching** — `create_user` must come before `become_user`
-3. **Packages before custom commands** — install system/pip packages before using them
-4. **Assets before commands** — copy cached assets before commands that use them
-5. **User switching for security** — switch to non-root after setup, use `copy_as_root` or `become_root` if needed for privileged ops
+1. **Steps execute in order** - left to right, top to bottom
+2. **User creation before switching** - `create: user` must come before `become: user`
+3. **User switching for security** - switch to non-root after setup, use `become: root` if needed for privileged ops
 
 **Common approach:**
 
 ```yaml
 steps:
-  - install_system_packages
-  - install_pip_packages
-  - copy_cached_assets
-  - create_user
-  - become_user
-  - copy app /app
+  - create: user
+  - become: user
+  - copy: workspace
 ```
+
+## Package Installation
+
+Package managers can be used as structured steps. The command name determines which package manager is used:
+
+```yaml
+# Debian / Ubuntu
+steps:
+  - apt-get:
+      install:
+        - curl
+        - git
+
+# Alpine
+steps:
+  - apk:
+      add:
+        - curl
+        - git
+
+# Fedora / CentOS
+steps:
+  - dnf:
+      install:
+        - curl
+        - git
+
+# Python pip
+steps:
+  - pip:
+      install:
+        - requests
+        - numpy
+```
+
+### Registry Defaults
+
+Container-magic applies container-optimised defaults to each package manager automatically. You don't need to add these flags yourself -- they're handled for you:
+
+| Command | Setup | Flags | Cleanup |
+|---------|-------|-------|---------|
+| `apt-get install` | `apt-get update` | `-y --no-install-recommends` | `rm -rf /var/lib/apt/lists/*` |
+| `apk add` | -- | `--no-cache` | -- |
+| `dnf install` | -- | `-y` | `dnf clean all` |
+| `pip install` | -- | `--no-cache-dir` | -- |
+
+For example, this step:
+
+```yaml
+- apt-get:
+    install:
+      - curl
+      - git
+```
+
+generates a single `RUN` instruction equivalent to:
+
+```dockerfile
+RUN apt-get update && apt-get install -y --no-install-recommends curl git && rm -rf /var/lib/apt/lists/*
+```
+
+The defaults are defined in YAML files under `src/container_magic/registry/`. Each file defines the setup, flags, and cleanup for one command:
+
+```
+src/container_magic/registry/
+  apt-get.yaml
+  apk.yaml
+  dnf.yaml
+  pip.yaml
+```
+
+### Per-project Overrides
+
+You can override registry defaults in your `cm.yaml` using the `command_registry` field:
+
+```yaml
+command_registry:
+  apt-get:
+    install:
+      flags: "-y"    # Drop --no-install-recommends
+      cleanup: ""    # Skip cleanup
+```
+
+Overrides replace the entire entry for that command path -- they don't merge with the built-in defaults.
+
+### Adding New Registry Entries
+
+Contributors can add support for new package managers or tools by creating a YAML file in `src/container_magic/registry/`. The file name becomes the command name, and each top-level key is a subcommand:
+
+```yaml
+# src/container_magic/registry/pacman.yaml
+install:
+  setup: "pacman -Sy"
+  flags: "--noconfirm --needed"
+  cleanup: "pacman -Scc --noconfirm"
+```
+
+Each entry supports three optional fields:
+
+- `setup` -- command to run before the main command (e.g. updating the package index)
+- `flags` -- flags appended to the command line
+- `cleanup` -- command to run after the main command (e.g. clearing caches to reduce layer size)
+
+All three are combined into a single `RUN` instruction to keep the layer count down.
 
 ## Common Patterns
 
 ### Multi-stage with shared base
 
 ```yaml
+names:
+  image: my-app
+  user: nonroot
+
 stages:
   base:
     from: python:3.11-slim
-    packages:
-      apt:
-        - git
-        - build-essential
-      pip:
-        - setuptools
     steps:
-      - install_system_packages
-      - install_pip_packages
+      - apt-get:
+          install:
+            - git
+            - build-essential
+      - pip:
+          install:
+            - setuptools
+      - create: user
+      - become: user
 
   development:
     from: base
-    packages:
-      pip: [pytest, black, mypy]  # Inline style works too
 
   production:
     from: base
-    packages:
-      pip:
-        - gunicorn
     steps:
-      - create_user
-      - become_user
-      - copy_workspace
+      - pip:
+          install:
+            - gunicorn
+      - copy: workspace
 ```
 
 ### Using cached assets for models
 
 ```yaml
+names:
+  image: ml-service
+  user: nonroot
+
+assets:
+  - model.safetensors: https://huggingface.co/bert-base-uncased/resolve/main/model.safetensors
+
 stages:
   base:
     from: pytorch/pytorch:latest
-    packages:
-      pip:
-        - transformers
-    cached_assets:
-      - url: https://huggingface.co/bert-base-uncased/resolve/main/model.safetensors
-        dest: /models/bert.safetensors
     steps:
-      - install_pip_packages
-      - copy_cached_assets
+      - pip:
+          install:
+            - transformers
+      - copy: model.safetensors /models/bert.safetensors
       - RUN python -c "from transformers import AutoModel; AutoModel.from_pretrained('/models')"
 ```
 
@@ -539,12 +589,3 @@ stages:
       - ENV PATH=/app/node_modules/.bin:$PATH
       - RUN npm install --global yarn
 ```
-
-## Validation Rules
-
-| Rule | Error | Solution |
-|------|-------|----------|
-| `become_user` without `create_user` | Warning | Add `create_user` step before `become_user` |
-| `create_user` without user config | Error | Define `user.production` in config |
-| `become_user` without user config | Error | Define `user.production` in config |
-| `cached_assets` without `copy_cached_assets` | Warning | Add `copy_cached_assets` step to use assets |

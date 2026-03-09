@@ -5,7 +5,7 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 import click
 
@@ -18,7 +18,6 @@ from container_magic.generators.run_script import generate_run_script
 from container_magic.generators.standalone_commands import (
     generate_standalone_command_scripts,
 )
-from container_magic.core.templates import detect_package_manager
 
 
 def update_gitignore(path: Path):
@@ -135,11 +134,6 @@ def cli():
     help="Directory to create project in (default: current directory)",
 )
 @click.option(
-    "--compact",
-    is_flag=True,
-    help="Use compact config (cm.yaml) without comments",
-)
-@click.option(
     "--here",
     "--in-place",
     "in_place",
@@ -150,10 +144,9 @@ def init(
     template: str,
     name: Optional[str],
     path: Optional[Path],
-    compact: bool,
     in_place: bool,
 ):
-    """Initialize a new container-magic project from a template."""
+    """Initialise a new container-magic project from a template."""
     # Determine project name
     if name is None:
         if in_place:
@@ -166,7 +159,7 @@ def init(
             )
             sys.exit(1)
 
-    click.echo(f"Initializing {name} from {template} template...")
+    click.echo(f"Initialising {name} from {template} template...")
 
     # Determine project path
     if in_place:
@@ -195,34 +188,23 @@ def init(
     # If no tag specified, append :latest
     base_image = f"{template}:latest" if ":" not in template else template
 
-    # Scaffold the correct package manager field based on the base image
-    pkg_mgr = detect_package_manager(base_image)
-    packages = {pkg_mgr: [], "pip": []}
-
     config = ContainerMagicConfig(
-        project={
-            "name": name,
-            "workspace": "workspace",
-        },
-        user={
-            "development": {"host": True},
-            "production": {"name": "user"},
-        },
+        names={"image": name, "workspace": "workspace", "user": "nonroot"},
         stages={
             "base": {
                 "from": base_image,
-                "packages": packages,
-                "steps": ["create_user"],
+                "steps": [{"create": "user"}, {"become": "user"}],
             },
-            "development": {"from": "base", "steps": ["become_user"]},
-            "production": {"from": "base"},
+            "development": {"from": "base"},
+            "production": {
+                "from": "base",
+                "steps": [{"copy": "workspace"}],
+            },
         },
     )
 
-    # Choose filename based on compact flag
-    config_filename = "cm.yaml" if compact else "container-magic.yaml"
-    config_path = path / config_filename
-    config.to_yaml(config_path, compact=compact)
+    config_path = path / "cm.yaml"
+    config.to_yaml(config_path)
 
     # Create workspace directory if it doesn't exist
     workspace_dir = path / "workspace"
@@ -244,7 +226,7 @@ def init(
     click.echo(f"✓ Created {name}")
     click.echo("Next steps:")
     click.echo(f"  cd {name}")
-    click.echo("  cm build")
+    click.echo("  just build")
 
 
 @cli.command()
@@ -252,7 +234,7 @@ def init(
     "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
 )
 def update(path: Path):
-    """Regenerate all files from config (cm.yaml or container-magic.yaml)."""
+    """Regenerate all files from config (cm.yaml)."""
     config_path = find_config_file(path)
 
     click.echo("Regenerating files from configuration...")
@@ -273,79 +255,25 @@ def update(path: Path):
     click.echo("✓ Regenerated successfully")
 
 
-@cli.command()
-@click.option(
-    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
-)
-def generate(path: Path):
-    """Regenerate all files from config (alias for update)."""
-    update.callback(path)
-
-
-@cli.command()
-@click.option(
-    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
-)
-def build(path: Path):
-    """Build container image (regenerates if config changed)."""
-    config_path = find_config_file(path)
-
-    # Load config to check for cached assets
-    config = ContainerMagicConfig.from_yaml(config_path)
-
-    # Download cached assets from all stages
+def _download_assets(config: ContainerMagicConfig, project_dir: Path):
+    """Download all project-level assets."""
     from container_magic.core.cache import cache_asset
 
     has_assets = False
-    for stage_name, stage_config in config.stages.items():
-        if stage_config.cached_assets:
-            if not has_assets:
-                click.echo("Downloading cached assets...")
-                has_assets = True
-            for asset in stage_config.cached_assets:
-                try:
-                    asset_dir, asset_file = cache_asset(path, asset.url, asset.dest)
-                    if asset_file.exists():
-                        click.echo(
-                            f"  ✓ [{stage_name}] {asset.url} → {asset_file.relative_to(path)}"
-                        )
-                except Exception as e:
-                    click.echo(
-                        f"  ✗ [{stage_name}] Failed to download {asset.url}: {e}",
-                        err=True,
-                    )
-                    sys.exit(1)
 
-    # Check if just is available
-    if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        _show_just_install_help()
-        sys.exit(1)
-
-    # Call just build
-    result = subprocess.run(["just", "build"], cwd=path, stdout=None, stderr=None)
-    sys.exit(result.returncode)
-
-
-@cli.command()
-@click.argument("command", nargs=-1, required=False)
-@click.option(
-    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
-)
-def run(command: Tuple[str, ...], path: Path):
-    """Run a command in the container."""
-    find_config_file(path)
-
-    # Check if just is available
-    if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        _show_just_install_help()
-        sys.exit(1)
-
-    # Call just run with command
-    just_args = ["just", "run"]
-    if command:
-        just_args.extend(command)
-    result = subprocess.run(just_args, cwd=path, stdout=None, stderr=None)
-    sys.exit(result.returncode)
+    for item in config.assets:
+        if not has_assets:
+            click.echo("Downloading assets...")
+            has_assets = True
+        try:
+            asset_dir, asset_file = cache_asset(project_dir, item.url)
+            if asset_file.exists():
+                click.echo(
+                    f"  {item.filename} -> {asset_file.relative_to(project_dir)}"
+                )
+        except Exception as e:
+            click.echo(f"  Failed to download {item.url}: {e}", err=True)
+            sys.exit(1)
 
 
 @cli.group()
@@ -386,9 +314,10 @@ def cache_list(path: Path):
     click.echo(f"Cached assets ({len(assets)}):")
     for asset in assets:
         size_mb = asset["size"] / (1024 * 1024)
-        click.echo(f"  • {asset['filename']} ({size_mb:.2f} MB)")
+        click.echo(f"  {asset['filename']} ({size_mb:.2f} MB)")
         click.echo(f"    URL: {asset['url']}")
-        click.echo(f"    Dest: {asset['dest']}")
+        if asset.get("dest"):
+            click.echo(f"    Dest: {asset['dest']}")
         click.echo(f"    Hash: {asset['hash'][:16]}...")
 
 
@@ -404,24 +333,6 @@ def cache_path(path: Path):
     click.echo(str(cache_dir))
 
 
-@cli.command()
-@click.option(
-    "--path", type=Path, default=Path.cwd(), help="Project directory (default: current)"
-)
-def shell(path: Path):
-    """Open an interactive shell in the container."""
-    find_config_file(path)
-
-    # Check if just is available
-    if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        _show_just_install_help()
-        sys.exit(1)
-
-    # Call just shell
-    result = subprocess.run(["just", "shell"], cwd=path, stdout=None, stderr=None)
-    sys.exit(result.returncode)
-
-
 def main():
     """Entry point for cm command."""
     cli()
@@ -434,13 +345,13 @@ def run_main():
     project_dir = None
 
     for parent in [current_dir] + list(current_dir.parents):
-        if (parent / "cm.yaml").exists() or (parent / "container-magic.yaml").exists():
+        if (parent / "cm.yaml").exists():
             project_dir = parent
             break
 
     if not project_dir:
         click.echo(
-            "Error: No config file (cm.yaml or container-magic.yaml) found in current directory or parents",
+            "Error: No config file (cm.yaml) found in current directory or parents",
             err=True,
         )
         sys.exit(1)
@@ -480,13 +391,13 @@ def build_main():
     project_dir = None
 
     for parent in [current_dir] + list(current_dir.parents):
-        if (parent / "cm.yaml").exists() or (parent / "container-magic.yaml").exists():
+        if (parent / "cm.yaml").exists():
             project_dir = parent
             break
 
     if not project_dir:
         click.echo(
-            "Error: No config file (cm.yaml or container-magic.yaml) found in current directory or parents",
+            "Error: No config file (cm.yaml) found in current directory or parents",
             err=True,
         )
         sys.exit(1)
@@ -495,30 +406,7 @@ def build_main():
     config_path = find_config_file(project_dir)
     config = ContainerMagicConfig.from_yaml(config_path)
 
-    # Download cached assets from all stages
-    from container_magic.core.cache import cache_asset
-
-    has_assets = False
-    for stage_name, stage_config in config.stages.items():
-        if stage_config.cached_assets:
-            if not has_assets:
-                click.echo("Downloading cached assets...")
-                has_assets = True
-            for asset in stage_config.cached_assets:
-                try:
-                    asset_dir, asset_file = cache_asset(
-                        project_dir, asset.url, asset.dest
-                    )
-                    if asset_file.exists():
-                        click.echo(
-                            f"  ✓ [{stage_name}] {asset.url} → {asset_file.relative_to(project_dir)}"
-                        )
-                except Exception as e:
-                    click.echo(
-                        f"  ✗ [{stage_name}] Failed to download {asset.url}: {e}",
-                        err=True,
-                    )
-                    sys.exit(1)
+    _download_assets(config, project_dir)
 
     # Check if just is available
     if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:

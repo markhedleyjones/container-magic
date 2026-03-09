@@ -6,8 +6,8 @@ from typing import List
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.config import ContainerMagicConfig
+from container_magic.core.steps import has_create_user_in_stages
 from container_magic.core.templates import detect_shell, resolve_base_image
-from container_magic.generators.dockerfile import get_user_config
 
 
 def generate_standalone_command_scripts(
@@ -49,12 +49,12 @@ def generate_standalone_command_scripts(
     )
 
     # Determine backend
-    backend = config.runtime.backend if config.runtime else "auto"
+    backend = config.backend
 
-    # Determine workdir from production user config
-    user_cfg = get_user_config(config, target="production")
-    if user_cfg and user_cfg.name:
-        workdir = user_cfg.home or f"/home/{user_cfg.name}"
+    # Determine workdir from config.names
+    has_user = has_create_user_in_stages(config.stages)
+    if has_user and config.names.user:
+        workdir = f"/home/{config.names.user}"
     else:
         workdir = "/root"
 
@@ -80,7 +80,7 @@ def generate_standalone_command_scripts(
             content = template.render(
                 command_name=command_name,
                 description=command_spec.description,
-                project_name=config.project.name,
+                project_name=config.names.image,
                 workdir=workdir,
                 shell=shell,
                 backend=backend,
@@ -92,7 +92,7 @@ def generate_standalone_command_scripts(
                 env=command_spec.env,
                 ports=command_spec.ports,
                 command=command_escaped,
-                workspace_name=config.project.workspace,
+                workspace_name=config.names.workspace,
                 ipc=command_spec.ipc
                 or (config.runtime.ipc if config.runtime else None),
             )

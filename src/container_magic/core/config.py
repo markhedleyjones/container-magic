@@ -1,12 +1,18 @@
 """Configuration schema and validation for container-magic."""
 
 import sys
-import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 
 def _collect_extra_fields(model: BaseModel, path: str = "") -> List[str]:
@@ -17,7 +23,7 @@ def _collect_extra_fields(model: BaseModel, path: str = "") -> List[str]:
         for key in model.model_extra:
             extras.append(f"{path}.{key}" if path else key)
 
-    for field_name in model.model_fields:
+    for field_name in type(model).model_fields:
         value = getattr(model, field_name)
         field_path = f"{path}.{field_name}" if path else field_name
 
@@ -35,103 +41,109 @@ def find_config_file(path: Path) -> Path:
     """
     Find the config file to use.
 
-    Priority: cm.yaml > container-magic.yaml
-
     Raises:
-        SystemExit: If both files exist or neither exists
+        SystemExit: If config file not found or old name is used
     """
     cm_yaml = path / "cm.yaml"
     container_magic_yaml = path / "container-magic.yaml"
 
-    if cm_yaml.exists() and container_magic_yaml.exists():
-        print("Error: Both cm.yaml and container-magic.yaml found.", file=sys.stderr)
-        print("Please delete one to avoid confusion.", file=sys.stderr)
-        sys.exit(1)
-
     if cm_yaml.exists():
         return cm_yaml
     elif container_magic_yaml.exists():
-        return container_magic_yaml
+        print(
+            "Error: Rename container-magic.yaml to cm.yaml",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     else:
         print(
-            "Error: No config file found (cm.yaml or container-magic.yaml)",
+            "Error: No config file found (cm.yaml)",
             file=sys.stderr,
         )
         sys.exit(1)
 
 
-class UserTargetConfig(BaseModel):
-    """User configuration for a specific target (development, production, etc.)."""
+class AssetItem(BaseModel):
+    """Normalised asset entry (filename + URL)."""
 
-    model_config = ConfigDict(extra="allow")
+    filename: str
+    url: str
 
-    name: Optional[str] = Field(default=None, description="User name")
-    uid: Optional[int] = Field(default=None, description="User ID")
-    gid: Optional[int] = Field(default=None, description="Group ID")
-    home: Optional[str] = Field(
-        default=None, description="Home directory (defaults to /home/${name})"
-    )
-    host: Optional[bool] = Field(
-        default=None, description="Use host user (capture actual UID/GID at build time)"
-    )
 
-    @model_validator(mode="after")
-    def validate_host_field(self) -> "UserTargetConfig":
-        """Validate that host is true or omitted, never false."""
-        if self.host is False:
+def _parse_asset_items(raw_assets: list) -> List[AssetItem]:
+    """Parse raw asset list into normalised AssetItem objects.
+
+    Each item is either:
+    - A bare URL string (filename auto-derived from URL path)
+    - A single-key dict where the key is the filename and the value is the URL
+    """
+    from container_magic.core.cache import extract_filename_from_url
+
+    items: List[AssetItem] = []
+    seen_filenames: Dict[str, int] = {}
+
+    for i, entry in enumerate(raw_assets):
+        if isinstance(entry, str):
+            url = entry
+            if not url.startswith(("http://", "https://")):
+                raise ValueError(
+                    f"assets[{i}]: URL must start with http:// or https://, got '{url}'"
+                )
+            filename = extract_filename_from_url(url)
+            if not filename or filename == "asset":
+                raise ValueError(
+                    f"assets[{i}]: cannot derive filename from URL '{url}'. "
+                    "Use explicit naming: {{ my-file.bin: {url} }}"
+                )
+        elif isinstance(entry, dict):
+            if len(entry) != 1:
+                raise ValueError(
+                    f"assets[{i}]: named asset must be a single-key dict "
+                    f"(filename: url), got {len(entry)} keys"
+                )
+            filename, url = next(iter(entry.items()))
+            if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+                raise ValueError(
+                    f"assets[{i}]: URL must start with http:// or https://, got '{url}'"
+                )
+            if not filename:
+                raise ValueError(f"assets[{i}]: filename must not be empty")
+        else:
             raise ValueError(
-                "host must be true or omitted. "
-                "If false, just omit the host field and specify name, uid, gid instead"
+                f"assets[{i}]: must be a URL string or a {{filename: url}} dict, "
+                f"got {type(entry).__name__}"
             )
-        return self
 
-    @model_validator(mode="after")
-    def validate_host_exclusive(self) -> "UserTargetConfig":
-        """Validate that host: true is not combined with name/uid/gid."""
-        if self.host is True:
-            if self.name is not None or self.uid is not None or self.gid is not None:
-                raise ValueError(
-                    "host: true cannot be combined with name, uid, or gid. "
-                    "host: true means use the actual host user, so other fields are ignored"
-                )
-        return self
+        if filename in seen_filenames:
+            raise ValueError(
+                f"assets[{i}]: duplicate filename '{filename}' "
+                f"(first seen at index {seen_filenames[filename]})"
+            )
+        seen_filenames[filename] = i
+        items.append(AssetItem(filename=filename, url=url))
 
-    @model_validator(mode="after")
-    def validate_name_required(self) -> "UserTargetConfig":
-        """Validate that name is provided when host is not true."""
-        if self.host is not True and self.name is None:
-            if self.uid is not None or self.gid is not None or self.home is not None:
-                raise ValueError(
-                    "user name is required when uid, gid, or home is specified. "
-                    "Add name: <username> to your user configuration"
-                )
-        return self
+    return items
 
 
-class UserConfig(BaseModel):
-    """Top-level user configuration for different targets."""
+class NamesConfig(BaseModel):
+    """Naming configuration for the project."""
 
     model_config = ConfigDict(extra="allow")
 
-    development: Optional[UserTargetConfig] = Field(
-        default=None, description="User configuration for development target"
-    )
-    production: Optional[UserTargetConfig] = Field(
-        default=None, description="User configuration for production target"
-    )
-
-
-class ProjectConfig(BaseModel):
-    """Project configuration."""
-
-    model_config = ConfigDict(extra="allow")
-
-    name: str = Field(description="Project name")
+    image: str = Field(description="Image name")
     workspace: str = Field(default="workspace", description="Workspace directory name")
-    auto_update: bool = Field(
-        default=True,
-        description="Automatically regenerate files when config changes",
-    )
+    user: str = Field(description="Container username (or 'root' if no custom user)")
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_renamed_fields(cls, data):
+        """Reject fields that were renamed in v2 with migration messages."""
+        if isinstance(data, dict) and "project" in data and "image" not in data:
+            raise ValueError(
+                "names.project has been renamed to names.image. "
+                "Replace 'project' with 'image' in your names block."
+            )
+        return data
 
 
 class RuntimeConfig(BaseModel):
@@ -139,9 +151,6 @@ class RuntimeConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    backend: Literal["auto", "docker", "podman"] = Field(
-        default="auto", description="Container runtime to use"
-    )
     privileged: bool = Field(
         default=False, description="Run containers in privileged mode"
     )
@@ -164,8 +173,21 @@ class RuntimeConfig(BaseModel):
         default=None,
         description="IPC namespace mode (e.g. shareable, container:<name>, host, private)",
     )
-    # Deprecated: use network_mode instead
-    network: Optional[Literal["host", "bridge", "none"]] = Field(default=None)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_removed_fields(cls, data):
+        """Reject fields that were removed in v2 with migration messages."""
+        if not isinstance(data, dict):
+            return data
+        removed = {
+            "network": "Use 'network_mode' instead",
+            "backend": "Use root-level 'backend' instead of 'runtime.backend'",
+        }
+        for key, message in removed.items():
+            if key in data:
+                raise ValueError(f"runtime.{key} is not valid. {message}")
+        return data
 
     @field_validator("volumes")
     @classmethod
@@ -188,62 +210,6 @@ class RuntimeConfig(BaseModel):
                 raise ValueError("Device path must not be empty")
         return v
 
-    @model_validator(mode="after")
-    def migrate_deprecated_fields(self) -> "RuntimeConfig":
-        """Migrate deprecated runtime fields."""
-        if self.network is not None:
-            if self.network:
-                warnings.warn(
-                    "runtime.network is deprecated, use runtime.network_mode instead",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                if self.network_mode is None:
-                    self.network_mode = self.network
-            self.network = None
-        return self
-
-
-class PackagesConfig(BaseModel):
-    """Package installation configuration."""
-
-    model_config = ConfigDict(extra="allow")
-
-    apt: Optional[List[str]] = Field(
-        default=None, description="APT packages to install"
-    )
-    apk: Optional[List[str]] = Field(
-        default=None, description="APK packages to install"
-    )
-    dnf: Optional[List[str]] = Field(
-        default=None, description="DNF packages to install"
-    )
-    pip: List[str] = Field(
-        default_factory=list, description="Python pip packages to install"
-    )
-
-
-class CachedAsset(BaseModel):
-    """Cached asset configuration."""
-
-    model_config = ConfigDict(extra="allow")
-
-    url: str = Field(description="URL to download asset from")
-    dest: str = Field(description="Destination path in container")
-
-    @model_validator(mode="before")
-    @classmethod
-    def check_for_path_field(cls, data: Any) -> Any:
-        """Provide helpful error message if user tries to use 'path' instead of 'url'."""
-        if isinstance(data, dict) and "path" in data:
-            raise ValueError(
-                "cached_assets does not support 'path' field. "
-                "Use 'url' for remote HTTP/HTTPS resources. "
-                "For local workspace files, use a COPY step instead: "
-                "'COPY workspace/path/to/file /container/path'"
-            )
-        return data
-
 
 class StageConfig(BaseModel):
     """Build stage configuration."""
@@ -251,24 +217,15 @@ class StageConfig(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     frm: str = Field(description="Base image or stage name to build from", alias="from")
-    packages: PackagesConfig = Field(default_factory=PackagesConfig)
     package_manager: Optional[Literal["apt", "apk", "dnf"]] = Field(
         default=None, description="Package manager (auto-detected if not specified)"
     )
     shell: Optional[str] = Field(
         default=None, description="Default shell (auto-detected if not specified)"
     )
-    env: Dict[str, str] = Field(
-        default_factory=dict, description="Environment variables to set in Dockerfile"
-    )
-    cached_assets: List[CachedAsset] = Field(
-        default_factory=list,
-        description="Assets to download and cache on host, then copy into image",
-    )
-    steps: Optional[List[str]] = Field(
+    steps: Optional[List[Union[str, Dict[str, Any]]]] = Field(
         default=None,
-        description="Ordered list of build steps with special keywords: install_system_packages, install_pip_packages, create_user, become_user, become_root, copy, copy_as_user, copy_as_root, copy_cached_assets, copy_workspace (aliases: switch_user, switch_root)",
-        validation_alias="build_steps",  # Accept old name for backwards compatibility
+        description="Ordered list of build steps: bare strings for keywords or Dockerfile passthrough, dicts for structured commands (run, copy, env, or command builder syntax)",
     )
 
 
@@ -333,24 +290,86 @@ class ContainerMagicConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    project: ProjectConfig
-    user: Optional[UserConfig] = Field(
-        default=None,
-        description="User configuration for development and production targets",
+    backend: Literal["auto", "docker", "podman"] = Field(
+        default="auto", description="Container runtime to use"
+    )
+    names: NamesConfig
+    auto_update: bool = Field(
+        default=True,
+        description="Automatically regenerate files when config changes",
+    )
+    assets: List[AssetItem] = Field(
+        default_factory=list,
+        description="Assets to download and cache (URLs or {filename: url} dicts)",
     )
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     stages: Dict[str, StageConfig]
     commands: Dict[str, CustomCommand] = Field(
         default_factory=dict, description="Custom command definitions"
     )
+    command_registry: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Per-project command registry overrides for structured step syntax",
+    )
     build_script: BuildScriptConfig = Field(default_factory=BuildScriptConfig)
+
+    @field_validator("assets", mode="before")
+    @classmethod
+    def parse_assets(cls, v):
+        """Parse raw asset list into AssetItem objects."""
+        if not v:
+            return []
+        return _parse_asset_items(v)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_removed_blocks(cls, data):
+        """Reject removed config blocks with migration messages."""
+        if not isinstance(data, dict):
+            return data
+
+        if "user" in data:
+            raise ValueError(
+                "The 'user' config block is no longer supported. "
+                "Define the username in 'names.user' instead:\n"
+                "  names:\n"
+                "    image: my-project\n"
+                "    user: appuser"
+            )
+
+        if "project" in data:
+            raise ValueError(
+                "The 'project' config block has been replaced by 'names'. "
+                "Rename 'project' to 'names' and move 'name' to 'image':\n"
+                "  names:\n"
+                "    image: my-project\n"
+                "    workspace: workspace\n"
+                "    user: appuser"
+            )
+
+        return data
 
     @classmethod
     def from_yaml(cls, path: Path) -> "ContainerMagicConfig":
         """Load configuration from YAML file."""
         with open(path) as f:
             data = yaml.safe_load(f)
-        config = cls(**data)
+
+        try:
+            config = cls(**data)
+        except ValidationError as e:
+            for error in e.errors():
+                loc = (
+                    ".".join(str(part) for part in error["loc"]) if error["loc"] else ""
+                )
+                msg = error["msg"]
+                if msg.startswith("Value error, "):
+                    msg = msg[len("Value error, ") :]
+                if loc:
+                    print(f"Error: {loc}: {msg}", file=sys.stderr)
+                else:
+                    print(f"Error: {msg}", file=sys.stderr)
+            sys.exit(1)
 
         extra_fields = _collect_extra_fields(config)
         for field_path in extra_fields:
@@ -360,31 +379,48 @@ class ContainerMagicConfig(BaseModel):
 
         return config
 
-    def to_yaml(self, path: Path, compact: bool = True) -> None:
-        """Save configuration to YAML file.
-
-        Args:
-            path: Path to save YAML file
-            compact: If False, include helpful comments (default: True)
-        """
+    def to_yaml(self, path: Path) -> None:
+        """Save configuration to YAML file."""
         data = self.model_dump(exclude_none=True, by_alias=True)
 
-        # Remove auto_update from output when it matches the default (True)
-        # It's noise in the config — users only need it when opting out
-        if data.get("project", {}).get("auto_update") is True:
-            data["project"].pop("auto_update", None)
+        # Remove backend when it matches the default ("auto")
+        if data.get("backend") == "auto":
+            data.pop("backend", None)
 
-        # Strip empty system package lists only when a populated one exists,
-        # so configs with e.g. apt: [curl] don't also show apk: [] and dnf: [].
-        # When all are empty (e.g. scaffolds), keep them to hint which field to use.
-        for stage_data in data.get("stages", {}).values():
-            packages = stage_data.get("packages", {})
-            sys_pkg_fields = ("apt", "apk", "dnf")
-            has_populated = any(packages.get(f) for f in sys_pkg_fields)
-            if has_populated:
-                for pkg_mgr in sys_pkg_fields:
-                    if pkg_mgr in packages and packages[pkg_mgr] == []:
-                        del packages[pkg_mgr]
+        # Remove auto_update when it matches the default (True)
+        if data.get("auto_update") is True:
+            data.pop("auto_update", None)
+
+        # Serialise assets back to YAML-friendly format
+        raw_assets = data.get("assets", [])
+        if raw_assets:
+            from container_magic.core.cache import extract_filename_from_url
+
+            yaml_assets = []
+            for item in raw_assets:
+                url = item["url"]
+                filename = item["filename"]
+                auto_name = extract_filename_from_url(url)
+                if filename == auto_name:
+                    yaml_assets.append(url)
+                else:
+                    yaml_assets.append({filename: url})
+            data["assets"] = yaml_assets
+        else:
+            data.pop("assets", None)
+
+        # Omit default-valued blocks to keep scaffold minimal
+        if data.get("commands") == {}:
+            data.pop("commands", None)
+        if data.get("command_registry") == {}:
+            data.pop("command_registry", None)
+        build_script = data.get("build_script", {})
+        if build_script == {"default_target": "production"} or build_script == {}:
+            data.pop("build_script", None)
+        runtime = data.get("runtime", {})
+        default_runtime = RuntimeConfig().model_dump(exclude_none=True)
+        if runtime == {} or runtime == default_runtime:
+            data.pop("runtime", None)
 
         # Custom YAML dumper that adds blank lines between top-level sections
         class BlankLineDumper(yaml.SafeDumper):
@@ -412,20 +448,15 @@ class ContainerMagicConfig(BaseModel):
         lines = output.split("\n")
         formatted_lines = []
         for i, line in enumerate(lines):
-            # Add blank line before top-level keys (no leading whitespace)
             if line and not line[0].isspace() and i > 0 and formatted_lines:
                 formatted_lines.append("")
             formatted_lines.append(line)
 
         output = "\n".join(formatted_lines)
 
-        # Add comments if not compact
-        if not compact:
-            output = self._add_comments(output)
-        else:
-            # Add minimal header for compact config
-            compact_header = "# https://github.com/markhedleyjones/container-magic\n"
-            output = compact_header + output
+        # Add header
+        header = "# https://github.com/markhedleyjones/container-magic\n"
+        output = header + output
 
         with open(path, "w") as f:
             f.write(output)
@@ -440,128 +471,13 @@ class ContainerMagicConfig(BaseModel):
                 capture_output=True,
             )
 
-    def _add_comments(self, yaml_content: str) -> str:
-        """Add helpful comments to YAML content."""
-        header = """# container-magic.yaml
-# Configuration file for container-magic - a tool for containerised development environments
-#
-# Repository: https://github.com/markhedleyjones/container-magic
-# Install: pip install container-magic
-# For a more compact config without comments, use: cm init --compact
-
-"""
-
-        # Add section comments
-        commented = header + yaml_content
-
-        # Add comments above keys (only first occurrence)
-        replacements = [
-            ("project:", "# Project configuration\nproject:"),
-            ("  name:", "  # Project name (used for Docker image tagging)\n  name:"),
-            (
-                "  workspace:",
-                "  # Directory containing your code (mounted into container)\n  workspace:",
-            ),
-            (
-                "  auto_update:",
-                "  # Automatically regenerate Dockerfile and Justfile when this file changes\n  auto_update:",
-            ),
-            (
-                "user:",
-                "# User configuration for development and production targets\nuser:",
-            ),
-            (
-                "  development:",
-                "  # Development target user (development: { host: true } for actual host user)\n  development:",
-            ),
-            (
-                "  production:",
-                "  # Production target user (production: { name: user, uid: 1000, gid: 1000 })\n  production:",
-            ),
-            ("runtime:", "# Container runtime configuration\nruntime:"),
-            (
-                "  backend:",
-                "  # Container runtime: auto, docker, or podman\n  backend:",
-            ),
-            (
-                "  privileged:",
-                "  # Run containers in privileged mode (for hardware access)\n  privileged:",
-            ),
-            (
-                "  network_mode:",
-                "  # Container network mode: host, bridge, or none\n  network_mode:",
-            ),
-            (
-                "  features:",
-                "  # Features to enable: display, gpu, audio, aws_credentials\n  features:",
-            ),
-            (
-                "  volumes:",
-                "  # Additional bind mounts (host:container[:options])\n  volumes:",
-            ),
-            (
-                "  devices:",
-                "  # Host devices to pass through (/dev/ttyUSB0, etc.)\n  devices:",
-            ),
-            (
-                "  ipc:",
-                "  # IPC namespace mode: shareable, container:<name>, host, private\n  ipc:",
-            ),
-            ("stages:", "# Build stages - each stage builds on the previous\nstages:"),
-            ("  base:", "  # Base stage - foundation for all other stages\n  base:"),
-            (
-                "    from:",
-                "    # Base image to build from (any Docker image)\n    from:",
-            ),
-            ("    packages:", "    # Packages to install\n    packages:"),
-            (
-                "      apt:",
-                "      # System packages (apt-get install)\n      apt:",
-            ),
-            (
-                "      apk:",
-                "      # System packages (apk add)\n      apk:",
-            ),
-            (
-                "      dnf:",
-                "      # System packages (dnf install)\n      dnf:",
-            ),
-            ("      pip:", "      # Python packages\n      pip:"),
-            ("    env:", "    # Environment variables\n    env:"),
-            (
-                "    cached_assets:",
-                "    # Large files to download and cache (e.g. model weights)\n    cached_assets:",
-            ),
-            (
-                "  development:",
-                "  # Development stage - used when running locally\n  development:",
-            ),
-            (
-                "    steps:",
-                "    # Build steps: install_system_packages, install_pip_packages, create_user, become_user, become_root, copy, copy_as_user, copy_as_root, copy_cached_assets, copy_workspace\n    steps:",
-            ),
-            (
-                "  production:",
-                "  # Production stage - final deployable image\n  production:",
-            ),
-            (
-                "commands:",
-                "# Custom commands - define your own container commands\ncommands:",
-            ),
-        ]
-
-        for old, new in replacements:
-            commented = commented.replace(old, new, 1)  # Only replace first occurrence
-
-        return commented
-
-    @field_validator("project")
+    @field_validator("names")
     @classmethod
-    def validate_project_name(cls, v: ProjectConfig) -> ProjectConfig:
-        """Validate project name doesn't contain invalid characters."""
-        if not v.name.replace("-", "").replace("_", "").isalnum():
+    def validate_names_image(cls, v: NamesConfig) -> NamesConfig:
+        """Validate image name doesn't contain invalid characters."""
+        if not v.image.replace("-", "").replace("_", "").isalnum():
             raise ValueError(
-                "Project name must contain only alphanumeric characters, hyphens, and underscores"
+                "Image name must contain only alphanumeric characters, hyphens, and underscores"
             )
         return v
 
@@ -582,4 +498,68 @@ class ContainerMagicConfig(BaseModel):
                 f"build_script.default_target '{self.build_script.default_target}' "
                 f"does not exist in stages. Available stages: {', '.join(self.stages.keys())}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_user_and_workspace_steps(self) -> "ContainerMagicConfig":
+        """Validate user and workspace step consistency.
+
+        User rules:
+        - 'create: user' and 'become: user' require names.user != 'root'
+        - 'create: root' is rejected at step parse time
+        - 'create: <literal>' is allowed (secondary users)
+
+        Workspace rules (single-token 'copy:' steps only):
+        - 'copy: workspace' (matching names.workspace) is the primary mechanism
+        - 'copy: <other>' without also copying the workspace is a warning
+        - 'copy: <other>' alongside the workspace copy is an info
+        """
+        has_workspace_copy = False
+        literal_copies = []
+
+        for stage in self.stages.values():
+            if not stage.steps:
+                continue
+            for step in stage.steps:
+                if not isinstance(step, dict) or len(step) != 1:
+                    continue
+                key = next(iter(step))
+                value = step[key]
+                if key == "create" and value == "user":
+                    if self.names.user == "root":
+                        raise ValueError(
+                            "'create: user' cannot be used when names.user is 'root' "
+                            "(root always exists). Set names.user to a non-root username."
+                        )
+                elif key == "create" and isinstance(value, str) and value != "root":
+                    pass
+                if key == "become" and value == "user" and self.names.user == "root":
+                    raise ValueError(
+                        "'become: user' is redundant when names.user is 'root' "
+                        "(containers run as root by default). Remove the step."
+                    )
+                if key == "copy" and isinstance(value, str):
+                    # Single-token copies are workspace-style (copied into home)
+                    if " " not in value.strip():
+                        if value.strip() == self.names.workspace:
+                            has_workspace_copy = True
+                        else:
+                            literal_copies.append(value.strip())
+
+        for name in literal_copies:
+            if has_workspace_copy:
+                print(
+                    f"Info: 'copy: {name}' copies a directory that is not the "
+                    f"defined workspace ('{self.names.workspace}')",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"Warning: 'copy: {name}' copies a directory that is not the "
+                    f"defined workspace ('{self.names.workspace}'). "
+                    f"Use 'copy: {self.names.workspace}' to copy the workspace, "
+                    f"or update names.workspace if '{name}' is your workspace.",
+                    file=sys.stderr,
+                )
+
         return self

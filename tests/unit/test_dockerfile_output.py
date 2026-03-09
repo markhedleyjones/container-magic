@@ -1,12 +1,9 @@
-"""Tests for Dockerfile output correctness (Batch 1 from REVIEW.md).
-
-Each test demonstrates a current bug by asserting what the output SHOULD be.
-These tests are expected to FAIL against the current code, proving the bugs
-exist. Once the fixes are applied, they should pass.
-"""
+"""Tests for Dockerfile output correctness."""
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
 
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.generators.dockerfile import generate_dockerfile
@@ -24,7 +21,7 @@ def _generate(config_dict):
 def _base_config(**overrides):
     """Minimal valid config with overrides applied to the base stage."""
     config = {
-        "project": {"name": "test", "workspace": "workspace"},
+        "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
             "base": {"from": "python:3-slim", **overrides},
             "development": {"from": "base", "steps": []},
@@ -35,115 +32,30 @@ def _base_config(**overrides):
 
 
 # ---------------------------------------------------------------------------
-# 1.1 ENV values with spaces
-# ---------------------------------------------------------------------------
-
-
-class TestEnvValueQuoting:
-    def test_env_value_with_spaces(self):
-        """ENV values containing spaces must be quoted in the Dockerfile."""
-        config = _base_config(
-            env={"MY_VAR": "hello world"},
-            steps=[],
-        )
-        content = _generate(config)
-        # Docker parses unquoted `ENV MY_VAR=hello world` as two assignments:
-        # MY_VAR=hello and world= (empty). The value must be quoted.
-        assert 'ENV MY_VAR="hello world"' in content
-
-    def test_env_value_with_equals_sign(self):
-        """ENV values containing = should be quoted for consistency.
-
-        Docker splits on the first = only, so = in values technically works
-        unquoted. But quoting all values uniformly is safer and more readable.
-        """
-        config = _base_config(
-            env={"DATABASE_URL": "postgres://host:5432/db?opt=val"},
-            steps=[],
-        )
-        content = _generate(config)
-        assert 'ENV DATABASE_URL="postgres://host:5432/db?opt=val"' in content
-
-    def test_env_value_simple_no_spaces(self):
-        """Simple values without spaces should still work (quoting is harmless)."""
-        config = _base_config(
-            env={"MY_VAR": "hello"},
-            steps=[],
-        )
-        content = _generate(config)
-        # Either quoted or unquoted is fine for simple values
-        assert "ENV MY_VAR=" in content
-        assert "hello" in content
-
-    def test_env_value_with_dollar_sign(self):
-        """ENV values referencing other variables should be preserved."""
-        config = _base_config(
-            env={"PATH": "/app/bin:${PATH}"},
-            steps=[],
-        )
-        content = _generate(config)
-        # The ${PATH} reference must survive into the Dockerfile
-        assert "${PATH}" in content
-
-
-# ---------------------------------------------------------------------------
-# 1.2 Missing Dockerfile instruction passthrough
+# 1.1 Dockerfile instruction passthrough
 # ---------------------------------------------------------------------------
 
 
 class TestInstructionPassthrough:
-    def test_arg_instruction_not_wrapped_with_run(self):
-        """A custom step starting with ARG should not get a RUN prefix."""
-        config = _base_config(steps=["ARG BUILD_DATE"])
+    @pytest.mark.parametrize(
+        ("step", "instruction"),
+        [
+            ("ARG BUILD_DATE", "ARG"),
+            ('CMD ["python", "app.py"]', "CMD"),
+            ('ENTRYPOINT ["python"]', "ENTRYPOINT"),
+            ("HEALTHCHECK CMD curl -f http://localhost/", "HEALTHCHECK"),
+            ('SHELL ["/bin/bash", "-c"]', "SHELL"),
+            ("STOPSIGNAL SIGTERM", "STOPSIGNAL"),
+            ("ENV FOO=bar", "ENV"),
+            ("EXPOSE 8080", "EXPOSE"),
+            ("LABEL version=1", "LABEL"),
+        ],
+    )
+    def test_dockerfile_instruction_not_wrapped_with_run(self, step, instruction):
+        config = _base_config(steps=[step])
         content = _generate(config)
-        assert "ARG BUILD_DATE" in content
-        assert "RUN ARG BUILD_DATE" not in content
-
-    def test_cmd_instruction_not_wrapped_with_run(self):
-        """A custom step starting with CMD should not get a RUN prefix."""
-        config = _base_config(steps=['CMD ["python", "app.py"]'])
-        content = _generate(config)
-        assert 'CMD ["python", "app.py"]' in content
-        assert "RUN CMD" not in content
-
-    def test_entrypoint_instruction_not_wrapped_with_run(self):
-        """A custom step starting with ENTRYPOINT should not get a RUN prefix."""
-        config = _base_config(steps=['ENTRYPOINT ["python"]'])
-        content = _generate(config)
-        assert 'ENTRYPOINT ["python"]' in content
-        assert "RUN ENTRYPOINT" not in content
-
-    def test_healthcheck_instruction_not_wrapped_with_run(self):
-        """A custom step starting with HEALTHCHECK should not get a RUN prefix."""
-        config = _base_config(steps=["HEALTHCHECK CMD curl -f http://localhost/"])
-        content = _generate(config)
-        assert "HEALTHCHECK CMD curl -f http://localhost/" in content
-        assert "RUN HEALTHCHECK" not in content
-
-    def test_shell_instruction_not_wrapped_with_run(self):
-        """A custom step starting with SHELL should not get a RUN prefix."""
-        config = _base_config(steps=['SHELL ["/bin/bash", "-c"]'])
-        content = _generate(config)
-        assert 'SHELL ["/bin/bash", "-c"]' in content
-        assert "RUN SHELL" not in content
-
-    def test_stopsignal_instruction_not_wrapped_with_run(self):
-        """A custom step starting with STOPSIGNAL should not get a RUN prefix."""
-        config = _base_config(steps=["STOPSIGNAL SIGTERM"])
-        content = _generate(config)
-        assert "STOPSIGNAL SIGTERM" in content
-        assert "RUN STOPSIGNAL" not in content
-
-    def test_existing_passthrough_still_works(self):
-        """Existing passthrough instructions (ENV, COPY, etc.) still work."""
-        config = _base_config(steps=["ENV FOO=bar", "EXPOSE 8080", "LABEL version=1"])
-        content = _generate(config)
-        assert "ENV FOO=bar" in content
-        assert "RUN ENV" not in content
-        assert "EXPOSE 8080" in content
-        assert "RUN EXPOSE" not in content
-        assert "LABEL version=1" in content
-        assert "RUN LABEL" not in content
+        assert step in content
+        assert f"RUN {instruction}" not in content
 
     def test_plain_command_still_gets_run(self):
         """A non-instruction command should still get a RUN prefix."""
@@ -173,10 +85,45 @@ class TestMultiLineSteps:
             steps=["RUN apt-get update\napt-get install -y curl"],
         )
         content = _generate(config)
-        # The RUN prefix from the passthrough check should appear once,
-        # and the lines should be joined with &&
         assert "apt-get update" in content
         assert "apt-get install -y curl" in content
+
+    def test_pip_multi_package_not_joined_with_ampersand(self):
+        """Pip install with multiple packages should not get && between them."""
+        config = _base_config(
+            steps=[{"pip": {"install": ["numpy", "flask", "requests"]}}],
+        )
+        content = _generate(config)
+        assert "pip install --no-cache-dir" in content
+        assert "numpy" in content
+        assert "flask" in content
+        # Packages should NOT be joined with &&
+        assert (
+            "&&"
+            not in content.split("pip install")[1]
+            .split("\n\n")[0]
+            .replace("&& \\\n    rm", "&& rm")
+            or "&&" not in content.split("pip install")[1].split("rm")[0]
+        )
+
+    def test_pip_packages_are_arguments_not_commands(self):
+        """Each pip package should be an argument to pip install, not a separate command."""
+        config = _base_config(
+            steps=[{"pip": {"install": ["numpy", "flask"]}}],
+        )
+        content = _generate(config)
+        # Should have pip install with packages as continuation lines, not && separated
+        lines = content.split("\n")
+        pip_lines = [
+            line
+            for line in lines
+            if "pip install" in line or "numpy" in line or "flask" in line
+        ]
+        for line in pip_lines:
+            if "numpy" in line or "flask" in line:
+                assert "&& \\" not in line, (
+                    f"Package line should not have '&& \\\\': {line}"
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -205,17 +152,148 @@ class TestEmptyCopyArgs:
         except (ValueError, KeyError):
             pass  # Raising an error is also acceptable
 
-    def test_copy_as_user_with_no_arguments(self):
-        """A copy_as_user step with no arguments should raise or not produce a bare COPY."""
-        config = _base_config(steps=["copy_as_user "])
-        config["user"] = {"production": {"name": "testuser"}}
-        config["stages"]["base"]["steps"] = [
-            "create_user",
-            "become_user",
-            "copy_as_user ",
-        ]
-        try:
-            content = _generate(config)
-            self._assert_no_bare_copy(content)
-        except (ValueError, KeyError):
-            pass  # Raising an error is also acceptable
+
+# ---------------------------------------------------------------------------
+# 2.1 Stage preamble variants
+# ---------------------------------------------------------------------------
+
+
+def _get_stage_block(content, stage_name):
+    """Extract lines for a single stage from a generated Dockerfile."""
+    lines = content.splitlines()
+    start = None
+    end = None
+    for i, line in enumerate(lines):
+        if "FROM " in line and f" AS {stage_name}" in line:
+            start = i
+        elif start is not None and line.startswith("FROM "):
+            end = i
+            break
+    if start is not None:
+        return "\n".join(lines[start : end if end else len(lines)])
+    return ""
+
+
+class TestStagePreamble:
+    def test_image_stage_with_user_args(self):
+        """FROM Docker image with create: user step: full ARG block + WORKSPACE + WORKDIR."""
+        config = {
+            "names": {"image": "test", "workspace": "ws", "user": "app"},
+            "stages": {
+                "base": {
+                    "from": "python:3-slim",
+                    "steps": [{"create": "user"}, {"become": "user"}],
+                },
+                "development": {"from": "base", "steps": []},
+                "production": {"from": "base", "steps": []},
+            },
+        }
+        content = _generate(config)
+        base = _get_stage_block(content, "base")
+        assert "ARG USER_GID=" in base
+        assert "USER_UID=" in base
+        assert "USER_NAME=app" in base
+        assert "USER_HOME=/home/app" in base
+        assert "WORKSPACE_NAME=ws" in base
+        assert "ENV WORKSPACE=${USER_HOME}/${WORKSPACE_NAME}" in base
+        assert "WORKDIR ${USER_HOME}" in base
+
+    def test_image_stage_without_user_args(self):
+        """FROM Docker image without user steps: minimal ARG + WORKSPACE + WORKDIR."""
+        config = _base_config(steps=[])
+        content = _generate(config)
+        base = _get_stage_block(content, "base")
+        assert "ARG USER_HOME=" in base
+        assert "WORKSPACE_NAME=" in base
+        assert "ENV WORKSPACE=${USER_HOME}/${WORKSPACE_NAME}" in base
+        assert "WORKDIR ${USER_HOME}" in base
+        # No user-specific ARGs
+        assert "USER_GID" not in base
+        assert "USER_UID" not in base
+        assert "USER_NAME" not in base
+
+    def test_child_stage_with_become_configured_user(self):
+        """FROM another stage with become referencing configured user: needs ARGs."""
+        config = {
+            "names": {"image": "test", "workspace": "ws", "user": "app"},
+            "stages": {
+                "base": {"from": "python:3-slim", "steps": [{"create": "user"}]},
+                "development": {"from": "base", "steps": []},
+                "production": {
+                    "from": "base",
+                    "steps": [{"become": "user"}, {"copy": "workspace"}],
+                },
+            },
+        }
+        content = _generate(config)
+        prod = _get_stage_block(content, "production")
+        # Needs user ARGs because become references the configured user
+        # (created via ARGs in parent), so USER ${USER_NAME} is used
+        assert "USER_GID" in prod
+        assert "USER ${USER_NAME}" in prod
+        # No workspace setup (inherited from parent)
+        assert "WORKSPACE_NAME" not in prod
+        assert "WORKDIR" not in prod
+
+    def test_child_stage_without_user_args(self):
+        """FROM another stage without user steps: completely empty preamble."""
+        config = _base_config(steps=[])
+        content = _generate(config)
+        dev = _get_stage_block(content, "development")
+        # No ARG, ENV, or WORKDIR lines
+        assert "ARG " not in dev
+        assert "ENV " not in dev
+        assert "WORKDIR" not in dev
+
+    def test_no_env_workdir_in_output(self):
+        """ENV WORKDIR should never appear (removed variable)."""
+        config = _base_config(steps=[])
+        content = _generate(config)
+        assert "ENV WORKDIR" not in content
+
+
+# ---------------------------------------------------------------------------
+# 2.2 ENV merging
+# ---------------------------------------------------------------------------
+
+
+class TestEnvMerging:
+    def test_consecutive_env_steps_merged(self):
+        """Consecutive env steps produce a single ENV instruction."""
+        config = _base_config(
+            steps=[
+                {"env": {"PATH": "/usr/local/bin:$PATH"}},
+                {"env": {"LD_LIBRARY_PATH": "/usr/local/lib"}},
+            ],
+        )
+        content = _generate(config)
+        base = _get_stage_block(content, "base")
+        # Should be a single ENV with backslash continuation
+        assert 'ENV PATH="/usr/local/bin:$PATH" \\' in base
+        assert '    LD_LIBRARY_PATH="/usr/local/lib"' in base
+
+    def test_non_consecutive_env_steps_not_merged(self):
+        """Env steps separated by other steps remain separate."""
+        config = _base_config(
+            steps=[
+                {"env": {"FOO": "bar"}},
+                "echo hello",
+                {"env": {"BAZ": "qux"}},
+            ],
+        )
+        content = _generate(config)
+        base = _get_stage_block(content, "base")
+        assert 'ENV FOO="bar"' in base
+        assert 'ENV BAZ="qux"' in base
+
+    def test_single_env_step_no_continuation(self):
+        """Single-var env step produces a simple ENV line."""
+        config = _base_config(
+            steps=[{"env": {"MY_VAR": "value"}}],
+        )
+        content = _generate(config)
+        assert 'ENV MY_VAR="value"' in content
+        # No backslash
+        for line in content.splitlines():
+            if "MY_VAR" in line:
+                assert "\\" not in line

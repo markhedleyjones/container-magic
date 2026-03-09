@@ -10,60 +10,29 @@
 # Stage: {{ stage.name }}
 ################################################################################
 FROM {{ stage.from }} AS {{ stage.name }}
-{% if stage.needs_user_args %}
+{% if stage.from_is_image %}
 
-# User configuration
+{% if stage.needs_user_args %}
+ARG USER_GID={{ stage.user_gid }} \
+    USER_UID={{ stage.user_uid }} \
+    USER_NAME={{ stage.user }} \
+    USER_HOME={{ stage.user_home }} \
+    WORKSPACE_NAME={{ workspace_name }}
+{% else %}
+ARG USER_HOME={{ stage.user_home }} \
+    WORKSPACE_NAME={{ workspace_name }}
+{% endif %}
+ENV WORKSPACE=${USER_HOME}/${WORKSPACE_NAME}
+WORKDIR ${USER_HOME}
+{% elif stage.needs_user_args %}
+
 ARG USER_GID={{ stage.user_gid }} \
     USER_UID={{ stage.user_uid }} \
     USER_NAME={{ stage.user }} \
     USER_HOME={{ stage.user_home }}
 {% endif %}
-
-# Setup workspace
-ARG WORKSPACE_NAME={{ workspace_name }}
-{% if not stage.needs_user_args %}
-ARG USER_HOME={{ stage.user_home }}
-{% endif %}
-ENV WORKDIR=${USER_HOME}
-ENV WORKSPACE=${USER_HOME}/${WORKSPACE_NAME}
-WORKDIR ${USER_HOME}
-{% if stage.env_vars %}
-
-# Environment variables
-{% for key, value in stage.env_vars.items() %}
-ENV {{ key }}="{{ value }}"
-{% endfor %}
-{% endif %}
 {% for step in stage.ordered_steps %}
-{% if step.type == "system_packages" %}
-{% if stage.apt_packages %}
-# Install system packages (apt)
-RUN apt-get update && \
-    apt-get install --yes --no-install-recommends{% for package in stage.apt_packages %} \
-        {{ package }}{% endfor %} && \
-    rm -rf /var/lib/apt/lists/*
-{% endif %}
-{% if stage.apk_packages %}
-# Install system packages (apk)
-RUN apk add --no-cache{% for package in stage.apk_packages %} \
-        {{ package }}{% endfor %}
-
-{% endif %}
-{% if stage.dnf_packages %}
-# Install system packages (dnf)
-RUN dnf install -y{% for package in stage.dnf_packages %} \
-        {{ package }}{% endfor %} && \
-    dnf clean all
-
-{% endif %}
-{% elif step.type == "pip_packages" %}
-# Install Python pip packages
-{% if stage.pip_packages %}
-RUN pip install --no-cache-dir{% for package in stage.pip_packages %} \
-        {{ package }}{% endfor %}
-
-{% endif %}
-{% elif step.type == "create_user" %}
+{% if step.type == "create_user" %}
 # Create user account (handles renaming if UID exists with different name)
 {% if stage.user_creation_style == "alpine" %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
@@ -115,33 +84,37 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
         chown ${USER_UID}:${USER_GID} ${USER_HOME}; \
     fi
 {% endif %}
-{% elif step.type == "switch_user" %}
-# Switch to user
-USER ${USER_NAME}
-{% elif step.type == "switch_root" %}
-# Switch to root
-USER root
-{% elif step.type == "cached_assets" %}
-# Copy cached assets
-{% for asset in stage.cached_assets %}
-{% if stage.needs_user_args %}
-COPY --chown=${USER_UID}:${USER_GID} {{ asset.source }} {{ asset.dest }}
+{% elif step.type == "create_user_literal" %}
+{% if stage.user_creation_style == "alpine" %}
+RUN addgroup -g 1000 {{ step.name }} 2>/dev/null || true && \
+    adduser -D -u 1000 -G {{ step.name }} -h /home/{{ step.name }} {{ step.name }}
 {% else %}
-COPY {{ asset.source }} {{ asset.dest }}
+RUN groupadd --gid 1000 {{ step.name }} 2>/dev/null || true && \
+    useradd --uid 1000 --gid 1000 --home-dir /home/{{ step.name }} --create-home {{ step.name }}
 {% endif %}
-{% endfor %}
+{% elif step.type == "become" %}
+USER {{ step.name }}
 {% elif step.type == "copy_workspace" %}
-# Copy workspace into image
-{% if stage.needs_user_args %}
-COPY --chown=${USER_UID}:${USER_GID} {{ workspace_name }} ${WORKSPACE}
+{% if step.chown %}
+COPY --chown={{ step.chown }}:{{ step.chown }} {{ workspace_name }} ${WORKSPACE}
 {% else %}
 COPY {{ workspace_name }} ${WORKSPACE}
 {% endif %}
 {% elif step.type == "copy" %}
 {% if step.chown %}
-COPY --chown=${USER_UID}:${USER_GID} {{ step.args }}
+COPY --chown={{ step.chown }}:{{ step.chown }} {{ step.args }}
 {% else %}
 COPY {{ step.args }}
+{% endif %}
+{% elif step.type == "env" %}
+{% if step.vars | length == 1 %}
+{% for key, value in step.vars.items() %}
+ENV {{ key }}="{{ value }}"
+{% endfor %}
+{% else %}
+ENV {% for key, value in step.vars.items() %}{% if not loop.first %}    {% endif %}{{ key }}="{{ value }}"{% if not loop.last %} \
+{% endif %}{% endfor %}
+
 {% endif %}
 {% elif step.type == "custom" %}
 {% if step.command.startswith('ADD ') or step.command.startswith('ARG ') or step.command.startswith('CMD ') or step.command.startswith('COPY ') or step.command.startswith('ENTRYPOINT ') or step.command.startswith('ENV ') or step.command.startswith('EXPOSE ') or step.command.startswith('FROM ') or step.command.startswith('HEALTHCHECK ') or step.command.startswith('LABEL ') or step.command.startswith('RUN ') or step.command.startswith('SHELL ') or step.command.startswith('STOPSIGNAL ') or step.command.startswith('USER ') or step.command.startswith('VOLUME ') or step.command.startswith('WORKDIR ') %}

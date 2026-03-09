@@ -12,64 +12,56 @@ USER_NAME="{{ production_user_name }}"
 USER_UID="{{ production_user_uid }}"
 USER_GID="{{ production_user_gid }}"
 WORKDIR="{{ production_user_home }}"
-DEFAULT_TARGET="{{ default_target }}"
-AVAILABLE_TARGETS=({% for stage in available_stages %}"{{ stage }}"{{ " " if not loop.last }}{% endfor %})
+TARGET="{{ default_target }}"
+TAG="latest"
 
 # Detect runtime backend
+{%- if backend == "auto" %}
 if command -v podman >/dev/null 2>&1; then
 	RUNTIME="podman"
 elif command -v docker >/dev/null 2>&1; then
 	RUNTIME="docker"
 else
-	echo "Error: Neither docker nor podman found in PATH" >&2
+	echo "Error: Neither podman nor docker found in PATH" >&2
 	exit 1
 fi
+{%- else %}
+RUNTIME="{{ backend }}"
+{%- endif %}
 
 # Parse arguments
-TARGET="${1:-$DEFAULT_TARGET}"
-
-# Determine tag based on target
-if [[ "$TARGET" == "production" ]]; then
-	TAG="latest"
-else
-	TAG="$TARGET"
-fi
-
-# Show help if requested
-if [[ "$TARGET" == "--help" || "$TARGET" == "-h" ]]; then
-	echo "Usage: $0 [target]"
-	echo ""
-	echo "Build a Docker image for the specified target stage."
-	echo ""
-	echo "Arguments:"
-	echo "  target    Build target (default: $DEFAULT_TARGET)"
-	echo ""
-	echo "Available targets:"
-	for t in "${AVAILABLE_TARGETS[@]}"; do
-		if [[ "$t" == "$DEFAULT_TARGET" ]]; then
-			echo "  $t (default)"
-		else
-			echo "  $t"
-		fi
-	done
-	exit 0
-fi
-
-# Validate target
-valid_target=false
-for t in "${AVAILABLE_TARGETS[@]}"; do
-	if [[ "$t" == "$TARGET" ]]; then
-		valid_target=true
-		break
-	fi
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	--uid)
+		USER_UID="$2"
+		shift 2
+		;;
+	--gid)
+		USER_GID="$2"
+		shift 2
+		;;
+	--tag)
+		TAG="$2"
+		shift 2
+		;;
+	--help | -h)
+		echo "Usage: $0 [options]"
+		echo ""
+		echo "Build a Docker image for the {{ default_target }} target stage."
+		echo ""
+		echo "Options:"
+		echo "  --tag TAG     Override image tag (default: latest)"
+		echo "  --uid UID     Override user UID (default: $USER_UID)"
+		echo "  --gid GID     Override user GID (default: $USER_GID)"
+		exit 0
+		;;
+	*)
+		echo "Error: Unknown argument '$1'" >&2
+		echo "Use '$0 --help' for more information" >&2
+		exit 1
+		;;
+	esac
 done
-
-if [[ "$valid_target" == "false" ]]; then
-	echo "Error: Invalid target '$TARGET'" >&2
-	echo "Available targets: ${AVAILABLE_TARGETS[*]}" >&2
-	echo "Use '$0 --help' for more information" >&2
-	exit 1
-fi
 
 echo "Building image: ${IMAGE_NAME}:${TAG} (target: ${TARGET})"
 
@@ -78,7 +70,6 @@ ${RUNTIME} build \
 	--build-arg USER_NAME="${USER_NAME}" \
 	--build-arg USER_UID="${USER_UID}" \
 	--build-arg USER_GID="${USER_GID}" \
-	--build-arg WORKDIR="${WORKDIR}" \
 	--build-arg WORKSPACE_NAME="${WORKSPACE_NAME}" \
 	--tag "${IMAGE_NAME}:${TAG}" \
 	.

@@ -1,16 +1,10 @@
 # Test config with additional volumes and devices
-project:
-  name: test-mounts
+names:
+  image: test-mounts
   workspace: workspace
-
-user:
-  production:
-    name: appuser
-    uid: 1000
-    gid: 1000
+  user: root
 
 runtime:
-  backend: auto
   features:
     - display
   volumes:
@@ -22,9 +16,8 @@ runtime:
 stages:
   base:
     from: python:3-slim
-    packages:
-      apt:
-        - curl
+    steps:
+      - apt-get: {install: [curl]}
 
   development:
     from: base
