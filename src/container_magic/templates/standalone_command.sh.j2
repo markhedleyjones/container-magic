@@ -1,3 +1,4 @@
+{% from "_macros.j2" import symlink_mounts %}
 #!/usr/bin/env bash
 # DO NOT EDIT — this file is generated from cm.yaml and will be overwritten.
 # To make changes, edit cm.yaml and run: cm update
@@ -62,6 +63,10 @@ fi
 
 # Mount workspace
 RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:${WORKDIR}/{{ workspace_name }}:z")
+{% if workspace_symlinks %}
+
+{{ symlink_mounts(workspace_name, "${WORKDIR}", workspace_symlinks) }}
+{% endif %}
 {% if volumes %}
 
 # Additional bind mounts

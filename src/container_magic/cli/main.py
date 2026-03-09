@@ -23,7 +23,7 @@ from container_magic.generators.standalone_commands import (
 def update_gitignore(path: Path):
     """Update .gitignore with required entries."""
     gitignore_path = path / ".gitignore"
-    required_entries = [".cm-cache/", "Justfile"]
+    required_entries = [".cm-cache/", ".cm-build-staging/", "Justfile"]
 
     if gitignore_path.exists():
         # Read existing content
@@ -46,6 +46,7 @@ def update_gitignore(path: Path):
     else:
         # Create new .gitignore
         gitignore_content = """.cm-cache/
+.cm-build-staging/
 Justfile
 """
         gitignore_path.write_text(gitignore_content)

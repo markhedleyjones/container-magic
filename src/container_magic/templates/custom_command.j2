@@ -1,3 +1,4 @@
+{% from "_macros.j2" import symlink_mounts %}
 {% if description %}# {{ description }}
 {% endif %}{{ command_name }}{% for arg_name, arg_spec in args.items() %}{% if arg_spec.default is none %} {{ arg_name }}{% endif %}{% endfor %}{% for arg_name, arg_spec in args.items() %}{% if arg_spec.default is not none %} {{ arg_name }}="{{ arg_spec.default | default('', true) }}"{% endif %}{% endfor %} *args:
     #!/usr/bin/env bash
@@ -57,6 +58,10 @@
 
     # Mount workspace
     RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}:{{ container_home }}/{{ workspace_name }}:z")
+    {% if workspace_symlinks %}
+
+    {{ symlink_mounts(workspace_name, container_home, workspace_symlinks) | indent(4) }}
+    {% endif %}
     {% if volumes %}
 
     # Additional bind mounts

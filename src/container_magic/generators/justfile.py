@@ -7,6 +7,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.core.runtime import get_runtime
+from container_magic.core.symlinks import scan_workspace_symlinks
 from container_magic.core.templates import detect_shell, resolve_base_image
 
 
@@ -68,6 +69,10 @@ def generate_justfile(
     # Development uses host user, so home is resolved at runtime via $(echo ~)
     container_home = "$(echo ~)"
 
+    # Scan workspace for external symlinks
+    project_dir = output_path.parent
+    workspace_symlinks = scan_workspace_symlinks(project_dir / config.names.workspace)
+
     justfile_content = template.render(
         config_hash=config_hash,
         project_name=config.names.image,
@@ -85,6 +90,7 @@ def generate_justfile(
         container_home=container_home,
         use_host_user=use_host_user,
         ipc=config.runtime.ipc if config.runtime else None,
+        workspace_symlinks=workspace_symlinks,
     )
 
     # Generate custom commands if defined
@@ -119,6 +125,7 @@ def generate_justfile(
                 devices=config.runtime.devices,
                 ipc=command_spec.ipc
                 or (config.runtime.ipc if config.runtime else None),
+                workspace_symlinks=workspace_symlinks,
             )
 
     with open(output_path, "w") as f:

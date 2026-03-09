@@ -97,8 +97,14 @@ USER {{ step.name }}
 {% elif step.type == "copy_workspace" %}
 {% if step.chown %}
 COPY --chown={{ step.chown }}:{{ step.chown }} {{ workspace_name }} ${WORKSPACE}
+{% for symlink in step.symlinks %}
+COPY --chown={{ step.chown }}:{{ step.chown }} .cm-build-staging/{{ symlink.rel_path }} ${WORKSPACE}/{{ symlink.rel_path }}
+{% endfor %}
 {% else %}
 COPY {{ workspace_name }} ${WORKSPACE}
+{% for symlink in step.symlinks %}
+COPY .cm-build-staging/{{ symlink.rel_path }} ${WORKSPACE}/{{ symlink.rel_path }}
+{% endfor %}
 {% endif %}
 {% elif step.type == "copy" %}
 {% if step.chown %}

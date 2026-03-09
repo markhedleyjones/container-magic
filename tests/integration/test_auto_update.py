@@ -29,16 +29,13 @@ def test_auto_update_enabled_by_default(test_project):
     config = (test_project / "cm.yaml").read_text()
     assert "auto_update" not in config
 
-    # Check that Justfile has runtime auto_update detection
+    # Check that Justfile always runs cm update before building
     justfile = (test_project / "Justfile").read_text()
-    assert "grep -E" in justfile  # Runtime check for auto_update
-    assert "auto_update_off=$(grep -E" in justfile  # Checking for opt-out pattern
-    assert "Run 'cm update' to regenerate" in justfile  # Warning when disabled
-    assert "cm update" in justfile  # Auto-update call in default branch
+    assert "cm update" in justfile  # Always regenerate before build
 
 
-def test_auto_update_disabled_requires_manual_update(test_project):
-    """Test that auto_update: false disables auto-regeneration."""
+def test_auto_update_disabled_still_regenerates_on_build(test_project):
+    """Test that build always runs cm update regardless of auto_update setting."""
     # Disable auto_update explicitly
     config_path = test_project / "cm.yaml"
     config = config_path.read_text()
@@ -55,7 +52,6 @@ def test_auto_update_disabled_requires_manual_update(test_project):
     )
     assert result.returncode == 0
 
-    # Check that Justfile still has both code paths (runtime detection)
+    # Check that Justfile still always runs cm update before build
     justfile = (test_project / "Justfile").read_text()
-    assert "Run 'cm update' to regenerate" in justfile
     assert "cm update" in justfile

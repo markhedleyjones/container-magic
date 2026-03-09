@@ -66,8 +66,8 @@ def test_justfile_path_translation_from_project_root(test_project):
     justfile = test_project["project_dir"] / "Justfile"
     content = justfile.read_text()
 
-    # Check that workdir logic is present
+    # Check that workdir logic is present (string-based, not realpath)
     assert "USER_CWD" in content
     assert "PROJECT_ROOT" in content
     assert "REL_PATH" in content
-    assert "realpath --relative-to" in content
+    assert "USER_PATH#$PROJECT_ROOT/" in content
