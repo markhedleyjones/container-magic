@@ -10,6 +10,7 @@ from container_magic.core.runner import (
     _detect_container_home,
     _detect_shell,
     _parse_io_args,
+    _parse_run_args,
     _translate_workdir,
     clean_images,
     stop_container,
@@ -178,6 +179,62 @@ class TestParseIOArgs:
         )
         assert inputs == {"data": "/input"}
         assert remaining == ["unknown=value"]
+
+
+class TestParseRunArgs:
+    def test_no_args(self):
+        detach, passthrough, remaining = _parse_run_args([])
+        assert detach is False
+        assert passthrough == []
+        assert remaining == []
+
+    def test_detach_flag(self):
+        detach, passthrough, remaining = _parse_run_args(["--detach", "slam"])
+        assert detach is True
+        assert passthrough == []
+        assert remaining == ["slam"]
+
+    def test_detach_short(self):
+        detach, passthrough, remaining = _parse_run_args(["-d", "slam"])
+        assert detach is True
+        assert remaining == ["slam"]
+
+    def test_no_separator(self):
+        detach, passthrough, remaining = _parse_run_args(["slam", "--verbose"])
+        assert detach is False
+        assert passthrough == []
+        assert remaining == ["slam", "--verbose"]
+
+    def test_runtime_passthrough(self):
+        detach, passthrough, remaining = _parse_run_args(["-e", "DOG=9", "--", "slam"])
+        assert detach is False
+        assert passthrough == ["-e", "DOG=9"]
+        assert remaining == ["slam"]
+
+    def test_multiple_passthrough_flags(self):
+        detach, passthrough, remaining = _parse_run_args(
+            ["-e", "DEBUG=1", "-v", "/tmp:/data", "--", "slam", "--verbose"]
+        )
+        assert passthrough == ["-e", "DEBUG=1", "-v", "/tmp:/data"]
+        assert remaining == ["slam", "--verbose"]
+
+    def test_detach_with_passthrough(self):
+        detach, passthrough, remaining = _parse_run_args(
+            ["-d", "-e", "DOG=9", "--", "slam"]
+        )
+        assert detach is True
+        assert passthrough == ["-e", "DOG=9"]
+        assert remaining == ["slam"]
+
+    def test_separator_only(self):
+        detach, passthrough, remaining = _parse_run_args(["--", "slam"])
+        assert passthrough == []
+        assert remaining == ["slam"]
+
+    def test_separator_with_no_command(self):
+        detach, passthrough, remaining = _parse_run_args(["-e", "X=1", "--"])
+        assert passthrough == ["-e", "X=1"]
+        assert remaining == []
 
 
 class TestStopContainer:
