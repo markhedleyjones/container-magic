@@ -16,12 +16,7 @@ __pycache__/
 # Test-generated projects for manual inspection
 test-generated-projects/
 
-# Working documents
-CLAUDE.md
-REVIEW.md
-GOAL.md
-IMPLEMENTATION_NOTES.md
-CONFIGURATION_SCENARIOS.md
+# Working documents (uppercase markdown blocked by git-hooks)
 docs/plans/
 
 # MkDocs build output
