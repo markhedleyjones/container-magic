@@ -458,6 +458,68 @@ def run_container(
         _cleanup(manifest_file, xhost_cleanup)
 
 
+def stop_container(config: ContainerMagicConfig) -> int:
+    """Stop the running development container.
+
+    Returns:
+        Exit code (always 0, stop is idempotent).
+    """
+    runtime = get_runtime(config.backend)
+    runtime_cmd = runtime.value
+    container_name = f"{config.names.image}-development"
+
+    result = subprocess.run(
+        [runtime_cmd, "stop", container_name],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode == 0:
+        print(f"Stopped {container_name}")
+    else:
+        print(f"Container {container_name} is not running")
+
+    # xhost cleanup if display feature enabled with Docker
+    features = _build_feature_flags(config)
+    if features["display"] and runtime == Runtime.DOCKER:
+        try:
+            subprocess.run(["xhost", "-local:"], capture_output=True)
+        except FileNotFoundError:
+            pass
+
+    return 0
+
+
+def clean_images(config: ContainerMagicConfig) -> int:
+    """Remove container images for this project.
+
+    Returns:
+        Exit code (always 0, clean is idempotent).
+    """
+    runtime = get_runtime(config.backend)
+    runtime_cmd = runtime.value
+    image_name = config.names.image
+
+    removed = []
+    for tag in ["development", "latest"]:
+        image = f"{image_name}:{tag}"
+        result = subprocess.run(
+            [runtime_cmd, "rmi", image],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            removed.append(image)
+
+    if removed:
+        for img in removed:
+            print(f"Removed {img}")
+    else:
+        print("No images to remove")
+
+    return 0
+
+
 def _cleanup(manifest_file, xhost_cleanup: bool) -> None:
     """Clean up temporary resources."""
     if manifest_file:

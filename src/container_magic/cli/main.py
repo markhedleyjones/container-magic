@@ -304,6 +304,29 @@ def cache_path(path: Path):
     click.echo(str(cache_dir))
 
 
+@cli.command()
+def stop():
+    """Stop the running development container."""
+    from container_magic.core.runner import stop_container
+
+    project_dir = _find_project_dir()
+    config_path = find_config_file(project_dir)
+    config = ContainerMagicConfig.from_yaml(config_path)
+    stop_container(config)
+
+
+@cli.command()
+def clean():
+    """Stop container and remove images."""
+    from container_magic.core.runner import clean_images, stop_container
+
+    project_dir = _find_project_dir()
+    config_path = find_config_file(project_dir)
+    config = ContainerMagicConfig.from_yaml(config_path)
+    stop_container(config)
+    clean_images(config)
+
+
 @cli.command("run", context_settings=dict(ignore_unknown_options=True))
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_context
