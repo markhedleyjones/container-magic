@@ -16,15 +16,15 @@ def detect_runtime() -> Optional[Runtime]:
     """
     Detect available container runtime.
 
-    Prefers Podman if both are installed (following docker-bbq behaviour).
+    Prefers Docker if both are installed.
 
     Returns:
         Runtime enum or None if neither is found
     """
-    if shutil.which("podman"):
-        return Runtime.PODMAN
-    elif shutil.which("docker"):
+    if shutil.which("docker"):
         return Runtime.DOCKER
+    elif shutil.which("podman"):
+        return Runtime.PODMAN
     return None
 
 

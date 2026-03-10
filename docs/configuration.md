@@ -26,7 +26,7 @@ Run `cm update` after editing `cm.yaml` to regenerate the Dockerfile and scripts
 backend: docker      # docker, podman, or auto (default: auto, omit for auto)
 ```
 
-When set to `auto` (the default), container-magic will use whichever of `podman` or `docker` is available, preferring `podman`.
+When set to `auto` (the default), container-magic will use whichever of `docker` or `podman` is available, preferring `docker`.
 
 ## Workspace Symlinks
 

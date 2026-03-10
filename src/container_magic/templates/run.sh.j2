@@ -13,12 +13,12 @@ SHELL="{{ shell }}"
 
 # Detect runtime backend
 {%- if backend == "auto" %}
-if command -v podman >/dev/null 2>&1; then
-	RUNTIME="podman"
-elif command -v docker >/dev/null 2>&1; then
+if command -v docker >/dev/null 2>&1; then
 	RUNTIME="docker"
+elif command -v podman >/dev/null 2>&1; then
+	RUNTIME="podman"
 else
-	echo "Error: Neither podman nor docker found in PATH"
+	echo "Error: Neither docker nor podman found in PATH"
 	exit 1
 fi
 {%- else %}
