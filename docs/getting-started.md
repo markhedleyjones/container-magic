@@ -82,6 +82,15 @@ cm cache path                 # Show cache directory location
 cm cache clear                # Clear all cached assets
 ```
 
+### Runtime flag passthrough
+
+Pass arbitrary flags to docker/podman using `--`:
+
+```bash
+cm run -e DEBUG=1 -v /data:/data -- my-command
+./run.sh -e API_KEY=secret -- my-command
+```
+
 ### Production (standalone scripts)
 
 ```bash

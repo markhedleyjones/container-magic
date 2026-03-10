@@ -107,6 +107,27 @@ To stop a detached container:
 - **Development:** `cm stop`
 - **Production:** `./run.sh --stop`
 
+### Runtime Flag Passthrough
+
+You can pass arbitrary flags directly to docker/podman using the `--` separator. Everything before `--` is passed to the container runtime; everything after `--` is the command to run.
+
+```bash
+# Pass environment variables
+cm run -e DEBUG=1 -- my-command
+./run.sh -e DEBUG=1 -- my-command
+
+# Bind-mount a host directory
+cm run -v /data:/data -- python process.py /data/input.csv
+
+# Multiple flags
+cm run -e DEBUG=1 -v /tmp:/data --net=host -- my-command --verbose
+
+# Detach with passthrough
+cm run -d -e WORKERS=4 -- python server.py
+```
+
+Without `--`, all arguments are treated as the command (backwards compatible). The `--` separator is only needed when you want to pass flags to docker/podman itself.
+
 ## Stages
 
 ```yaml
