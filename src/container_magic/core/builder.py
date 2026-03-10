@@ -1,7 +1,6 @@
-"""Python-native container build logic.
+"""Container build logic.
 
-Replaces the Justfile build recipes. Reads cm.yaml directly and constructs
-docker/podman build commands without requiring 'just' as a dependency.
+Reads cm.yaml and constructs docker/podman build commands.
 """
 
 import os

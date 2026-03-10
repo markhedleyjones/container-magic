@@ -1,7 +1,6 @@
-"""Python-native container run logic.
+"""Container run logic.
 
-Replaces the Justfile run recipes. Reads cm.yaml directly and constructs
-docker/podman commands without requiring 'just' as a dependency.
+Reads cm.yaml and constructs docker/podman run commands.
 """
 
 import os

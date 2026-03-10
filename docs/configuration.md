@@ -104,6 +104,7 @@ Containers can be started in the background:
 
 To stop a detached container:
 
+- **Development:** `cm stop`
 - **Production:** `./run.sh --stop`
 
 ## Stages

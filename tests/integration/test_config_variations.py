@@ -438,7 +438,7 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
 
 
 def test_volumes_and_devices_appear_in_generated_files(fixtures_dir, temp_project):
-    """Test that runtime volumes and devices appear in Justfile and run.sh."""
+    """Test that runtime volumes and devices appear in run.sh."""
     fixture_path = fixtures_dir / "with_mounts.yaml"
     config_path = temp_project / "cm.yaml"
     shutil.copy(fixture_path, config_path)

@@ -301,7 +301,7 @@ class ContainerMagicConfig(BaseModel):
     names: NamesConfig
     auto_update: bool = Field(
         default=True,
-        description="Deprecated: no longer used (Justfile removed in v3)",
+        description="Deprecated: no longer used",
     )
     assets: List[AssetItem] = Field(
         default_factory=list,

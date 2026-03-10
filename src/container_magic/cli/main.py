@@ -323,8 +323,7 @@ def clean():
 
 @cli.command("run", context_settings=dict(ignore_unknown_options=True))
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
-@click.pass_context
-def cli_run(ctx, args):
+def cli_run(args):
     """Run a command in the development container."""
     from container_magic.core.runner import run_container
 
