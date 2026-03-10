@@ -193,11 +193,10 @@ class TestStopContainer:
         result = stop_container(config)
 
         assert result == 0
-        mock_run.assert_called_once_with(
-            ["podman", "stop", "test-project-development"],
-            capture_output=True,
-            text=True,
-        )
+        calls = mock_run.call_args_list
+        assert len(calls) == 2
+        assert calls[0].args[0] == ["podman", "stop", "test-project-development"]
+        assert calls[1].args[0] == ["podman", "rm", "test-project-development"]
 
     @patch("container_magic.core.runner.subprocess.run")
     @patch("container_magic.core.runner.get_runtime")
@@ -211,6 +210,10 @@ class TestStopContainer:
         result = stop_container(config)
 
         assert result == 0  # Idempotent
+        # Should still attempt rm even if stop fails
+        calls = mock_run.call_args_list
+        assert len(calls) == 2
+        assert calls[1].args[0] == ["podman", "rm", "test-project-development"]
 
 
 class TestCleanImages:

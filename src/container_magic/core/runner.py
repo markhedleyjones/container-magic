@@ -442,6 +442,7 @@ def run_container(
         if ps_result.stdout.strip():
             # Exec into running container
             exec_args = [runtime_cmd, "exec"]
+            exec_args.extend(["--workdir", workdir])
             if not command_str and sys.stdin.isatty():
                 exec_args.extend(["--interactive", "--tty"])
             exec_args.append(container_name)
@@ -479,9 +480,16 @@ def stop_container(config: ContainerMagicConfig) -> int:
     else:
         print(f"Container {container_name} is not running")
 
+    # Remove container (handles cases where --rm didn't fire, e.g. SIGKILL)
+    subprocess.run(
+        [runtime_cmd, "rm", container_name],
+        capture_output=True,
+        text=True,
+    )
+
     # xhost cleanup if display feature enabled with Docker
     features = _build_feature_flags(config)
-    if features["display"] and runtime == Runtime.DOCKER:
+    if features["display"] and runtime == Runtime.DOCKER and os.environ.get("DISPLAY"):
         try:
             subprocess.run(["xhost", "-local:"], capture_output=True)
         except FileNotFoundError:
