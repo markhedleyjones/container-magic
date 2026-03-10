@@ -93,7 +93,13 @@ Per-command overrides are supported via the `ipc` field on individual commands.
 
 ### Container Names
 
-Development containers are named `<image-name>-development` and production containers are named `<image-name>`. If a container with the same name is already running, `cm run` will exec into the existing container instead of starting a new one.
+Development containers are named `<image-name>-development` and production containers are named `<image-name>`. If a container with the same name is already running, `cm run` will exec into the existing container instead of starting a new one. Running `cm run` with no arguments opens an interactive shell.
+
+### Working Directory
+
+In development, `cm run` sets the container's working directory to match your position relative to the project root. If you `cd workspace/src` on the host, the container starts in the corresponding `src` directory inside the workspace. This makes `cm run pytest` work naturally from a subdirectory.
+
+In production, `run.sh` always starts in the workspace root regardless of where you invoke it from.
 
 ### Detached Mode
 
