@@ -222,11 +222,12 @@ class StageConfig(BaseModel):
     )
 
 
-class IOSpec(BaseModel):
-    """Input or output specification for a command mount."""
+class MountSpec(BaseModel):
+    """Mount specification for a command bind mount."""
 
-    model_config = ConfigDict(extra="allow")
-
+    mode: Literal["ro", "rw"] = Field(
+        description="Mount mode: ro (read-only) or rw (read-write)",
+    )
     prefix: str = Field(
         default="",
         description="String prepended to container path in the command",
@@ -251,14 +252,31 @@ class CustomCommand(BaseModel):
         default=None,
         description="IPC namespace mode override (e.g. container:<name>)",
     )
-    inputs: Dict[str, IOSpec] = Field(
+    mounts: Dict[str, MountSpec] = Field(
         default_factory=dict,
-        description="Named inputs (read-only host files/directories mounted at /mnt/inputs/<name>/)",
+        description="Named bind mounts (provided at runtime via name=/path syntax)",
     )
-    outputs: Dict[str, IOSpec] = Field(
-        default_factory=dict,
-        description="Named outputs (read-write host directories mounted at /mnt/outputs/<name>/)",
-    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalise_mounts(cls, data):
+        """Convert shorthand mount values to MountSpec dicts."""
+        if not isinstance(data, dict):
+            return data
+        mounts = data.get("mounts")
+        if isinstance(mounts, dict):
+            normalised = {}
+            for name, spec in mounts.items():
+                if isinstance(spec, str):
+                    if spec not in ("ro", "rw"):
+                        raise ValueError(
+                            f"Mount '{name}' shorthand must be 'ro' or 'rw', got '{spec}'"
+                        )
+                    normalised[name] = {"mode": spec}
+                else:
+                    normalised[name] = spec
+            data["mounts"] = normalised
+        return data
 
     @model_validator(mode="before")
     @classmethod
@@ -268,13 +286,23 @@ class CustomCommand(BaseModel):
             return data
         if "args" in data:
             raise ValueError(
-                "Command 'args' have been replaced by 'inputs' and 'outputs' in v3. "
+                "Command 'args' have been replaced by 'mounts' in v3. "
                 "See the v3 migration guide for details."
             )
         if "standalone" in data:
             raise ValueError(
                 "Standalone scripts are no longer generated in v3. "
                 "Remove the 'standalone' field."
+            )
+        if "inputs" in data:
+            raise ValueError(
+                "Command 'inputs' have been replaced by 'mounts' in v3. "
+                "See the v3 migration guide for details."
+            )
+        if "outputs" in data:
+            raise ValueError(
+                "Command 'outputs' have been replaced by 'mounts' in v3. "
+                "See the v3 migration guide for details."
             )
         return data
 
