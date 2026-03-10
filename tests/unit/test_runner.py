@@ -33,8 +33,7 @@ def _make_config(**overrides):
 
 class TestDetectContainerHome:
     def test_returns_home_directory(self):
-        config = _make_config()
-        result = _detect_container_home(config)
+        result = _detect_container_home()
         assert result == str(Path.home())
 
 

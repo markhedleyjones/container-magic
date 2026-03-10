@@ -4,6 +4,7 @@ Reads cm.yaml and constructs docker/podman run commands.
 """
 
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -17,7 +18,7 @@ from container_magic.core.symlinks import scan_workspace_symlinks
 from container_magic.core.templates import detect_shell, resolve_base_image
 
 
-def _detect_container_home(config: ContainerMagicConfig) -> str:
+def _detect_container_home() -> str:
     """Determine the container home directory for development.
 
     Development builds use the host user's UID/GID, so the home directory
@@ -254,7 +255,7 @@ def run_container(
     runtime = get_runtime(config.backend)
     runtime_cmd = runtime.value
     shell = _detect_shell(config)
-    container_home = _detect_container_home(config)
+    container_home = _detect_container_home()
     features = _build_feature_flags(config)
     image = f"{config.names.image}:development"
     container_name = f"{config.names.image}-development"
@@ -359,6 +360,7 @@ def run_container(
     # Handle custom command with mounts
     manifest_file = None
     command_str = None
+    parsed_mounts = {}
 
     if command_spec:
         # Use command-specific overrides if present
@@ -401,12 +403,12 @@ def run_container(
         parts = [command_spec.command]
         parts.extend(command_fragments)
         parts.extend(extra_args)
-        command_str = " ".join(parts)
+        command_str = shlex.join(parts)
 
     else:
         # No custom command - use user args as command or open shell
         if args_remaining:
-            command_str = " ".join(args_remaining)
+            command_str = shlex.join(args_remaining)
 
     # Working directory
     workdir = _translate_workdir(project_dir, user_cwd, container_home)
@@ -450,6 +452,20 @@ def run_container(
             # Exec into running container
             exec_args = [runtime_cmd, "exec"]
             exec_args.extend(["--workdir", workdir])
+
+            # Forward command-specific env vars
+            if command_spec:
+                for key, value in command_spec.env.items():
+                    exec_args.extend(["-e", f"{key}={value}"])
+
+                # Warn about mounts that can't be added to a running container
+                if parsed_mounts:
+                    print(
+                        "Warning: Mounts cannot be added to a running container. "
+                        "Stop the container first with 'cm stop'.",
+                        file=sys.stderr,
+                    )
+
             if not command_str and sys.stdin.isatty():
                 exec_args.extend(["--interactive", "--tty"])
             exec_args.append(container_name)
