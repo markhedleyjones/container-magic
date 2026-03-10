@@ -212,6 +212,35 @@ def _add_io_mounts(
     return command_fragments, manifest_lines
 
 
+def _parse_run_args(
+    user_args: List[str],
+) -> Tuple[bool, List[str], List[str]]:
+    """Parse cm run arguments into detach flag, runtime passthrough, and remaining args.
+
+    Args:
+        user_args: Raw arguments from the command line.
+
+    Returns:
+        Tuple of (detach, runtime_passthrough, remaining_args).
+    """
+    args = list(user_args)
+
+    # Parse detach flag
+    detach = False
+    if args and args[0] in ("--detach", "-d"):
+        detach = True
+        args.pop(0)
+
+    # Parse runtime passthrough args (everything before --)
+    runtime_passthrough = []
+    if "--" in args:
+        sep_idx = args.index("--")
+        runtime_passthrough = args[:sep_idx]
+        args = args[sep_idx + 1 :]
+
+    return detach, runtime_passthrough, args
+
+
 def _translate_workdir(project_dir: Path, user_cwd: Path, container_home: str) -> str:
     """Translate user's current working directory to container workdir."""
     try:
@@ -258,12 +287,8 @@ def run_container(
         print("Build it with: cm build", file=sys.stderr)
         return 1
 
-    # Parse detach flag
-    detach = False
-    args_remaining = list(user_args)
-    if args_remaining and args_remaining[0] in ("--detach", "-d"):
-        detach = True
-        args_remaining.pop(0)
+    # Parse flags and runtime passthrough
+    detach, runtime_passthrough, args_remaining = _parse_run_args(user_args)
 
     # Check for custom command
     command_name = None
@@ -344,6 +369,10 @@ def run_container(
 
     if features["aws_credentials"]:
         _add_aws_args(run_args, container_home)
+
+    # Runtime passthrough args (from -- separator)
+    if runtime_passthrough:
+        run_args.extend(runtime_passthrough)
 
     # Handle custom command with inputs/outputs
     manifest_file = None

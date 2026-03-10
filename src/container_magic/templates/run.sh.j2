@@ -54,6 +54,28 @@ if [[ "${1:-}" == "--detach" ]] || [[ "${1:-}" == "-d" ]]; then
 	shift
 fi
 
+# Parse runtime passthrough args (everything before --)
+# Usage: ./run.sh -e DEBUG=1 -v /tmp:/data -- command args
+RUNTIME_PASSTHROUGH=()
+_PT_CMD_ARGS=()
+_PT_FOUND_SEP=false
+for arg in "$@"; do
+	if [[ "${_PT_FOUND_SEP}" == false ]] && [[ "$arg" == "--" ]]; then
+		_PT_FOUND_SEP=true
+		continue
+	fi
+	if [[ "${_PT_FOUND_SEP}" == true ]]; then
+		_PT_CMD_ARGS+=("$arg")
+	else
+		RUNTIME_PASSTHROUGH+=("$arg")
+	fi
+done
+if [[ "${_PT_FOUND_SEP}" == true ]]; then
+	set -- "${_PT_CMD_ARGS[@]}"
+else
+	RUNTIME_PASSTHROUGH=()
+fi
+
 # Build base run arguments (common to all commands)
 BASE_RUN_ARGS=("--rm")
 BASE_RUN_ARGS+=("--hostname" "${IMAGE_NAME}")
@@ -169,6 +191,11 @@ fi
 # Load .env file if present
 if [[ -f "$(pwd)/.env" ]]; then
 	BASE_RUN_ARGS+=("--env-file" "$(pwd)/.env")
+fi
+
+# Runtime passthrough args (from -- separator)
+if [[ ${#RUNTIME_PASSTHROUGH[@]} -gt 0 ]]; then
+	BASE_RUN_ARGS+=("${RUNTIME_PASSTHROUGH[@]}")
 fi
 
 {%- if commands %}
