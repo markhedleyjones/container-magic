@@ -49,7 +49,6 @@ def test_default_values():
 
     assert config.names.workspace == "workspace"
     assert config.names.user == "root"
-    assert config.auto_update is True
     assert config.backend == "auto"
     assert config.runtime.privileged is False
     assert config.runtime.features == []

@@ -327,10 +327,6 @@ class ContainerMagicConfig(BaseModel):
         default="auto", description="Container runtime to use"
     )
     names: NamesConfig
-    auto_update: bool = Field(
-        default=True,
-        description="Deprecated: no longer used",
-    )
     assets: List[AssetItem] = Field(
         default_factory=list,
         description="Assets to download and cache (URLs or {filename: url} dicts)",
@@ -410,12 +406,9 @@ class ContainerMagicConfig(BaseModel):
                 f"Warning: Unknown config key '{field_path}' (ignored)", file=sys.stderr
             )
 
-        # Deprecation warnings for v3
         if "auto_update" in data:
-            print(
-                "Warning: 'auto_update' is no longer used. "
-                "Remove it from your cm.yaml.",
-                file=sys.stderr,
+            raise ValueError(
+                "'auto_update' is no longer used. Remove it from your cm.yaml."
             )
         if "build_script" in data:
             print(
@@ -433,10 +426,6 @@ class ContainerMagicConfig(BaseModel):
         # Remove backend when it matches the default ("auto")
         if data.get("backend") == "auto":
             data.pop("backend", None)
-
-        # Remove auto_update when it matches the default (True)
-        if data.get("auto_update") is True:
-            data.pop("auto_update", None)
 
         # Serialise assets back to YAML-friendly format
         raw_assets = data.get("assets", [])
