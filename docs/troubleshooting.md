@@ -1,5 +1,28 @@
 # Troubleshooting
 
+## Upgrading from v2
+
+### `run` and `build` commands not found
+
+In v2, container-magic installed generic `run` and `build` commands alongside `cm`. These have been removed in v3 because the names are too generic and clash with other tools.
+
+**Replace with:**
+
+| v2 | v3 |
+|----|-----|
+| `build` | `cm build` |
+| `run <command>` | `cm run <command>` |
+| `just stop` | `cm stop` |
+| `just clean` | `cm clean` |
+
+### Justfile no longer generated
+
+v3 replaces the Justfile with Python-native `cm build` and `cm run` commands. If you have a leftover `Justfile`, you can safely delete it. Running `cm update` will warn about it.
+
+### Standalone command scripts removed
+
+Per-command scripts (e.g. `train.sh`) are no longer generated. Custom commands are now invoked through `cm run <command>` or `./run.sh <command>`.
+
 ## Python pip on Debian/Ubuntu (PEP 668)
 
 Modern versions of Debian (12+) and Ubuntu (24.04+) enforce [PEP 668](https://peps.python.org/pep-0668/), which prevents pip from installing packages system-wide. If you try to use pip on these distributions, you'll encounter an error.

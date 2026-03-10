@@ -72,6 +72,10 @@ cm build --tag v1.0           # Build with custom tag
 cm run <command>              # Run command in container
 cm run                        # Interactive shell
 
+# Stop and clean
+cm stop                       # Stop the development container
+cm clean                      # Stop container and remove images
+
 # Cache management
 cm cache list                 # List cached assets with size and URL
 cm cache path                 # Show cache directory location
