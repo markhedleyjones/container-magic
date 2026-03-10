@@ -74,13 +74,3 @@ class TestMountModeValidation:
     def test_invalid_mode_rejected(self):
         with pytest.raises(Exception):
             _make_config_with_command(mounts={"x": "rx"})
-
-
-class TestOldFieldsRemoved:
-    def test_inputs_not_accepted(self):
-        with pytest.raises(Exception):
-            _make_config_with_command(inputs={"bag": {"prefix": "--bag "}})
-
-    def test_outputs_not_accepted(self):
-        with pytest.raises(Exception):
-            _make_config_with_command(outputs={"results": {"prefix": "--out "}})

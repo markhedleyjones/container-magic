@@ -289,21 +289,6 @@ class CustomCommand(BaseModel):
                 "Command 'args' have been replaced by 'mounts' in v3. "
                 "See the v3 migration guide for details."
             )
-        if "standalone" in data:
-            raise ValueError(
-                "Standalone scripts are no longer generated in v3. "
-                "Remove the 'standalone' field."
-            )
-        if "inputs" in data:
-            raise ValueError(
-                "Command 'inputs' have been replaced by 'mounts' in v3. "
-                "See the v3 migration guide for details."
-            )
-        if "outputs" in data:
-            raise ValueError(
-                "Command 'outputs' have been replaced by 'mounts' in v3. "
-                "See the v3 migration guide for details."
-            )
         return data
 
 
