@@ -73,7 +73,7 @@ def build_container(
     generate_run_script(config, project_dir)
 
     # Handle symlink staging for production builds
-    staging_dir = project_dir / ".cm-build-staging"
+    staging_dir = project_dir / ".cm-cache" / "staging"
     workspace_symlinks = scan_workspace_symlinks(project_dir / config.names.workspace)
 
     if workspace_symlinks:

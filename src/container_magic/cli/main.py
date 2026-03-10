@@ -14,35 +14,54 @@ from container_magic.generators.dockerfile import generate_dockerfile
 from container_magic.generators.run_script import generate_run_script
 
 
-def update_gitignore(path: Path):
-    """Update .gitignore with required entries."""
-    gitignore_path = path / ".gitignore"
-    required_entries = [".cm-cache/", ".cm-build-staging/"]
+def _ensure_ignore_entries(path: Path, filename: str, required_entries: list):
+    """Ensure an ignore file contains the required entries."""
+    ignore_path = path / filename
 
-    if gitignore_path.exists():
-        # Read existing content
-        existing_content = gitignore_path.read_text()
+    if ignore_path.exists():
+        existing_content = ignore_path.read_text()
         existing_lines = existing_content.split("\n")
 
-        # Check which entries need to be added
         entries_to_add = [
             entry for entry in required_entries if entry not in existing_lines
         ]
 
         if entries_to_add:
-            # Append missing entries
-            with gitignore_path.open("a") as f:
-                # Ensure file ends with newline before appending
+            with ignore_path.open("a") as f:
                 if existing_content and not existing_content.endswith("\n"):
                     f.write("\n")
                 for entry in entries_to_add:
                     f.write(f"{entry}\n")
     else:
-        # Create new .gitignore
-        gitignore_content = """.cm-cache/
-.cm-build-staging/
-"""
-        gitignore_path.write_text(gitignore_content)
+        ignore_path.write_text("".join(f"{entry}\n" for entry in required_entries))
+
+
+def update_gitignore(path: Path):
+    """Update .gitignore with required entries."""
+    _ensure_ignore_entries(path, ".gitignore", [".cm-cache/"])
+
+
+def update_dockerignore(path: Path):
+    """Update .dockerignore to not exclude .cm-cache/.
+
+    Checks if .cm-cache/ is excluded and adds a negation so assets and
+    staging files remain accessible in the Docker build context.
+    """
+    dockerignore_path = path / ".dockerignore"
+    if not dockerignore_path.exists():
+        return
+
+    content = dockerignore_path.read_text()
+    lines = content.split("\n")
+
+    has_cm_cache_exclude = ".cm-cache/" in lines or ".cm-cache" in lines
+    has_negation = "!.cm-cache/" in lines or "!.cm-cache" in lines
+
+    if has_cm_cache_exclude and not has_negation:
+        with dockerignore_path.open("a") as f:
+            if content and not content.endswith("\n"):
+                f.write("\n")
+            f.write("!.cm-cache/\n")
 
 
 def _find_project_dir() -> Path:
@@ -158,8 +177,9 @@ def init(
     generate_build_script(config, path)
     generate_run_script(config, path)
 
-    # Update .gitignore
+    # Update ignore files
     update_gitignore(path)
+    update_dockerignore(path)
 
     # Warn about leftover Justfile from v2
     if (path / "Justfile").exists():
@@ -194,8 +214,9 @@ def update(path: Path):
     generate_build_script(config, path)
     generate_run_script(config, path)
 
-    # Update .gitignore
+    # Update ignore files
     update_gitignore(path)
+    update_dockerignore(path)
 
     # Warn about leftover Justfile from v2
     if (path / "Justfile").exists():

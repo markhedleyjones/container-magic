@@ -127,8 +127,9 @@ my-project/
 +-- run.sh               # Generated (committed)
 +-- workspace/           # Your code
 +-- .env                 # Environment variables for the container (optional)
-+-- .cm-cache/           # Downloaded assets (gitignored)
-+-- .cm-build-staging/   # Resolved symlinks for build (gitignored, temporary)
++-- .cm-cache/           # Build cache (gitignored)
+    +-- assets/          # Downloaded assets
+    +-- staging/         # Resolved symlinks for build (temporary)
 ```
 
 ## Basic Example

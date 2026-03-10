@@ -67,7 +67,7 @@ echo "Building image: ${IMAGE_NAME}:${TAG} (target: ${TARGET})"
 {% if workspace_symlinks %}
 
 # Stage resolved symlink targets for Docker build context
-STAGING_DIR=".cm-build-staging"
+STAGING_DIR=".cm-cache/staging"
 rm -rf "${STAGING_DIR}"
 trap 'rm -rf "${STAGING_DIR}"' EXIT
 

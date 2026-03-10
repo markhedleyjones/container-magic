@@ -110,7 +110,6 @@ def test_gitignore_created_for_new_project(temp_project_dir):
 
     content = gitignore.read_text()
     assert ".cm-cache/" in content
-    assert ".cm-build-staging/" in content
 
 
 def test_gitignore_appends_to_existing(temp_project_dir):
@@ -145,7 +144,6 @@ __pycache__/
 
     # Container-magic entries should be added
     assert ".cm-cache/" in content
-    assert ".cm-build-staging/" in content
 
 
 def test_gitignore_does_not_duplicate_entries(temp_project_dir):
@@ -156,7 +154,6 @@ def test_gitignore_does_not_duplicate_entries(temp_project_dir):
 *.log
 
 .cm-cache/
-.cm-build-staging/
 """
     existing_gitignore.write_text(existing_content)
 
@@ -174,8 +171,4 @@ def test_gitignore_does_not_duplicate_entries(temp_project_dir):
     content = existing_gitignore.read_text()
     lines = content.split("\n")
 
-    # Count occurrences of each line
     assert lines.count(".cm-cache/") == 1, "Should not duplicate .cm-cache/"
-    assert lines.count(".cm-build-staging/") == 1, (
-        "Should not duplicate .cm-build-staging/"
-    )
