@@ -258,7 +258,7 @@ def cache_clear(path: Path):
     cache_dir = get_cache_dir(path)
     if cache_dir.exists():
         clear_cache(path)
-        click.echo(f"✓ Cleared cache at {cache_dir}")
+        click.echo(f"Cleared cache at {cache_dir}")
     else:
         click.echo("No cache found")
 
