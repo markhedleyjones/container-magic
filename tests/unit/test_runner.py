@@ -9,7 +9,7 @@ from container_magic.core.runner import (
     _build_feature_flags,
     _detect_container_home,
     _detect_shell,
-    _parse_io_args,
+    _parse_mount_args,
     _parse_run_args,
     _translate_workdir,
     clean_images,
@@ -128,56 +128,47 @@ class TestTranslateWorkdir:
         assert result == "/home/user/workspace"
 
 
-class TestParseIOArgs:
-    def _make_command(self, inputs=None, outputs=None):
+class TestParseMountArgs:
+    def _make_command(self, mounts=None):
         data = {"command": "test-cmd"}
-        if inputs:
-            data["inputs"] = inputs
-        if outputs:
-            data["outputs"] = outputs
+        if mounts:
+            data["mounts"] = mounts
         return CustomCommand(**data)
 
-    def test_no_io_specs(self):
+    def test_no_mounts(self):
         cmd = self._make_command()
-        inputs, outputs, remaining = _parse_io_args(cmd, ["--flag", "value"])
-        assert inputs == {}
-        assert outputs == {}
+        mounts, remaining = _parse_mount_args(cmd, ["--flag", "value"])
+        assert mounts == {}
         assert remaining == ["--flag", "value"]
 
-    def test_input_parsed(self):
-        cmd = self._make_command(inputs={"model": {"prefix": "--model="}})
-        inputs, outputs, remaining = _parse_io_args(
+    def test_ro_mount_parsed(self):
+        cmd = self._make_command(mounts={"model": "ro"})
+        mounts, remaining = _parse_mount_args(
             cmd, ["model=/path/to/model", "--verbose"]
         )
-        assert inputs == {"model": "/path/to/model"}
-        assert outputs == {}
+        assert mounts == {"model": "/path/to/model"}
         assert remaining == ["--verbose"]
 
-    def test_output_parsed(self):
-        cmd = self._make_command(outputs={"results": {"prefix": "--output="}})
-        inputs, outputs, remaining = _parse_io_args(cmd, ["results=/tmp/out", "extra"])
-        assert inputs == {}
-        assert outputs == {"results": "/tmp/out"}
+    def test_rw_mount_parsed(self):
+        cmd = self._make_command(
+            mounts={"results": {"mode": "rw", "prefix": "--output="}}
+        )
+        mounts, remaining = _parse_mount_args(cmd, ["results=/tmp/out", "extra"])
+        assert mounts == {"results": "/tmp/out"}
         assert remaining == ["extra"]
 
-    def test_mixed_io_and_remaining(self):
-        cmd = self._make_command(
-            inputs={"data": {"prefix": ""}},
-            outputs={"logs": {"prefix": ""}},
-        )
-        inputs, outputs, remaining = _parse_io_args(
+    def test_mixed_mounts_and_remaining(self):
+        cmd = self._make_command(mounts={"data": "ro", "logs": "rw"})
+        mounts, remaining = _parse_mount_args(
             cmd, ["data=/input", "logs=/output", "--flag"]
         )
-        assert inputs == {"data": "/input"}
-        assert outputs == {"logs": "/output"}
+        assert mounts == {"data": "/input", "logs": "/output"}
         assert remaining == ["--flag"]
 
     def test_unknown_name_value_stays_in_remaining(self):
-        cmd = self._make_command(inputs={"data": {"prefix": ""}})
-        inputs, outputs, remaining = _parse_io_args(
-            cmd, ["unknown=value", "data=/input"]
-        )
-        assert inputs == {"data": "/input"}
+        cmd = self._make_command(mounts={"data": "ro"})
+        mounts, remaining = _parse_mount_args(cmd, ["unknown=value", "data=/input"])
+        assert mounts == {"data": "/input"}
         assert remaining == ["unknown=value"]
 
 

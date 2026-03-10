@@ -134,42 +134,36 @@ def _add_aws_args(args: List[str], container_home: str) -> None:
         args.extend(["-v", f"{aws_dir}:{container_home}/.aws:z"])
 
 
-def _parse_io_args(
+def _parse_mount_args(
     command_spec: CustomCommand, user_args: List[str]
-) -> Tuple[Dict[str, str], Dict[str, str], List[str]]:
-    """Parse name=value arguments for command inputs and outputs.
+) -> Tuple[Dict[str, str], List[str]]:
+    """Parse name=value arguments for command mounts.
 
     Returns:
-        Tuple of (inputs dict, outputs dict, remaining args).
-        Each dict maps the IO name to the user-provided host path.
+        Tuple of (mounts dict, remaining args).
+        The dict maps mount name to the user-provided host path.
     """
-    input_names = set(command_spec.inputs.keys())
-    output_names = set(command_spec.outputs.keys())
-    inputs = {}
-    outputs = {}
+    mount_names = set(command_spec.mounts.keys())
+    mounts = {}
     remaining = []
 
     for arg in user_args:
         if "=" in arg:
             name, _, value = arg.partition("=")
-            if name in input_names:
-                inputs[name] = value
-                continue
-            elif name in output_names:
-                outputs[name] = value
+            if name in mount_names:
+                mounts[name] = value
                 continue
         remaining.append(arg)
 
-    return inputs, outputs, remaining
+    return mounts, remaining
 
 
-def _add_io_mounts(
+def _add_mount_volumes(
     args: List[str],
     command_spec: CustomCommand,
-    inputs: Dict[str, str],
-    outputs: Dict[str, str],
+    mounts: Dict[str, str],
 ) -> Tuple[List[str], List[str]]:
-    """Add input/output bind mounts and build command fragments.
+    """Add bind mount volumes and build command fragments.
 
     Returns:
         Tuple of (command fragments to append, manifest lines).
@@ -177,36 +171,24 @@ def _add_io_mounts(
     command_fragments = []
     manifest_lines = []
 
-    for name, host_path in inputs.items():
+    for name, host_path in mounts.items():
         host_path = os.path.expanduser(host_path)
         resolved = os.path.realpath(host_path)
+        spec = command_spec.mounts[name]
 
-        if not os.path.exists(resolved):
-            print(f"Error: Input '{name}' not found: {host_path}", file=sys.stderr)
-            sys.exit(1)
+        if spec.mode == "ro":
+            if not os.path.exists(resolved):
+                print(f"Error: Mount '{name}' not found: {host_path}", file=sys.stderr)
+                sys.exit(1)
+            basename = os.path.basename(resolved)
+            container_path = f"/mnt/{name}/{basename}"
+            args.extend(["-v", f"{resolved}:{container_path}:ro,z"])
+        else:
+            os.makedirs(resolved, exist_ok=True)
+            container_path = f"/mnt/{name}"
+            args.extend(["-v", f"{resolved}:{container_path}:z"])
 
-        basename = os.path.basename(resolved)
-        container_path = f"/mnt/inputs/{name}/{basename}"
-
-        args.extend(["-v", f"{resolved}:{container_path}:ro,z"])
         manifest_lines.append(f"{resolved}:{container_path}")
-
-        spec = command_spec.inputs[name]
-        command_fragments.append(f"{spec.prefix}{container_path}")
-
-    for name, host_path in outputs.items():
-        host_path = os.path.expanduser(host_path)
-        resolved = os.path.realpath(host_path)
-
-        # Create output directory if it does not exist
-        os.makedirs(resolved, exist_ok=True)
-
-        container_path = f"/mnt/outputs/{name}"
-
-        args.extend(["-v", f"{resolved}:{container_path}:rw,z"])
-        manifest_lines.append(f"{resolved}:{container_path}")
-
-        spec = command_spec.outputs[name]
         command_fragments.append(f"{spec.prefix}{container_path}")
 
     return command_fragments, manifest_lines
@@ -374,7 +356,7 @@ def run_container(
     if runtime_passthrough:
         run_args.extend(runtime_passthrough)
 
-    # Handle custom command with inputs/outputs
+    # Handle custom command with mounts
     manifest_file = None
     command_str = None
 
@@ -396,12 +378,9 @@ def run_container(
         for port in command_spec.ports:
             run_args.extend(["--publish", port])
 
-        # Parse input/output arguments
-        io_inputs, io_outputs, extra_args = _parse_io_args(command_spec, args_remaining)
-
-        # Add mounts and build command
-        command_fragments, manifest_lines = _add_io_mounts(
-            run_args, command_spec, io_inputs, io_outputs
+        parsed_mounts, extra_args = _parse_mount_args(command_spec, args_remaining)
+        command_fragments, manifest_lines = _add_mount_volumes(
+            run_args, command_spec, parsed_mounts
         )
 
         # Create manifest file if there are any mounts
