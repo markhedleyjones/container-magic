@@ -217,6 +217,20 @@ def test_user_block_rejected():
         )
 
 
+def test_auto_update_rejected():
+    """Test that auto_update raises a clean removal error."""
+    with pytest.raises(ValidationError, match="no longer used"):
+        ContainerMagicConfig(
+            names={"image": "test", "user": "root"},
+            auto_update=True,
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+
 def test_project_block_rejected():
     """Test that project: config block raises a migration error."""
     with pytest.raises(ValidationError, match="replaced by 'names'"):

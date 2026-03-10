@@ -277,12 +277,11 @@ run_{{ command_name }}() {
 		esac
 	done
 	{%- raw %}
+	local _manifest=""
 	if [[ ${#MANIFEST_LINES[@]} -gt 0 ]]; then
-		local _manifest
 		_manifest=$(mktemp /tmp/cm-manifest-XXXXXX)
 		printf '%s\n' "${MANIFEST_LINES[@]}" > "$_manifest"
 		RUN_ARGS+=("-v" "${_manifest}:/run/cm/mounts:ro,z")
-		trap "rm -f '$_manifest'" EXIT
 	fi
 	if [[ ${#REMAINING[@]} -gt 0 ]]; then
 		EXTRA_ARGS+=("${REMAINING[@]}")
@@ -304,6 +303,13 @@ run_{{ command_name }}() {
 			"${IMAGE_NAME}:${TAG}" \
 			"${SHELL}" -c "${CMD}"
 	fi
+	{%- if command_spec.mounts %}
+	{%- raw %}
+	if [[ -n "$_manifest" ]]; then
+		rm -f "$_manifest"
+	fi
+	{%- endraw %}
+	{%- endif %}
 }
 {%- endfor %}
 
