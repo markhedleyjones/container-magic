@@ -399,11 +399,13 @@ def run_container(
                 ]
             )
 
-        # Build full command string
-        parts = [command_spec.command]
-        parts.extend(command_fragments)
-        parts.extend(extra_args)
-        command_str = shlex.join(parts)
+        # Build full command string: keep base command as-is (may contain
+        # shell metacharacters like pipes) and quote extra arguments
+        extra_parts = command_fragments + extra_args
+        if extra_parts:
+            command_str = command_spec.command + " " + shlex.join(extra_parts)
+        else:
+            command_str = command_spec.command
 
     else:
         # No custom command - use user args as command or open shell
@@ -458,10 +460,16 @@ def run_container(
                 for key, value in command_spec.env.items():
                     exec_args.extend(["-e", f"{key}={value}"])
 
-                # Warn about mounts that can't be added to a running container
+                # Warn about mounts/ports that can't be added to a running container
                 if parsed_mounts:
                     print(
                         "Warning: Mounts cannot be added to a running container. "
+                        "Stop the container first with 'cm stop'.",
+                        file=sys.stderr,
+                    )
+                if command_spec.ports:
+                    print(
+                        "Warning: Ports cannot be added to a running container. "
                         "Stop the container first with 'cm stop'.",
                         file=sys.stderr,
                     )

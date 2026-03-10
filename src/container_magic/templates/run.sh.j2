@@ -210,14 +210,12 @@ fi
 {%- for command_name, command_spec in commands.items() %}
 
 run_{{ command_name }}() {
-	{%- if command_spec.standalone %}
-	# Delegate to standalone script
-	exec "$(dirname "$0")/{{ command_name }}.sh"
-	{%- else %}
 	{%- if command_spec.description %}
 	# {{ command_spec.description }}
 	{%- endif %}
 	local RUN_ARGS=("${BASE_RUN_ARGS[@]}")
+	local CMD="{{ command_spec.command }}"
+	local EXTRA_ARGS=()
 
 	{%- if command_spec.env %}
 	# Environment variables
@@ -231,12 +229,81 @@ run_{{ command_name }}() {
 	RUN_ARGS+=("--publish" "{{ port }}")
 	{%- endfor %}
 	{%- endif %}
+	{%- if command_spec.mounts %}
 
-	${RUNTIME} run "${RUN_ARGS[@]}" \
-		-w "${WORKDIR}" \
-		"${IMAGE_NAME}:${TAG}" \
-		"${SHELL}" -c "{{ command_spec.command | replace('\"', '\\\"') }}"
+	# Parse mount arguments
+	local MANIFEST_LINES=()
+	local REMAINING=()
+	for arg in "$@"; do
+		case "$arg" in
+		{%- for mount_name, mount_spec in command_spec.mounts.items() %}
+		{{ mount_name }}=*)
+			local _host_path="{{ '${arg#' }}{{ mount_name }}=}"
+			local _resolved
+			_resolved=$(realpath "$_host_path")
+			{%- if mount_spec.mode == "ro" %}
+			if [[ ! -e "$_resolved" ]]; then
+				echo "Error: Mount '{{ mount_name }}' not found: $_host_path" >&2
+				return 1
+			fi
+			local _basename
+			_basename=$(basename "$_resolved")
+			RUN_ARGS+=("-v" "${_resolved}:/mnt/{{ mount_name }}/${_basename}:ro,z")
+			{%- if mount_spec.prefix %}
+			{%- if mount_spec.prefix.endswith(" ") %}
+			EXTRA_ARGS+=("{{ mount_spec.prefix.rstrip() }}" "/mnt/{{ mount_name }}/${_basename}")
+			{%- else %}
+			EXTRA_ARGS+=("{{ mount_spec.prefix }}/mnt/{{ mount_name }}/${_basename}")
+			{%- endif %}
+			{%- endif %}
+			MANIFEST_LINES+=("${_resolved}:/mnt/{{ mount_name }}/${_basename}")
+			{%- else %}
+			mkdir -p "$_resolved"
+			RUN_ARGS+=("-v" "${_resolved}:/mnt/{{ mount_name }}:z")
+			{%- if mount_spec.prefix %}
+			{%- if mount_spec.prefix.endswith(" ") %}
+			EXTRA_ARGS+=("{{ mount_spec.prefix.rstrip() }}" "/mnt/{{ mount_name }}")
+			{%- else %}
+			EXTRA_ARGS+=("{{ mount_spec.prefix }}/mnt/{{ mount_name }}")
+			{%- endif %}
+			{%- endif %}
+			MANIFEST_LINES+=("${_resolved}:/mnt/{{ mount_name }}")
+			{%- endif %}
+			;;
+		{%- endfor %}
+		*)
+			REMAINING+=("$arg")
+			;;
+		esac
+	done
+	{%- raw %}
+	if [[ ${#MANIFEST_LINES[@]} -gt 0 ]]; then
+		local _manifest
+		_manifest=$(mktemp /tmp/cm-manifest-XXXXXX)
+		printf '%s\n' "${MANIFEST_LINES[@]}" > "$_manifest"
+		RUN_ARGS+=("-v" "${_manifest}:/run/cm/mounts:ro,z")
+		trap "rm -f '$_manifest'" EXIT
+	fi
+	if [[ ${#REMAINING[@]} -gt 0 ]]; then
+		EXTRA_ARGS+=("${REMAINING[@]}")
+	fi
+	{%- endraw %}
+	{%- else %}
+	EXTRA_ARGS=("$@")
 	{%- endif %}
+	{%- raw %}
+	if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+	{%- endraw %}
+		${RUNTIME} run "${RUN_ARGS[@]}" \
+			-w "${WORKDIR}" \
+			"${IMAGE_NAME}:${TAG}" \
+			"${SHELL}" -c "${CMD} $(printf '%q ' "${EXTRA_ARGS[@]}")"
+	else
+		${RUNTIME} run "${RUN_ARGS[@]}" \
+			-w "${WORKDIR}" \
+			"${IMAGE_NAME}:${TAG}" \
+			"${SHELL}" -c "${CMD}"
+	fi
 }
 {%- endfor %}
 

@@ -376,6 +376,11 @@ class ContainerMagicConfig(BaseModel):
                 "    user: appuser"
             )
 
+        if "auto_update" in data:
+            raise ValueError(
+                "'auto_update' is no longer used. Remove it from your cm.yaml."
+            )
+
         return data
 
     @classmethod
@@ -406,10 +411,6 @@ class ContainerMagicConfig(BaseModel):
                 f"Warning: Unknown config key '{field_path}' (ignored)", file=sys.stderr
             )
 
-        if "auto_update" in data:
-            raise ValueError(
-                "'auto_update' is no longer used. Remove it from your cm.yaml."
-            )
         if "build_script" in data:
             print(
                 "Warning: 'build_script.default_target' only affects the standalone build.sh script. "
