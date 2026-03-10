@@ -66,13 +66,17 @@ def test_config_generates_valid_files(config_fixture, fixtures_dir, temp_project
     # Check all expected files exist
     expected_files = [
         "Dockerfile",
-        "Justfile",
         "build.sh",
         "run.sh",
     ]
     for file in expected_files:
         file_path = temp_project / file
         assert file_path.exists(), f"Missing file {file} for config {config_fixture}"
+
+    # Justfile should NOT be generated in v3
+    assert not (temp_project / "Justfile").exists(), (
+        f"Justfile should not be generated in v3 for config {config_fixture}"
+    )
 
     # Validate config file
     result = validate_yaml(config_path)
@@ -100,10 +104,6 @@ def test_config_generates_valid_files(config_fixture, fixtures_dir, temp_project
     result = validate_no_consecutive_blank_lines(temp_project / "run.sh")
     assert result, f"run.sh has consecutive blank lines: {result}"
 
-    # Validate Justfile
-    result = validate_no_consecutive_blank_lines(temp_project / "Justfile")
-    assert result, f"Justfile has consecutive blank lines: {result}"
-
 
 @pytest.mark.parametrize("config_fixture", CONFIG_FIXTURES)
 def test_config_regenerates_idempotently(config_fixture, fixtures_dir, temp_project):
@@ -123,7 +123,7 @@ def test_config_regenerates_idempotently(config_fixture, fixtures_dir, temp_proj
     assert result.returncode == 0
 
     # Read generated files
-    files_to_check = ["Dockerfile", "Justfile", "build.sh", "run.sh"]
+    files_to_check = ["Dockerfile", "build.sh", "run.sh"]
     first_gen = {}
     for filename in files_to_check:
         first_gen[filename] = (temp_project / filename).read_text()
@@ -450,11 +450,6 @@ def test_volumes_and_devices_appear_in_generated_files(fixtures_dir, temp_projec
         text=True,
     )
     assert result.returncode == 0, f"cm update failed:\n{result.stderr}"
-
-    justfile = (temp_project / "Justfile").read_text()
-    assert '"-v" "/tmp/test-data:/data:ro"' in justfile
-    assert '"-v" "/var/log/app:/logs"' in justfile
-    assert '"--device" "/dev/ttyUSB0"' in justfile
 
     run_sh = (temp_project / "run.sh").read_text()
     assert '"-v" "/tmp/test-data:/data:ro"' in run_sh

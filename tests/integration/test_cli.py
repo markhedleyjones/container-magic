@@ -27,7 +27,6 @@ def test_init_with_here_flag(temp_project_dir):
     # Check files were created in the directory (not in a subdirectory)
     assert (temp_project_dir / "cm.yaml").exists()
     assert (temp_project_dir / "Dockerfile").exists()
-    assert (temp_project_dir / "Justfile").exists()
     assert (temp_project_dir / "workspace").exists()
 
 
@@ -111,7 +110,7 @@ def test_gitignore_created_for_new_project(temp_project_dir):
 
     content = gitignore.read_text()
     assert ".cm-cache/" in content
-    assert "Justfile" in content
+    assert ".cm-build-staging/" in content
 
 
 def test_gitignore_appends_to_existing(temp_project_dir):
@@ -146,7 +145,7 @@ __pycache__/
 
     # Container-magic entries should be added
     assert ".cm-cache/" in content
-    assert "Justfile" in content
+    assert ".cm-build-staging/" in content
 
 
 def test_gitignore_does_not_duplicate_entries(temp_project_dir):
@@ -157,7 +156,7 @@ def test_gitignore_does_not_duplicate_entries(temp_project_dir):
 *.log
 
 .cm-cache/
-Justfile
+.cm-build-staging/
 """
     existing_gitignore.write_text(existing_content)
 
@@ -177,4 +176,6 @@ Justfile
 
     # Count occurrences of each line
     assert lines.count(".cm-cache/") == 1, "Should not duplicate .cm-cache/"
-    assert lines.count("Justfile") == 1, "Should not duplicate Justfile"
+    assert lines.count(".cm-build-staging/") == 1, (
+        "Should not duplicate .cm-build-staging/"
+    )

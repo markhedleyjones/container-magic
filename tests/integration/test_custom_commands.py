@@ -13,8 +13,8 @@ def temp_project_dir(tmp_path):
     return project_dir
 
 
-def test_custom_commands_in_justfile_and_run_sh(temp_project_dir):
-    """Test that custom commands are generated in both Justfile and run.sh."""
+def test_custom_commands_in_run_sh(temp_project_dir):
+    """Test that custom commands are generated in run.sh."""
     # Initialize a basic project
     result = subprocess.run(
         ["cm", "init", "--here", "python"],
@@ -50,27 +50,6 @@ commands:
         text=True,
     )
     assert result.returncode == 0, f"cm update failed: {result.stderr}"
-
-    # Check Justfile has custom commands
-    justfile_content = (temp_project_dir / "Justfile").read_text()
-    assert "# Custom Commands" in justfile_content, (
-        "Justfile missing custom commands section"
-    )
-    assert "# Run the daemon process" in justfile_content, (
-        "Justfile missing daemon description"
-    )
-    assert "daemon *args:" in justfile_content, "Justfile missing daemon command"
-    assert "python workspace/daemon.py" in justfile_content, (
-        "Justfile missing daemon command implementation"
-    )
-    assert "# Run tests" in justfile_content, "Justfile missing test description"
-    assert "test *args:" in justfile_content, "Justfile missing test command"
-    assert "pytest workspace/tests" in justfile_content, (
-        "Justfile missing test command implementation"
-    )
-    assert "PYTEST_ARGS" in justfile_content and "-v" in justfile_content, (
-        "Justfile missing test env vars"
-    )
 
     # Check run.sh has custom commands
     run_sh_content = (temp_project_dir / "run.sh").read_text()
@@ -126,13 +105,6 @@ commands:
     )
     assert result.returncode == 0, f"cm update failed: {result.stderr}"
 
-    # Check both files have the command
-    justfile_content = (temp_project_dir / "Justfile").read_text()
-    assert "serve *args:" in justfile_content, "Justfile missing serve command"
-    assert "python -m http.server 8000" in justfile_content, (
-        "Justfile missing serve command implementation"
-    )
-
     run_sh_content = (temp_project_dir / "run.sh").read_text()
     assert "run_serve()" in run_sh_content, "run.sh missing serve function"
     assert "python -m http.server 8000" in run_sh_content, (
@@ -150,12 +122,6 @@ def test_no_custom_commands_section_when_empty(temp_project_dir):
         text=True,
     )
     assert result.returncode == 0, f"cm init failed: {result.stderr}"
-
-    # Check Justfile doesn't have custom commands section
-    justfile_content = (temp_project_dir / "Justfile").read_text()
-    assert "# Custom Commands" not in justfile_content, (
-        "Justfile should not have custom commands section when none defined"
-    )
 
     # Check run.sh doesn't have custom command handlers
     run_sh_content = (temp_project_dir / "run.sh").read_text()
@@ -315,128 +281,9 @@ commands:
         "run.sh should have escaped $WORKSPACE in test command"
     )
 
-    # Check Justfile also has escaped dollar signs
-    justfile_content = (temp_project_dir / "Justfile").read_text()
-    assert r"\$WORKSPACE/scripts/build.sh" in justfile_content, (
-        "Justfile should have escaped $WORKSPACE in build command"
-    )
-
-
-def test_custom_commands_mount_workspace_in_justfile(temp_project_dir):
-    """Test that custom commands in Justfile mount the workspace directory."""
-    # Initialize project
-    result = subprocess.run(
-        ["cm", "init", "--here", "python"],
-        cwd=temp_project_dir,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, f"cm init failed: {result.stderr}"
-
-    # Add custom command
-    config_file = temp_project_dir / "cm.yaml"
-    config_content = config_file.read_text()
-
-    custom_commands = '\ncommands:\n  build:\n    command: "$WORKSPACE/scripts/build.sh"\n    description: "Build the project"\n'
-    config_file.write_text(config_content + custom_commands)
-
-    # Regenerate
-    result = subprocess.run(
-        ["cm", "update"],
-        cwd=temp_project_dir,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, f"cm update failed: {result.stderr}"
-
-    # Check Justfile has workspace mount in custom command
-    justfile_content = (temp_project_dir / "Justfile").read_text()
-
-    # Custom commands section should be present
-    assert "# Custom Commands" in justfile_content, (
-        "Justfile should have custom commands section"
-    )
-    assert "\nbuild *args:" in justfile_content, "Justfile should have build command"
-
-    # Should have workspace mount in custom command
-    # The workspace mount should be in the custom command section
-    assert 'RUN_ARGS+=("-v"' in justfile_content, (
-        "Custom command should have volume mount with -v flag"
-    )
-    # Check that the mount includes the workspace name from the config
-    # which is "workspace" for default compact python config
-    assert "$(pwd)/workspace:$(echo ~)/workspace:z" in justfile_content, (
-        "Workspace mount should map local workspace directory"
-    )
-
-
-def test_custom_commands_quote_escaping_in_justfile(temp_project_dir):
-    """Test that custom commands with nested quotes are properly escaped in Justfile."""
-    # Initialize a basic project
-    result = subprocess.run(
-        ["cm", "init", "--here", "python"],
-        cwd=temp_project_dir,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, f"cm init failed: {result.stderr}"
-
-    # Add custom command with nested quotes (bash -c "...")
-    config_file = temp_project_dir / "cm.yaml"
-    config_content = config_file.read_text()
-
-    custom_commands = """
-commands:
-  build:
-    command: "bash -c \\"cd $WORKSPACE && python setup.py build\\""
-    description: "Build the project"
-"""
-    config_file.write_text(config_content + custom_commands)
-
-    # Regenerate files
-    result = subprocess.run(
-        ["cm", "update"],
-        cwd=temp_project_dir,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, f"cm update failed: {result.stderr}"
-
-    # Check Justfile has properly escaped quotes in the COMMAND variable
-    justfile_content = (temp_project_dir / "Justfile").read_text()
-
-    # The COMMAND line should have escaped inner quotes
-    assert (
-        'COMMAND="bash -c \\"cd \\$WORKSPACE && python setup.py build\\""'
-        in justfile_content
-    ), "Justfile custom command should have escaped inner quotes"
-
-    # Verify the generated script would be syntactically valid bash
-    # Extract the build recipe from the Justfile
-    import re
-
-    build_match = re.search(
-        r"^build \*args:\n(    #!/usr/bin/env bash\n.*?)(?=\n^[a-z]|\Z)",
-        justfile_content,
-        re.MULTILINE | re.DOTALL,
-    )
-    if build_match:
-        build_script = build_match.group(1)
-        # Save to temp file and check syntax
-        script_file = temp_project_dir / "build_test.sh"
-        script_file.write_text("#!/usr/bin/env bash\n" + build_script)
-        result = subprocess.run(
-            ["bash", "-n", str(script_file)],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0, (
-            f"Generated build script has syntax error: {result.stderr}"
-        )
-
 
 def test_custom_commands_with_ports(temp_project_dir):
-    """Test that port publishing flags are generated in Justfile and run.sh."""
+    """Test that port publishing flags are generated in run.sh."""
     # Initialise project
     result = subprocess.run(
         ["cm", "init", "--here", "python"],
@@ -469,15 +316,6 @@ commands:
         text=True,
     )
     assert result.returncode == 0, f"cm update failed: {result.stderr}"
-
-    # Check Justfile has --publish flags
-    justfile_content = (temp_project_dir / "Justfile").read_text()
-    assert '--publish" "8000:8000"' in justfile_content, (
-        "Justfile missing --publish for port 8000"
-    )
-    assert '--publish" "8443:443"' in justfile_content, (
-        "Justfile missing --publish for port 8443"
-    )
 
     # Check run.sh has --publish flags
     run_sh_content = (temp_project_dir / "run.sh").read_text()

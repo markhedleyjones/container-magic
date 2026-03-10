@@ -38,7 +38,7 @@ def test_workspace_env_points_to_mounted_path(test_project):
     """Test that $WORKSPACE env var is properly set in the container."""
     # Build the image
     build_result = subprocess.run(
-        ["just", "build"],
+        ["cm", "build"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -48,7 +48,7 @@ def test_workspace_env_points_to_mounted_path(test_project):
     # Test 1: Verify $WORKSPACE variable exists and is set
     # Use printenv which doesn't rely on shell variable expansion
     result = subprocess.run(
-        ["just", "run", "printenv WORKSPACE"],
+        ["cm", "run", "printenv WORKSPACE"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -60,7 +60,7 @@ def test_workspace_env_points_to_mounted_path(test_project):
 
     # Test 2: Verify the workspace directory actually exists
     result = subprocess.run(
-        ["just", "run", f"test -d {workspace_path} && echo OK"],
+        ["cm", "run", f"test -d {workspace_path} && echo OK"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -72,7 +72,7 @@ def test_workspace_env_points_to_mounted_path(test_project):
 
     # Test 3: Verify workspace file is accessible
     result = subprocess.run(
-        ["just", "run", f"test -f {workspace_path}/test.txt && echo OK"],
+        ["cm", "run", f"test -f {workspace_path}/test.txt && echo OK"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -83,13 +83,13 @@ def test_workspace_env_points_to_mounted_path(test_project):
 
     # Test 4: Verify $WORKSPACE path is consistent (same in multiple invocations)
     result1 = subprocess.run(
-        ["just", "run", "printenv WORKSPACE"],
+        ["cm", "run", "printenv WORKSPACE"],
         cwd=test_project,
         capture_output=True,
         text=True,
     )
     result2 = subprocess.run(
-        ["just", "run", "printenv WORKSPACE"],
+        ["cm", "run", "printenv WORKSPACE"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -100,7 +100,7 @@ def test_workspace_env_points_to_mounted_path(test_project):
 
     # Test 5: Verify workspace contents are accessible
     result = subprocess.run(
-        ["just", "run", f"ls {workspace_path}/"],
+        ["cm", "run", f"ls {workspace_path}/"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -177,7 +177,7 @@ def test_workspace_accessible_without_user_config(test_project_no_user):
 
     # Verify WORKSPACE env var is set
     result = subprocess.run(
-        ["just", "run", "printenv WORKSPACE"],
+        ["cm", "run", "printenv WORKSPACE"],
         cwd=test_project_no_user,
         capture_output=True,
         text=True,
@@ -188,7 +188,7 @@ def test_workspace_accessible_without_user_config(test_project_no_user):
 
     # Verify workspace directory exists at WORKSPACE path
     result = subprocess.run(
-        ["just", "run", f"test -d {workspace_path} && echo OK"],
+        ["cm", "run", f"test -d {workspace_path} && echo OK"],
         cwd=test_project_no_user,
         capture_output=True,
         text=True,
@@ -200,7 +200,7 @@ def test_workspace_accessible_without_user_config(test_project_no_user):
 
     # Verify test file is accessible via WORKSPACE
     result = subprocess.run(
-        ["just", "run", f"cat {workspace_path}/test.txt"],
+        ["cm", "run", f"cat {workspace_path}/test.txt"],
         cwd=test_project_no_user,
         capture_output=True,
         text=True,
