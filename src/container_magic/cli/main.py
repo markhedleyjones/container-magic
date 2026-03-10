@@ -306,6 +306,7 @@ def cli_run(ctx, args):
     from container_magic.core.runner import run_container
 
     project_dir = _find_project_dir()
+    user_cwd = Path.cwd()
     config_path = find_config_file(project_dir)
     config = ContainerMagicConfig.from_yaml(config_path)
 
@@ -313,7 +314,7 @@ def cli_run(ctx, args):
     exit_code = run_container(
         config=config,
         project_dir=project_dir,
-        user_cwd=Path.cwd(),
+        user_cwd=user_cwd,
         user_args=list(args),
     )
     sys.exit(exit_code)
