@@ -222,8 +222,7 @@ commands:
 | `env` | Environment variables passed to the container |
 | `ports` | Ports to publish (`host:container` format, generates `--publish` flags) |
 | `ipc` | IPC namespace mode override for this command (e.g. `host`, `shareable`) |
-| `inputs` | Named read-only file/directory mounts (see [Inputs and Outputs](#inputs-and-outputs)) |
-| `outputs` | Named read-write directory mounts (see [Inputs and Outputs](#inputs-and-outputs)) |
+| `mounts` | Named bind mounts (see [Mounts](mounts.md)) |
 
 **Development:**
 
@@ -233,40 +232,33 @@ commands:
 
 - `./run.sh train` - via run.sh
 
-### Inputs and Outputs
+### Mounts
 
-Commands can declare named inputs (read-only) and outputs (read-write) that mount host paths into the container at runtime:
+Commands can declare named mounts that bind host paths into the container at
+runtime. See [Mounts](mounts.md) for full documentation.
 
 ```yaml
 commands:
   process:
     command: python process.py
-    description: Process a bag file
-    inputs:
-      bag:
-        prefix: "--bag "
-    outputs:
+    mounts:
+      data:
+        mode: ro
+        prefix: "--data "
       results:
+        mode: rw
         prefix: "--output "
 ```
 
-At runtime, provide values using `name=path` syntax:
+At runtime, provide values using `name=/path` syntax:
 
 ```bash
-cm run process bag=/data/recording.bag results=/tmp/output
-# Mounts /data/recording.bag at /mnt/inputs/bag/recording.bag (read-only)
-# Mounts /tmp/output at /mnt/outputs/results (read-write)
-# Runs: python process.py --bag /mnt/inputs/bag/recording.bag --output /mnt/outputs/results
+cm run process data=/recordings/set-01 results=/tmp/output
 ```
 
-The `prefix` field controls how the container path is embedded in the command. If omitted, it defaults to an empty string (the path is appended directly).
-
-Container paths follow a predictable structure:
-
-- Inputs: `/mnt/inputs/<name>/<basename>` - preserves the original filename
-- Outputs: `/mnt/outputs/<name>/`
-
-A manifest file at `/run/cm/mounts` records the host-to-container path mappings for any mounted inputs or outputs.
+Mounts are optional. If you don't provide a mount value, it isn't created.
+Container-magic doesn't enforce whether a mount is required - that's up to
+your application.
 
 ### Passing Extra Flags
 
