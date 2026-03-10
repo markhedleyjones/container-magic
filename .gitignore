@@ -1,6 +1,3 @@
-# Container-magic generated files are committed
-# Add your project-specific ignores below
-
 # Python cache
 __pycache__/
 *.pyc
@@ -10,21 +7,22 @@ __pycache__/
 # Container-magic cache
 .cm-cache/
 
-# Test-generated projects for manual inspection
-test-generated-projects/
-
-# Container-magic files in repo root (from testing)
+# Generated files in repo root (this repo uses container-magic on itself)
 /Dockerfile
 /build.sh
 /run.sh
-/cm.yaml
 /workspace/
 
-# Claude Code
+# Test-generated projects for manual inspection
+test-generated-projects/
+
+# Working documents
 CLAUDE.md
 REVIEW.md
+GOAL.md
+IMPLEMENTATION_NOTES.md
+CONFIGURATION_SCENARIOS.md
 docs/plans/
 
 # MkDocs build output
 site/
-examples/

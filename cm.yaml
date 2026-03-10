@@ -1,0 +1,19 @@
+# https://github.com/markhedleyjones/container-magic
+names:
+  image: container-magic
+  user: nonroot
+
+stages:
+  base:
+    from: python:latest
+    steps:
+      - create: user
+      - become: user
+
+  development:
+    from: base
+
+  production:
+    from: base
+    steps:
+      - copy: workspace
