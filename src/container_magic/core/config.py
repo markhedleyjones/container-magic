@@ -229,22 +229,15 @@ class StageConfig(BaseModel):
     )
 
 
-class CommandArgument(BaseModel):
-    """Command argument definition."""
+class IOSpec(BaseModel):
+    """Input or output specification for a command mount."""
 
     model_config = ConfigDict(extra="allow")
 
-    type: Literal["file", "directory", "string", "int", "float"] = Field(
-        description="Argument type"
+    prefix: str = Field(
+        default="",
+        description="String prepended to container path in the command",
     )
-    mount_as: Optional[str] = Field(
-        default=None, description="Container path to mount file/directory arguments"
-    )
-    readonly: bool = Field(
-        default=True, description="Mount as read-only (for file/directory types)"
-    )
-    default: Optional[Any] = Field(default=None, description="Default value")
-    description: Optional[str] = Field(default=None, description="Argument description")
 
 
 class CustomCommand(BaseModel):
@@ -252,10 +245,7 @@ class CustomCommand(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    command: str = Field(description="Command template with {arg_name} placeholders")
-    args: Dict[str, CommandArgument] = Field(
-        default_factory=dict, description="Command arguments"
-    )
+    command: str = Field(description="Base command to execute")
     description: Optional[str] = Field(default=None, description="Command description")
     env: Dict[str, str] = Field(
         default_factory=dict, description="Environment variables"
@@ -264,14 +254,36 @@ class CustomCommand(BaseModel):
         default_factory=list,
         description="Ports to publish (host:container format)",
     )
-    standalone: bool = Field(
-        default=False,
-        description="Generate standalone script for this command",
-    )
     ipc: Optional[str] = Field(
         default=None,
         description="IPC namespace mode override (e.g. container:<name>)",
     )
+    inputs: Dict[str, IOSpec] = Field(
+        default_factory=dict,
+        description="Named inputs (read-only host files/directories mounted at /mnt/inputs/<name>/)",
+    )
+    outputs: Dict[str, IOSpec] = Field(
+        default_factory=dict,
+        description="Named outputs (read-write host directories mounted at /mnt/outputs/<name>/)",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_removed_fields(cls, data):
+        """Reject fields removed in v3 with migration messages."""
+        if not isinstance(data, dict):
+            return data
+        if "args" in data:
+            raise ValueError(
+                "Command 'args' have been replaced by 'inputs' and 'outputs' in v3. "
+                "See the v3 migration guide for details."
+            )
+        if "standalone" in data:
+            raise ValueError(
+                "Standalone scripts are no longer generated in v3. "
+                "Remove the 'standalone' field."
+            )
+        return data
 
 
 class BuildScriptConfig(BaseModel):
@@ -296,7 +308,7 @@ class ContainerMagicConfig(BaseModel):
     names: NamesConfig
     auto_update: bool = Field(
         default=True,
-        description="Automatically regenerate files when config changes",
+        description="Deprecated: no longer used (Justfile removed in v3)",
     )
     assets: List[AssetItem] = Field(
         default_factory=list,
@@ -375,6 +387,21 @@ class ContainerMagicConfig(BaseModel):
         for field_path in extra_fields:
             print(
                 f"Warning: Unknown config key '{field_path}' (ignored)", file=sys.stderr
+            )
+
+        # Deprecation warnings for v3
+        if "auto_update" in data:
+            print(
+                "Warning: 'auto_update' is no longer used (Justfile removed in v3). "
+                "This field can be safely removed.",
+                file=sys.stderr,
+            )
+        if "build_script" in data:
+            print(
+                "Warning: 'build_script.default_target' is no longer used. "
+                "Use 'cm build --production' instead. "
+                "The build_script block can be safely removed.",
+                file=sys.stderr,
             )
 
         return config
