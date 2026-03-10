@@ -172,9 +172,16 @@ def init(
     elif in_place:
         click.echo("  Note: Using existing workspace directory")
 
+    # Scan workspace symlinks once for all generators
+    from container_magic.core.symlinks import scan_workspace_symlinks
+
+    workspace_symlinks = scan_workspace_symlinks(path / config.names.workspace)
+
     # Generate Dockerfile and production scripts
-    generate_dockerfile(config, path / "Dockerfile")
-    generate_build_script(config, path)
+    generate_dockerfile(
+        config, path / "Dockerfile", workspace_symlinks=workspace_symlinks
+    )
+    generate_build_script(config, path, workspace_symlinks=workspace_symlinks)
     generate_run_script(config, path)
 
     # Update ignore files
@@ -214,9 +221,16 @@ def update(path: Path):
     # Load config
     config = ContainerMagicConfig.from_yaml(config_path)
 
+    # Scan workspace symlinks once for all generators
+    from container_magic.core.symlinks import scan_workspace_symlinks
+
+    workspace_symlinks = scan_workspace_symlinks(path / config.names.workspace)
+
     # Generate Dockerfile and production scripts
-    generate_dockerfile(config, path / "Dockerfile")
-    generate_build_script(config, path)
+    generate_dockerfile(
+        config, path / "Dockerfile", workspace_symlinks=workspace_symlinks
+    )
+    generate_build_script(config, path, workspace_symlinks=workspace_symlinks)
     generate_run_script(config, path)
 
     # Update ignore files
