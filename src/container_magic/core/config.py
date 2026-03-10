@@ -42,25 +42,18 @@ def find_config_file(path: Path) -> Path:
     Find the config file to use.
 
     Raises:
-        SystemExit: If config file not found or old name is used
+        SystemExit: If config file not found
     """
     cm_yaml = path / "cm.yaml"
-    container_magic_yaml = path / "container-magic.yaml"
 
     if cm_yaml.exists():
         return cm_yaml
-    elif container_magic_yaml.exists():
-        print(
-            "Error: Rename container-magic.yaml to cm.yaml",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    else:
-        print(
-            "Error: No config file found (cm.yaml)",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+
+    print(
+        "Error: No config file found (cm.yaml)",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 class AssetItem(BaseModel):
