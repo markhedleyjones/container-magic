@@ -347,54 +347,5 @@ def main():
     cli()
 
 
-def run_main():
-    """Entry point for run command (standalone alias)."""
-    from container_magic.core.runner import run_container
-
-    project_dir = _find_project_dir()
-    user_cwd = Path.cwd()
-
-    config_path = find_config_file(project_dir)
-    config = ContainerMagicConfig.from_yaml(config_path)
-
-    os.chdir(project_dir)
-    exit_code = run_container(
-        config=config,
-        project_dir=project_dir,
-        user_cwd=user_cwd,
-        user_args=sys.argv[1:],
-    )
-    sys.exit(exit_code)
-
-
-def build_main():
-    """Entry point for build command (standalone alias)."""
-    from container_magic.core.builder import build_container
-
-    project_dir = _find_project_dir()
-
-    config_path = find_config_file(project_dir)
-    config = ContainerMagicConfig.from_yaml(config_path)
-
-    _download_assets(config, project_dir)
-
-    # Parse --production flag from argv
-    production = "--production" in sys.argv
-    tag = ""
-    if "--tag" in sys.argv:
-        tag_idx = sys.argv.index("--tag")
-        if tag_idx + 1 < len(sys.argv):
-            tag = sys.argv[tag_idx + 1]
-
-    os.chdir(project_dir)
-    exit_code = build_container(
-        config=config,
-        project_dir=project_dir,
-        production=production,
-        tag=tag,
-    )
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
     main()

@@ -31,14 +31,6 @@ cm run bash -c "echo Hello from container"
 cm run           # starts an interactive shell
 ```
 
-!!! tip "The `run` and `build` aliases"
-    Container-magic also provides standalone `build` and `run` shell aliases. The `run` alias adds automatic working directory translation - the container's working directory matches your position in the repository:
-
-    ```bash
-    cd workspace/src
-    run python utils.py   # Works - runs from workspace/src inside the container
-    ```
-
 ## Workflow
 
 ```
