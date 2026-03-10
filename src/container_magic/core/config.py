@@ -392,15 +392,14 @@ class ContainerMagicConfig(BaseModel):
         # Deprecation warnings for v3
         if "auto_update" in data:
             print(
-                "Warning: 'auto_update' is no longer used (Justfile removed in v3). "
-                "This field can be safely removed.",
+                "Warning: 'auto_update' is no longer used. "
+                "Remove it from your cm.yaml.",
                 file=sys.stderr,
             )
         if "build_script" in data:
             print(
-                "Warning: 'build_script.default_target' is no longer used. "
-                "Use 'cm build --production' instead. "
-                "The build_script block can be safely removed.",
+                "Warning: 'build_script.default_target' only affects the standalone build.sh script. "
+                "cm build uses --production instead.",
                 file=sys.stderr,
             )
 

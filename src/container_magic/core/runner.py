@@ -47,7 +47,7 @@ def _build_feature_flags(config: ContainerMagicConfig) -> Dict[str, bool]:
     }
 
 
-def _add_display_args(args: List[str], runtime: Runtime, detach: bool) -> Optional[str]:
+def _add_display_args(args: List[str], runtime: Runtime) -> Optional[str]:
     """Add display (Wayland/X11) arguments. Returns xauth tempfile path if created."""
     xauth_file = None
 
@@ -115,7 +115,8 @@ def _add_gpu_args(args: List[str], runtime: Runtime) -> None:
         elif runtime == Runtime.PODMAN:
             args.extend(["--device", "nvidia.com/gpu=all"])
             args.append("--annotation=run.oci.keep_original_groups=1")
-            args.append("--security-opt=label=disable")
+            if "--security-opt=label=disable" not in args:
+                args.append("--security-opt=label=disable")
 
 
 def _add_audio_args(args: List[str]) -> None:
@@ -275,6 +276,7 @@ def run_container(
     # Build run arguments
     run_args = [runtime_cmd, "run"]
     run_args.extend(["--name", container_name])
+    run_args.extend(["--hostname", config.names.image])
     run_args.append("--rm")
 
     if config.runtime.ipc:
@@ -326,8 +328,13 @@ def run_container(
     # Feature flags
     xhost_cleanup = False
     if features["display"]:
-        xauth = _add_display_args(run_args, runtime, detach)
-        if not xauth and runtime == Runtime.DOCKER and os.environ.get("DISPLAY"):
+        xauth = _add_display_args(run_args, runtime)
+        if (
+            not detach
+            and not xauth
+            and runtime == Runtime.DOCKER
+            and os.environ.get("DISPLAY")
+        ):
             xhost_cleanup = True
 
     if features["gpu"]:
@@ -346,9 +353,12 @@ def run_container(
     if command_spec:
         # Use command-specific overrides if present
         if command_spec.ipc:
-            # Override the runtime ipc (already added above, need to replace)
-            # For simplicity, command ipc was already applied at runtime level
-            pass
+            # Remove runtime-level ipc if present and replace with command override
+            if "--ipc" in run_args:
+                idx = run_args.index("--ipc")
+                run_args[idx + 1] = command_spec.ipc
+            else:
+                run_args.extend(["--ipc", command_spec.ipc])
 
         # Command environment variables
         for key, value in command_spec.env.items():

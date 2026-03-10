@@ -51,6 +51,12 @@ def _find_project_dir() -> Path:
     for parent in [current_dir] + list(current_dir.parents):
         if (parent / "cm.yaml").exists():
             return parent
+        if (parent / "container-magic.yaml").exists():
+            click.echo(
+                "Error: Rename container-magic.yaml to cm.yaml",
+                err=True,
+            )
+            sys.exit(1)
     click.echo(
         "Error: No config file (cm.yaml) found in current directory or parents",
         err=True,
@@ -298,7 +304,7 @@ def cache_path(path: Path):
     click.echo(str(cache_dir))
 
 
-@cli.command("run")
+@cli.command("run", context_settings=dict(ignore_unknown_options=True))
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_context
 def cli_run(ctx, args):
