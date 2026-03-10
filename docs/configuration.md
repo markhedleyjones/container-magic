@@ -18,7 +18,7 @@ All three fields are shown above but only `image` and `user` are required (`work
 - `user: root` - the container runs as root. No user creation is needed (or allowed - `create: user` and `become: user` are errors when `user` is `root`).
 - `user: <name>` (any other value, e.g. `nonroot`, `appuser`) - a custom user will be created by `create: user` steps and referenced by `become: user` steps. See [User Handling](user-handling.md) for details.
 
-Generated files are always regenerated before each build (`just build` runs `cm update` automatically). You can also run `cm update` manually after editing `cm.yaml`.
+Run `cm update` after editing `cm.yaml` to regenerate the Dockerfile and scripts. `cm build` also regenerates automatically before building.
 
 ## Backend
 
@@ -30,7 +30,7 @@ When set to `auto` (the default), container-magic will use whichever of `podman`
 
 ## Workspace Symlinks
 
-When your workspace contains symlinks pointing outside the workspace directory, container-magic detects them and handles them automatically. No configuration is needed -- `cm update` scans the workspace and generates the appropriate entries.
+When your workspace contains symlinks pointing outside the workspace directory, container-magic detects them and handles them automatically. No configuration is needed - `cm update` scans the workspace and generates the appropriate entries.
 
 After adding or removing symlinks, run `cm update` to pick up the changes.
 
@@ -39,13 +39,13 @@ After adding or removing symlinks, run `cm update` to pick up the changes.
     === "Development"
 
         Symlink targets are bind-mounted into the container at the matching
-        workspace path. No rebuild needed -- run `cm update` then `just run`.
+        workspace path. No rebuild needed - run `cm update` then `cm run`.
 
     === "Production"
 
         Symlink targets are resolved and copied into a staging directory,
         then baked into the image with additional `COPY` instructions.
-        `just build` runs `cm update` automatically before building.
+        `cm build` runs `cm update` automatically before building.
 
 Relative symlinks pointing within the workspace work naturally and aren't touched. Absolute symlinks pointing inside the workspace trigger a warning suggesting they be made relative for container compatibility. Dangling symlinks (where the target doesn't exist) are silently skipped.
 
@@ -59,7 +59,7 @@ DATABASE_URL=postgres://localhost/mydb
 API_KEY=secret123
 ```
 
-This works in development (`just run`), custom commands, and standalone scripts (`run.sh`, `<command>.sh`). If no `.env` file is present, nothing happens.
+This works in both development (`cm run`) and production (`run.sh`). If no `.env` file is present, nothing happens.
 
 ## Runtime
 
@@ -93,19 +93,18 @@ Per-command overrides are supported via the `ipc` field on individual commands.
 
 ### Container Names
 
-Development containers are named `<image-name>-development` and production containers are named `<image-name>`. If a container with the same name is already running, `just run` will exec into the existing container instead of starting a new one. Use `just stop` to stop a running container and `just clean` to remove it.
+Development containers are named `<image-name>-development` and production containers are named `<image-name>`. If a container with the same name is already running, `cm run` will exec into the existing container instead of starting a new one.
 
 ### Detached Mode
 
 Containers can be started in the background:
 
-- **Justfile:** `just run --detach <command>` or `just run -d <command>`
-- **run.sh:** `./run.sh --detach <command>` or `./run.sh -d <command>`
+- **Development:** `cm run --detach <command>` or `cm run -d <command>`
+- **Production:** `./run.sh --detach <command>` or `./run.sh -d <command>`
 
 To stop a detached container:
 
-- **Justfile:** `just stop`
-- **run.sh:** `./run.sh --stop`
+- **Production:** `./run.sh --stop`
 
 ## Stages
 
@@ -139,7 +138,7 @@ Each stage also supports:
 - `package_manager` - Override the auto-detected package manager (`apt`, `apk`, or `dnf`). Normally inferred from the base image.
 - `shell` - Override the default shell for the stage. Normally inferred from the base image.
 
-Package installation uses the command builder step syntax. The command name determines which package manager is used. Container-optimised defaults (flags, cleanup) are applied automatically -- see [Package Installation](build-steps.md#package-installation) for details.
+Package installation uses the command builder step syntax. The command name determines which package manager is used. Container-optimised defaults (flags, cleanup) are applied automatically - see [Package Installation](build-steps.md#package-installation) for details.
 
 ```yaml
 # Debian / Ubuntu
@@ -184,12 +183,6 @@ commands:
     description: Train model
     env:
       CUDA_VISIBLE_DEVICES: "0"
-    standalone: false  # Default: false (no dedicated script)
-
-  deploy:
-    command: bash workspace/deploy.sh
-    description: Deploy the model
-    standalone: true   # Generates deploy.sh script
 
   serve:
     command: python -m http.server 8000
@@ -203,110 +196,71 @@ commands:
 | Option | Description |
 |--------|-------------|
 | `command` | The command to run (supports multi-line via YAML `\|` syntax) |
-| `description` | Help text shown in Justfile |
-| `args` | Positional arguments (see below) |
+| `description` | Help text |
 | `env` | Environment variables passed to the container |
 | `ports` | Ports to publish (`host:container` format, generates `--publish` flags) |
 | `ipc` | IPC namespace mode override for this command (e.g. `host`, `shareable`) |
-| `standalone` | Generate a dedicated `<command>.sh` script |
-
-The `standalone` flag (default: `false`) controls script generation:
-
-- **`standalone: false`** (default) - Command available via `just <command>` and `./run.sh <command>` only
-- **`standalone: true`** - Also generates a dedicated `<command>.sh` script for direct execution
+| `inputs` | Named read-only file/directory mounts (see [Inputs and Outputs](#inputs-and-outputs)) |
+| `outputs` | Named read-write directory mounts (see [Inputs and Outputs](#inputs-and-outputs)) |
 
 **Development:**
 
-- `just train` - from anywhere in your repository
+- `cm run train` - from anywhere in your repository
 
-**Production (standalone: false):**
+**Production:**
 
-- `./run.sh train` - only way to run
+- `./run.sh train` - via run.sh
 
-**Production (standalone: true):**
+### Inputs and Outputs
 
-- `./run.sh deploy` - via run.sh
-- `./deploy.sh` - dedicated standalone script
-
-### Command Arguments
-
-Commands can define positional arguments with type validation and optional file/directory mounting:
+Commands can declare named inputs (read-only) and outputs (read-write) that mount host paths into the container at runtime:
 
 ```yaml
 commands:
   process:
-    command: "python process.py {input} {output}"
-    description: "Process input file"
-    args:
-      input:
-        type: file
-        description: "Input file to process"
-      output:
-        type: file
-        default: ""           # Makes this argument optional
-        readonly: false       # Allow writing to this path
-        mount_as: /tmp/out    # Mount at this container path
+    command: python process.py
+    description: Process a bag file
+    inputs:
+      bag:
+        prefix: "--bag "
+    outputs:
+      results:
+        prefix: "--output "
 ```
 
-**Argument options:**
+At runtime, provide values using `name=path` syntax:
 
-| Option | Description |
-|--------|-------------|
-| `type` | One of: `file`, `directory`, `string`, `int`, `float` |
-| `description` | Help text for the argument |
-| `default` | Default value (makes the argument optional) |
-| `readonly` | For file/directory types: validate existence (default: `true`) |
-| `mount_as` | For file/directory types: mount at this container path |
-
-**Generated Just recipe:**
-
-```
-process input output="" *args:
+```bash
+cm run process bag=/data/recording.bag results=/tmp/output
+# Mounts /data/recording.bag at /mnt/inputs/bag/recording.bag (read-only)
+# Mounts /tmp/output at /mnt/outputs/results (read-write)
+# Runs: python process.py --bag /mnt/inputs/bag/recording.bag --output /mnt/outputs/results
 ```
 
-Required arguments come first, followed by optional arguments with their defaults. The `{arg_name}` placeholders in the command are substituted with the actual values (or mount paths if `mount_as` is specified).
+The `prefix` field controls how the container path is embedded in the command. If omitted, it defaults to an empty string (the path is appended directly).
+
+Container paths follow a predictable structure:
+
+- Inputs: `/mnt/inputs/<name>/<basename>` - preserves the original filename
+- Outputs: `/mnt/outputs/<name>/`
+
+A manifest file at `/run/cm/mounts` records the host-to-container path mappings for any mounted inputs or outputs.
 
 ### Passing Extra Flags
 
-All commands include `*args` which captures any additional arguments (including flags) and appends them to the command:
+All commands accept additional arguments which are appended to the command:
 
 ```bash
-just process input.txt --verbose --dry-run
-# Runs: python process.py input.txt --verbose --dry-run
+cm run train --epochs 10 --lr 0.001
+# Runs: python workspace/train.py --epochs 10 --lr 0.001
 
-just process input.txt output.txt --format=json
-# Runs: python process.py input.txt output.txt --format=json
+./run.sh train --epochs 10
+# Same in production
 ```
-
-### File Mounting Example
-
-```yaml
-commands:
-  convert:
-    command: "ffmpeg -i {input} {output}"
-    args:
-      input:
-        type: file
-        mount_as: /tmp/input.mp4
-      output:
-        type: file
-        default: ""
-        readonly: false
-        mount_as: /tmp/output.mp4
-```
-
-When `mount_as` is specified, the host file is mounted into the container at that path, and the command uses the container path.
 
 ## Build Script
 
-Configure the standalone `build.sh` script behaviour:
-
-```yaml
-build_script:
-  default_target: production  # Optional: stage to build (default: production)
-```
-
-The `build.sh` script builds the configured target stage:
+The standalone `build.sh` script builds the production target by default:
 
 ```bash
 ./build.sh              # Builds production stage, tagged as 'latest'

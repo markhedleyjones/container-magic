@@ -15,10 +15,11 @@ hide:
 Container-magic takes a single YAML configuration file and generates:
 
 1. A **Dockerfile** with multi-stage builds
-2. A **Justfile** for development (with live workspace mounting)
-3. Standalone **build.sh** and **run.sh** scripts for production
+2. Standalone **build.sh** and **run.sh** scripts for production
 
-The Dockerfile and standalone scripts are committed to your repository, so anyone can use your project with just `docker` or `podman` — no need to install container-magic or just.
+The Dockerfile and standalone scripts are committed to your repository, so anyone can use your project with just `docker` or `podman` - no need to install container-magic.
+
+For development, `cm build` and `cm run` read the YAML config directly and handle workspace mounting, user mapping, and feature flags automatically.
 
 ## Quick Start
 
@@ -31,22 +32,22 @@ cm init python:3.11 my-project
 cd my-project
 
 # Build the container
-just build
+cm build
 
 # Run commands inside the container
-just run python --version
-just run bash -c "echo Hello from container"
-just run  # starts an interactive shell
+cm run python --version
+cm run bash -c "echo Hello from container"
+cm run  # starts an interactive shell
 ```
 
 See [Getting Started](getting-started.md) for a full walkthrough.
 
 ## Key Features
 
-* **YAML configuration** — Single source of truth for your container setup
-* **Transparent execution** — Run commands in container from anywhere in your repo
-* **Custom commands** — Define commands once, use in both dev and prod
-* **Smart features** — GPU, display (X11/Wayland), audio, and AWS credential support
-* **Multi-stage builds** — Separate base, development, and production stages
-* **Live workspace mounting** — Edit code on host, run in container (development)
-* **Standalone scripts** — Production needs only docker/podman (no dependencies)
+* **YAML configuration** - Single source of truth for your container setup
+* **Transparent execution** - Run commands in container from anywhere in your repo
+* **Custom commands** - Define commands once, use in both dev and prod
+* **Smart features** - GPU, display (X11/Wayland), audio, and AWS credential support
+* **Multi-stage builds** - Separate base, development, and production stages
+* **Live workspace mounting** - Edit code on host, run in container (development)
+* **Standalone scripts** - Production needs only docker/podman (no dependencies)

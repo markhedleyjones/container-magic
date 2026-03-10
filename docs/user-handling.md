@@ -25,20 +25,11 @@ The `cm init` scaffold sets `user: nonroot` by default and places `create: user`
         `create: user` with uid/gid 1000. Override with `./build.sh --uid`
         and `--gid` if needed.
 
-## Development (`just build` and `just run`)
+## Development (`cm build` and `cm run`)
 
-When you run `just build` or `just run`, the container is built and run as **your current system user**:
+When you run `cm build`, the container is built as **your current system user**:
 
-```bash
-# The build recipe captures:
-USER_UID=$(id --user)            # Your UID
-USER_GID=$(id --group)           # Your GID
-USER_NAME=$(id --user --name)    # Your username
-USER_HOME=$(echo ~)              # Your home directory
-```
-
-This means:
-
+- Your UID, GID, username, and home directory are passed as build args
 - You run commands as yourself (same UID/GID as your host)
 - Your home directory is mapped into the container
 - File permissions are correct (no permission issues)
@@ -68,7 +59,7 @@ The user is always created with uid/gid 1000. For rare cases where the host uid/
 If `names.user` is `root` (and therefore no `create: user` step exists), the container runs as root with UID 0.
 
 !!! note
-    When `names.user` is `root`, the `run.sh` script still works correctly. Commands execute with root privileges -- this is the default Docker/Podman behaviour (no `USER` directive means root).
+    When `names.user` is `root`, the `run.sh` script still works correctly. Commands execute with root privileges - this is the default Docker/Podman behaviour (no `USER` directive means root).
 
 ## Copy Ownership
 
@@ -79,7 +70,7 @@ The lowercase `copy` step interacts with user context to control file ownership:
 | `copy` (lowercase) | Adds `--chown=<username>:<username>` when `become` is active for a non-root user. Plain `COPY` otherwise. |
 | `COPY` (uppercase) | Raw Dockerfile passthrough, no automatic ownership. |
 
-User context is inherited from parent stages -- if a parent ends with `become: user`, child stages start with user context active.
+User context is inherited from parent stages - if a parent ends with `become: user`, child stages start with user context active.
 
 ### Example: Mixed Ownership
 
