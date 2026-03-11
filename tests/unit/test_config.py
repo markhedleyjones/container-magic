@@ -49,7 +49,6 @@ def test_default_values():
 
     assert config.names.workspace == "workspace"
     assert config.names.user == "root"
-    assert config.auto_update is True
     assert config.backend == "auto"
     assert config.runtime.privileged is False
     assert config.runtime.features == []
@@ -210,6 +209,20 @@ def test_user_block_rejected():
         ContainerMagicConfig(
             names={"image": "test", "user": "root"},
             user={"name": "appuser"},
+            stages={
+                "base": {"from": "python:3-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+
+def test_auto_update_rejected():
+    """Test that auto_update raises a clean removal error."""
+    with pytest.raises(ValidationError, match="no longer used"):
+        ContainerMagicConfig(
+            names={"image": "test", "user": "root"},
+            auto_update=True,
             stages={
                 "base": {"from": "python:3-slim"},
                 "development": {"from": "base"},

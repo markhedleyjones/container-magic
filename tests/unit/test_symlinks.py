@@ -158,7 +158,7 @@ class TestDockerfileSymlinks:
 
     def test_no_symlinks_no_staging_copies(self, tmp_path):
         content = _generate_with_symlinks(self._config(), tmp_path)
-        assert ".cm-build-staging" not in content
+        assert ".cm-cache/staging" not in content
 
     def test_external_symlink_adds_staging_copy(self, tmp_path):
         def setup(workspace, root):
@@ -169,7 +169,7 @@ class TestDockerfileSymlinks:
 
         content = _generate_with_symlinks(self._config(), tmp_path, setup)
         assert "COPY" in content
-        assert ".cm-build-staging/shared" in content
+        assert ".cm-cache/staging/shared" in content
         assert "${WORKSPACE}/shared" in content
 
     def test_symlink_copy_preserves_chown(self, tmp_path):
@@ -181,7 +181,7 @@ class TestDockerfileSymlinks:
         content = _generate_with_symlinks(self._config(), tmp_path, setup)
         # The production stage has become: user, so chown should be present
         staging_lines = [
-            line for line in content.splitlines() if ".cm-build-staging" in line
+            line for line in content.splitlines() if ".cm-cache/staging" in line
         ]
         assert len(staging_lines) >= 1
         assert "--chown=" in staging_lines[0]
@@ -216,7 +216,7 @@ class TestBuildScriptSymlinks:
         (tmp_path / "workspace").mkdir()
         generate_build_script(config, tmp_path)
         content = (tmp_path / "build.sh").read_text()
-        assert ".cm-build-staging" not in content
+        assert ".cm-cache/staging" not in content
 
     def test_external_symlink_stages_in_build_script(self, tmp_path):
         config = self._config()
@@ -228,7 +228,7 @@ class TestBuildScriptSymlinks:
 
         generate_build_script(config, tmp_path)
         content = (tmp_path / "build.sh").read_text()
-        assert ".cm-build-staging" in content
+        assert ".cm-cache/staging" in content
         assert "cp -rL" in content
         assert "shared" in content
         assert "trap" in content

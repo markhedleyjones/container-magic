@@ -155,24 +155,6 @@ def validate_shell_script(
     return ValidationResult(all_passed, "\n".join(messages))
 
 
-def validate_justfile(justfile: Path) -> ValidationResult:
-    """Validate Justfile syntax."""
-    just = shutil.which("just")
-    if not just:
-        return ValidationResult(True, "just not available (skipped)")
-
-    result = subprocess.run(
-        ["just", "--justfile", str(justfile), "--summary"],
-        capture_output=True,
-        text=True,
-    )
-
-    if result.returncode != 0:
-        return ValidationResult(False, f"just validation failed:\n{result.stderr}")
-
-    return ValidationResult(True, "just: OK")
-
-
 def validate_file(file_path: Path) -> ValidationResult:
     """
     Validate a file based on its type.
@@ -218,12 +200,6 @@ def validate_file(file_path: Path) -> ValidationResult:
             all_passed = False
         messages.append(str(result))
 
-    elif filename == "justfile":
-        result = validate_justfile(file_path)
-        if not result:
-            all_passed = False
-        messages.append(str(result))
-
     return ValidationResult(all_passed, "\n".join(messages))
 
 
@@ -246,7 +222,6 @@ def validate_directory(
             "*.yml",
             "Dockerfile",
             "*.sh",
-            "Justfile",
         ]
 
     results = {}

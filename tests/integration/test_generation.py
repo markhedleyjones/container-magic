@@ -24,7 +24,6 @@ LINTERS = {
     "yamlfmt": shutil.which("yamlfmt"),
     "hadolint": shutil.which("hadolint"),
     "shellcheck": shutil.which("shellcheck"),
-    "just": shutil.which("just"),
 }
 
 
@@ -78,17 +77,6 @@ def validate_shell_script(script: Path) -> bool:
     return result.returncode == 0
 
 
-def validate_justfile(justfile: Path) -> bool:
-    """Validate Justfile syntax."""
-    if not LINTERS["just"]:
-        return True
-    result = subprocess.run(
-        ["just", "--justfile", str(justfile), "--summary"],
-        capture_output=True,
-    )
-    return result.returncode == 0
-
-
 def validate_no_consecutive_blank_lines(file_path: Path) -> bool:
     """Validate that file has no more than one consecutive blank line."""
     with open(file_path) as f:
@@ -126,7 +114,6 @@ def test_project_generation(name, template, test_output_dir):
     # Check all expected files exist
     expected_files = [
         "Dockerfile",
-        "Justfile",
         "cm.yaml",
         "build.sh",
         "run.sh",
@@ -137,6 +124,11 @@ def test_project_generation(name, template, test_output_dir):
         file_path = project_dir / file
         assert file_path.exists(), f"Missing file: {file}"
 
+    # Justfile should NOT be generated in v3
+    assert not (project_dir / "Justfile").exists(), (
+        "Justfile should not be generated in v3"
+    )
+
     # Validate files with linters
     assert validate_yaml(project_dir / "cm.yaml"), "YAML validation failed: cm.yaml"
     assert validate_dockerfile(project_dir / "Dockerfile"), (
@@ -144,10 +136,9 @@ def test_project_generation(name, template, test_output_dir):
     )
     assert validate_shell_script(project_dir / "build.sh"), "build.sh validation failed"
     assert validate_shell_script(project_dir / "run.sh"), "run.sh validation failed"
-    assert validate_justfile(project_dir / "Justfile"), "Justfile validation failed"
 
     # Validate no excessive blank lines in generated files
-    for file_name in ["Dockerfile", "Justfile", "build.sh", "run.sh", "cm.yaml"]:
+    for file_name in ["Dockerfile", "build.sh", "run.sh", "cm.yaml"]:
         file_path = project_dir / file_name
         assert validate_no_consecutive_blank_lines(file_path), (
             f"{file_name} has more than one consecutive blank line"
@@ -172,10 +163,6 @@ def test_project_generation(name, template, test_output_dir):
         "Dockerfile missing base stage"
     )
 
-    # Check Justfile has required targets
-    justfile_content = (project_dir / "Justfile").read_text()
-    assert "build" in justfile_content, "Justfile missing build target"
-
     # Config should have minimal comments (header only)
     comment_lines = [
         line for line in config_content.split("\n") if line.strip().startswith("#")
@@ -185,45 +172,4 @@ def test_project_generation(name, template, test_output_dir):
     )
     assert "github.com/markhedleyjones/container-magic" in comment_lines[0], (
         "Config missing repository link"
-    )
-
-
-def test_justfile_run_command_order(test_output_dir):
-    """Test that Justfile run recipe has correct command structure.
-
-    Validates that container flags (like --interactive, --tty) are added
-    to RUN_ARGS before the image name, not after. This is critical because
-    docker/podman require: `run [flags] IMAGE [command]`
-    """
-    # Use an existing generated project or create one
-    project_dir = test_output_dir / "python"
-    if not project_dir.exists():
-        project_dir.mkdir(parents=True)
-        result = subprocess.run(
-            ["cm", "init", "--here", "python"],
-            cwd=project_dir,
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0, f"cm init failed: {result.stderr}"
-
-    justfile_content = (project_dir / "Justfile").read_text()
-
-    # Find positions of key patterns in the Justfile
-    image_pattern = 'RUN_ARGS+=("${IMAGE}")'
-    tty_pattern = 'RUN_ARGS+=("--interactive"'
-
-    # Use rfind for IMAGE to match the foreground (non-detach) path —
-    # the detach path intentionally omits TTY flags.
-    image_pos = justfile_content.rfind(image_pattern)
-    tty_pos = justfile_content.find(tty_pattern)
-
-    assert image_pos >= 0, f"Could not find '{image_pattern}' in Justfile"
-    assert tty_pos >= 0, f"Could not find '{tty_pattern}' in Justfile"
-
-    # TTY flags must come before the image in the foreground path
-    assert tty_pos < image_pos, (
-        "TTY flags (--interactive, --tty) must be added to RUN_ARGS BEFORE the image. "
-        f"Found --interactive at position {tty_pos}, IMAGE at position {image_pos}. "
-        "Container runtimes require: `run [flags] IMAGE [command]`"
     )

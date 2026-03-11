@@ -1,8 +1,6 @@
 """Main CLI for container-magic."""
 
 import os
-import platform
-import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
@@ -13,110 +11,70 @@ from container_magic import __version__
 from container_magic.core.config import ContainerMagicConfig, find_config_file
 from container_magic.generators.build_script import generate_build_script
 from container_magic.generators.dockerfile import generate_dockerfile
-from container_magic.generators.justfile import generate_justfile
 from container_magic.generators.run_script import generate_run_script
-from container_magic.generators.standalone_commands import (
-    generate_standalone_command_scripts,
-)
 
 
-def update_gitignore(path: Path):
-    """Update .gitignore with required entries."""
-    gitignore_path = path / ".gitignore"
-    required_entries = [".cm-cache/", ".cm-build-staging/", "Justfile"]
+def _ensure_ignore_entries(path: Path, filename: str, required_entries: list):
+    """Ensure an ignore file contains the required entries."""
+    ignore_path = path / filename
 
-    if gitignore_path.exists():
-        # Read existing content
-        existing_content = gitignore_path.read_text()
+    if ignore_path.exists():
+        existing_content = ignore_path.read_text()
         existing_lines = existing_content.split("\n")
 
-        # Check which entries need to be added
         entries_to_add = [
             entry for entry in required_entries if entry not in existing_lines
         ]
 
         if entries_to_add:
-            # Append missing entries
-            with gitignore_path.open("a") as f:
-                # Ensure file ends with newline before appending
+            with ignore_path.open("a") as f:
                 if existing_content and not existing_content.endswith("\n"):
                     f.write("\n")
                 for entry in entries_to_add:
                     f.write(f"{entry}\n")
     else:
-        # Create new .gitignore
-        gitignore_content = """.cm-cache/
-.cm-build-staging/
-Justfile
-"""
-        gitignore_path.write_text(gitignore_content)
+        ignore_path.write_text("".join(f"{entry}\n" for entry in required_entries))
 
 
-def _show_just_install_help():
-    """Display platform-specific installation instructions for 'just'."""
-    click.echo("Error: 'just' command not found", err=True)
-    click.echo("", err=True)
-    click.echo("'just' is required to run container-magic projects.", err=True)
-    click.echo("Install it using one of these methods:", err=True)
-    click.echo("", err=True)
+def update_gitignore(path: Path):
+    """Update .gitignore with required entries."""
+    _ensure_ignore_entries(path, ".gitignore", [".cm-cache/"])
 
-    system = platform.system()
 
-    if system == "Linux":
-        # Detect Linux distribution
-        distro = ""
-        try:
-            with open("/etc/os-release") as f:
-                for line in f:
-                    if line.startswith("ID="):
-                        distro = line.strip().split("=")[1].strip('"')
-                        break
-        except Exception:
-            pass
+def update_dockerignore(path: Path):
+    """Update .dockerignore to not exclude .cm-cache/.
 
-        if distro in ["arch", "manjaro"]:
-            click.echo("  pacman -S just", err=True)
-        elif distro in ["ubuntu", "debian", "linuxmint", "pop"]:
-            click.echo("  # Using cargo (recommended):", err=True)
-            click.echo("  cargo install just", err=True)
-            click.echo("", err=True)
-            click.echo("  # Or download pre-built binary:", err=True)
-            click.echo(
-                "  curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin",
-                err=True,
-            )
-        elif distro in ["fedora", "rhel", "centos"]:
-            click.echo("  dnf install just", err=True)
-        else:
-            click.echo("  # Using cargo:", err=True)
-            click.echo("  cargo install just", err=True)
-            click.echo("", err=True)
-            click.echo("  # Or download pre-built binary:", err=True)
-            click.echo(
-                "  curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin",
-                err=True,
-            )
-    elif system == "Darwin":  # macOS
-        click.echo("  # Using Homebrew (recommended):", err=True)
-        click.echo("  brew install just", err=True)
-        click.echo("", err=True)
-        click.echo("  # Or using cargo:", err=True)
-        click.echo("  cargo install just", err=True)
-    elif system == "Windows":
-        click.echo("  # Using Scoop (recommended):", err=True)
-        click.echo("  scoop install just", err=True)
-        click.echo("", err=True)
-        click.echo("  # Or using Cargo:", err=True)
-        click.echo("  cargo install just", err=True)
-        click.echo("", err=True)
-        click.echo("  # Or using Chocolatey:", err=True)
-        click.echo("  choco install just", err=True)
-    else:
-        click.echo("  # Using cargo:", err=True)
-        click.echo("  cargo install just", err=True)
+    Checks if .cm-cache/ is excluded and adds a negation so assets and
+    staging files remain accessible in the Docker build context.
+    """
+    dockerignore_path = path / ".dockerignore"
+    if not dockerignore_path.exists():
+        return
 
-    click.echo("", err=True)
-    click.echo("Learn more: https://github.com/casey/just", err=True)
+    content = dockerignore_path.read_text()
+    lines = content.split("\n")
+
+    has_cm_cache_exclude = ".cm-cache/" in lines or ".cm-cache" in lines
+    has_negation = "!.cm-cache/" in lines or "!.cm-cache" in lines
+
+    if has_cm_cache_exclude and not has_negation:
+        with dockerignore_path.open("a") as f:
+            if content and not content.endswith("\n"):
+                f.write("\n")
+            f.write("!.cm-cache/\n")
+
+
+def _find_project_dir() -> Path:
+    """Find the nearest project directory by walking up from cwd."""
+    current_dir = Path.cwd()
+    for parent in [current_dir] + list(current_dir.parents):
+        if (parent / "cm.yaml").exists():
+            return parent
+    click.echo(
+        "Error: No config file (cm.yaml) found in current directory or parents",
+        err=True,
+    )
+    sys.exit(1)
 
 
 @click.group()
@@ -214,20 +172,40 @@ def init(
     elif in_place:
         click.echo("  Note: Using existing workspace directory")
 
-    # Generate Dockerfile, Justfile, and standalone scripts
-    generate_dockerfile(config, path / "Dockerfile")
-    generate_justfile(config, config_path, path / "Justfile")
-    generate_build_script(config, path)
+    # Scan workspace symlinks once for all generators
+    from container_magic.core.symlinks import scan_workspace_symlinks
+
+    workspace_symlinks = scan_workspace_symlinks(path / config.names.workspace)
+
+    # Generate Dockerfile and production scripts
+    generate_dockerfile(
+        config, path / "Dockerfile", workspace_symlinks=workspace_symlinks
+    )
+    generate_build_script(config, path, workspace_symlinks=workspace_symlinks)
     generate_run_script(config, path)
-    generate_standalone_command_scripts(config, path)
 
-    # Update .gitignore
+    # Update ignore files
     update_gitignore(path)
+    update_dockerignore(path)
 
-    click.echo(f"✓ Created {name}")
+    # Warn about leftover Justfile from v2 (only if it was generated by container-magic)
+    justfile_path = path / "Justfile"
+    if justfile_path.exists():
+        try:
+            header = justfile_path.read_text()[:200]
+            if "Generated by container-magic" in header:
+                click.echo(
+                    "Warning: Found container-magic generated Justfile from a previous version. "
+                    "Justfile is no longer generated. You can safely delete it.",
+                    err=True,
+                )
+        except OSError:
+            pass
+
+    click.echo(f"Created {name}")
     click.echo("Next steps:")
     click.echo(f"  cd {name}")
-    click.echo("  just build")
+    click.echo("  cm build")
 
 
 @cli.command()
@@ -243,17 +221,48 @@ def update(path: Path):
     # Load config
     config = ContainerMagicConfig.from_yaml(config_path)
 
-    # Generate all files
-    generate_dockerfile(config, path / "Dockerfile")
-    generate_justfile(config, config_path, path / "Justfile")
-    generate_build_script(config, path)
+    # Scan workspace symlinks once for all generators
+    from container_magic.core.symlinks import scan_workspace_symlinks
+
+    workspace_symlinks = scan_workspace_symlinks(path / config.names.workspace)
+
+    # Generate Dockerfile and production scripts
+    generate_dockerfile(
+        config, path / "Dockerfile", workspace_symlinks=workspace_symlinks
+    )
+    generate_build_script(config, path, workspace_symlinks=workspace_symlinks)
     generate_run_script(config, path)
-    generate_standalone_command_scripts(config, path)
 
-    # Update .gitignore
+    # Update ignore files
     update_gitignore(path)
+    update_dockerignore(path)
 
-    click.echo("✓ Regenerated successfully")
+    # Warn about leftover Justfile from v2 (only if it was generated by container-magic)
+    justfile_path = path / "Justfile"
+    if justfile_path.exists():
+        try:
+            header = justfile_path.read_text()[:200]
+            if "Generated by container-magic" in header:
+                click.echo(
+                    "Warning: Found container-magic generated Justfile from a previous version. "
+                    "Justfile is no longer generated. You can safely delete it.",
+                    err=True,
+                )
+        except OSError:
+            pass
+
+    # Warn about leftover standalone scripts
+    if config.commands:
+        for cmd_name in config.commands:
+            script_path = path / f"{cmd_name}.sh"
+            if script_path.exists():
+                click.echo(
+                    f"Warning: Found standalone script {cmd_name}.sh which is "
+                    "no longer generated. You can safely delete it.",
+                    err=True,
+                )
+
+    click.echo("Regenerated successfully")
 
 
 def _download_assets(config: ContainerMagicConfig, project_dir: Path):
@@ -294,7 +303,7 @@ def cache_clear(path: Path):
     cache_dir = get_cache_dir(path)
     if cache_dir.exists():
         clear_cache(path)
-        click.echo(f"✓ Cleared cache at {cache_dir}")
+        click.echo(f"Cleared cache at {cache_dir}")
     else:
         click.echo("No cache found")
 
@@ -334,89 +343,76 @@ def cache_path(path: Path):
     click.echo(str(cache_dir))
 
 
-def main():
-    """Entry point for cm command."""
-    cli()
+@cli.command()
+def stop():
+    """Stop the running development container."""
+    from container_magic.core.runner import stop_container
+
+    project_dir = _find_project_dir()
+    config_path = find_config_file(project_dir)
+    config = ContainerMagicConfig.from_yaml(config_path)
+    stop_container(config)
 
 
-def run_main():
-    """Entry point for run command (standalone alias)."""
-    # Find nearest config file by walking up from current directory
-    current_dir = Path.cwd()
-    project_dir = None
+@cli.command()
+def clean():
+    """Stop container and remove images."""
+    from container_magic.core.runner import clean_images, stop_container
 
-    for parent in [current_dir] + list(current_dir.parents):
-        if (parent / "cm.yaml").exists():
-            project_dir = parent
-            break
+    project_dir = _find_project_dir()
+    config_path = find_config_file(project_dir)
+    config = ContainerMagicConfig.from_yaml(config_path)
+    stop_container(config)
+    clean_images(config)
 
-    if not project_dir:
-        click.echo(
-            "Error: No config file (cm.yaml) found in current directory or parents",
-            err=True,
-        )
-        sys.exit(1)
 
-    # Check if just is available
-    if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        _show_just_install_help()
-        sys.exit(1)
+@cli.command("run", context_settings=dict(ignore_unknown_options=True))
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+def cli_run(args):
+    """Run a command in the development container."""
+    from container_magic.core.runner import run_container
 
-    # Load config to check for custom commands
+    project_dir = _find_project_dir()
+    user_cwd = Path.cwd()
     config_path = find_config_file(project_dir)
     config = ContainerMagicConfig.from_yaml(config_path)
 
-    # Pass user's current working directory to just for path translation
-    user_cwd = str(current_dir.resolve())
-
-    # Check if first argument is a custom command
-    if len(sys.argv) > 1 and config.commands and sys.argv[1] in config.commands:
-        # Call just <command> directly
-        just_args = ["just", "--set", "USER_CWD", user_cwd, sys.argv[1]]
-        if len(sys.argv) > 2:
-            just_args.extend(sys.argv[2:])
-    else:
-        # Call just run with command
-        just_args = ["just", "--set", "USER_CWD", user_cwd, "run"]
-        if len(sys.argv) > 1:
-            just_args.extend(sys.argv[1:])
-
     os.chdir(project_dir)
-    os.execvp("just", just_args)
+    exit_code = run_container(
+        config=config,
+        project_dir=project_dir,
+        user_cwd=user_cwd,
+        user_args=list(args),
+    )
+    sys.exit(exit_code)
 
 
-def build_main():
-    """Entry point for build command (standalone alias)."""
-    # Find nearest config file by walking up from current directory
-    current_dir = Path.cwd()
-    project_dir = None
+@cli.command("build")
+@click.option("--production", is_flag=True, help="Build the production target")
+@click.option("--tag", default="", help="Override image tag")
+def cli_build(production, tag):
+    """Build the container image."""
+    from container_magic.core.builder import build_container
 
-    for parent in [current_dir] + list(current_dir.parents):
-        if (parent / "cm.yaml").exists():
-            project_dir = parent
-            break
-
-    if not project_dir:
-        click.echo(
-            "Error: No config file (cm.yaml) found in current directory or parents",
-            err=True,
-        )
-        sys.exit(1)
-
-    # Load config
+    project_dir = _find_project_dir()
     config_path = find_config_file(project_dir)
     config = ContainerMagicConfig.from_yaml(config_path)
 
     _download_assets(config, project_dir)
 
-    # Check if just is available
-    if not subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        _show_just_install_help()
-        sys.exit(1)
-
-    # Call just build
     os.chdir(project_dir)
-    os.execvp("just", ["just", "build"])
+    exit_code = build_container(
+        config=config,
+        project_dir=project_dir,
+        production=production,
+        tag=tag,
+    )
+    sys.exit(exit_code)
+
+
+def main():
+    """Entry point for cm command."""
+    cli()
 
 
 if __name__ == "__main__":

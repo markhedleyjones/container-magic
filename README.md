@@ -18,8 +18,9 @@
 
 Container-magic takes a single YAML configuration file and generates:
 1. A **Dockerfile** with multi-stage builds
-2. A **Justfile** for development (with live workspace mounting)
-3. Standalone **build.sh** and **run.sh** scripts for production
+2. Standalone **build.sh** and **run.sh** scripts for production
+
+For development, `cm build` and `cm run` read the config directly and handle workspace mounting, user mapping, and feature flags automatically.
 
 The generated files are committed to your repository, so anyone can use your project with just `docker` or `podman` - no need to install container-magic.
 
@@ -29,8 +30,8 @@ The generated files are committed to your repository, so anyone can use your pro
 pip install container-magic
 cm init python:3.11 my-project
 cd my-project
-just build
-just run python --version
+cm build
+cm run python --version
 ```
 
 A minimal `cm.yaml`:
@@ -82,7 +83,7 @@ Full documentation is available at **[markhedleyjones.com/container-magic](https
 | Page | Contents |
 |------|----------|
 | [Getting Started](https://markhedleyjones.com/container-magic/getting-started/) | Installation, first project, workflow |
-| [Configuration](https://markhedleyjones.com/container-magic/configuration/) | Full YAML reference -- names, runtime, stages, commands |
+| [Configuration](https://markhedleyjones.com/container-magic/configuration/) | Full YAML reference - names, runtime, stages, commands |
 | [Build Steps](https://markhedleyjones.com/container-magic/build-steps/) | Built-in steps, package managers, custom commands, layer caching |
 | [Cached Assets](https://markhedleyjones.com/container-magic/cached-assets/) | Asset downloading, caching, and cache management |
 | [User Handling](https://markhedleyjones.com/container-magic/user-handling/) | Dev vs prod users, copy ownership, permissions |

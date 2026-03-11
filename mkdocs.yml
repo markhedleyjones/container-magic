@@ -42,6 +42,7 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Configuration: configuration.md
+  - Mounts: mounts.md
   - Build Steps: build-steps.md
   - Cached Assets: cached-assets.md
   - User Handling: user-handling.md

@@ -13,12 +13,12 @@ SHELL="{{ shell }}"
 
 # Detect runtime backend
 {%- if backend == "auto" %}
-if command -v podman >/dev/null 2>&1; then
-	RUNTIME="podman"
-elif command -v docker >/dev/null 2>&1; then
+if command -v docker >/dev/null 2>&1; then
 	RUNTIME="docker"
+elif command -v podman >/dev/null 2>&1; then
+	RUNTIME="podman"
 else
-	echo "Error: Neither podman nor docker found in PATH"
+	echo "Error: Neither docker nor podman found in PATH"
 	exit 1
 fi
 {%- else %}
@@ -53,6 +53,31 @@ if [[ "${1:-}" == "--detach" ]] || [[ "${1:-}" == "-d" ]]; then
 	DETACH=true
 	shift
 fi
+
+{%- raw %}
+
+# Parse runtime passthrough args (everything before --)
+# Usage: ./run.sh -e DEBUG=1 -v /tmp:/data -- command args
+RUNTIME_PASSTHROUGH=()
+_PT_CMD_ARGS=()
+_PT_FOUND_SEP=false
+for arg in "$@"; do
+	if [[ "${_PT_FOUND_SEP}" == false ]] && [[ "$arg" == "--" ]]; then
+		_PT_FOUND_SEP=true
+		continue
+	fi
+	if [[ "${_PT_FOUND_SEP}" == true ]]; then
+		_PT_CMD_ARGS+=("$arg")
+	else
+		RUNTIME_PASSTHROUGH+=("$arg")
+	fi
+done
+if [[ "${_PT_FOUND_SEP}" == true ]]; then
+	set -- "${_PT_CMD_ARGS[@]}"
+else
+	RUNTIME_PASSTHROUGH=()
+fi
+{%- endraw %}
 
 # Build base run arguments (common to all commands)
 BASE_RUN_ARGS=("--rm")
@@ -171,20 +196,26 @@ if [[ -f "$(pwd)/.env" ]]; then
 	BASE_RUN_ARGS+=("--env-file" "$(pwd)/.env")
 fi
 
+{%- raw %}
+
+# Runtime passthrough args
+if [[ ${#RUNTIME_PASSTHROUGH[@]} -gt 0 ]]; then
+	BASE_RUN_ARGS+=("${RUNTIME_PASSTHROUGH[@]}")
+fi
+{%- endraw %}
+
 {%- if commands %}
 
 # Custom command handlers
 {%- for command_name, command_spec in commands.items() %}
 
 run_{{ command_name }}() {
-	{%- if command_spec.standalone %}
-	# Delegate to standalone script
-	exec "$(dirname "$0")/{{ command_name }}.sh"
-	{%- else %}
 	{%- if command_spec.description %}
 	# {{ command_spec.description }}
 	{%- endif %}
 	local RUN_ARGS=("${BASE_RUN_ARGS[@]}")
+	local CMD="{{ command_spec.command }}"
+	local EXTRA_ARGS=()
 
 	{%- if command_spec.env %}
 	# Environment variables
@@ -198,11 +229,86 @@ run_{{ command_name }}() {
 	RUN_ARGS+=("--publish" "{{ port }}")
 	{%- endfor %}
 	{%- endif %}
+	{%- if command_spec.mounts %}
 
-	${RUNTIME} run "${RUN_ARGS[@]}" \
-		-w "${WORKDIR}" \
-		"${IMAGE_NAME}:${TAG}" \
-		"${SHELL}" -c "{{ command_spec.command | replace('\"', '\\\"') }}"
+	# Parse mount arguments
+	local MANIFEST_LINES=()
+	local REMAINING=()
+	for arg in "$@"; do
+		case "$arg" in
+		{%- for mount_name, mount_spec in command_spec.mounts.items() %}
+		{{ mount_name }}=*)
+			local _host_path="{{ '${arg#' }}{{ mount_name }}=}"
+			local _resolved
+			_resolved=$(realpath "$_host_path")
+			{%- if mount_spec.mode == "ro" %}
+			if [[ ! -e "$_resolved" ]]; then
+				echo "Error: Mount '{{ mount_name }}' not found: $_host_path" >&2
+				return 1
+			fi
+			local _basename
+			_basename=$(basename "$_resolved")
+			RUN_ARGS+=("-v" "${_resolved}:/mnt/{{ mount_name }}/${_basename}:ro,z")
+			{%- if mount_spec.prefix %}
+			{%- if mount_spec.prefix.endswith(" ") %}
+			EXTRA_ARGS+=("{{ mount_spec.prefix.rstrip() }}" "/mnt/{{ mount_name }}/${_basename}")
+			{%- else %}
+			EXTRA_ARGS+=("{{ mount_spec.prefix }}/mnt/{{ mount_name }}/${_basename}")
+			{%- endif %}
+			{%- endif %}
+			MANIFEST_LINES+=("${_resolved}:/mnt/{{ mount_name }}/${_basename}")
+			{%- else %}
+			mkdir -p "$_resolved"
+			RUN_ARGS+=("-v" "${_resolved}:/mnt/{{ mount_name }}:z")
+			{%- if mount_spec.prefix %}
+			{%- if mount_spec.prefix.endswith(" ") %}
+			EXTRA_ARGS+=("{{ mount_spec.prefix.rstrip() }}" "/mnt/{{ mount_name }}")
+			{%- else %}
+			EXTRA_ARGS+=("{{ mount_spec.prefix }}/mnt/{{ mount_name }}")
+			{%- endif %}
+			{%- endif %}
+			MANIFEST_LINES+=("${_resolved}:/mnt/{{ mount_name }}")
+			{%- endif %}
+			;;
+		{%- endfor %}
+		*)
+			REMAINING+=("$arg")
+			;;
+		esac
+	done
+	{%- raw %}
+	local _manifest=""
+	if [[ ${#MANIFEST_LINES[@]} -gt 0 ]]; then
+		_manifest=$(mktemp /tmp/cm-manifest-XXXXXX)
+		printf '%s\n' "${MANIFEST_LINES[@]}" > "$_manifest"
+		RUN_ARGS+=("-v" "${_manifest}:/run/cm/mounts:ro,z")
+	fi
+	if [[ ${#REMAINING[@]} -gt 0 ]]; then
+		EXTRA_ARGS+=("${REMAINING[@]}")
+	fi
+	{%- endraw %}
+	{%- else %}
+	EXTRA_ARGS=("$@")
+	{%- endif %}
+	{%- raw %}
+	if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+	{%- endraw %}
+		${RUNTIME} run "${RUN_ARGS[@]}" \
+			-w "${WORKDIR}" \
+			"${IMAGE_NAME}:${TAG}" \
+			"${SHELL}" -c "${CMD} $(printf '%q ' "${EXTRA_ARGS[@]}")"
+	else
+		${RUNTIME} run "${RUN_ARGS[@]}" \
+			-w "${WORKDIR}" \
+			"${IMAGE_NAME}:${TAG}" \
+			"${SHELL}" -c "${CMD}"
+	fi
+	{%- if command_spec.mounts %}
+	{%- raw %}
+	if [[ -n "$_manifest" ]]; then
+		rm -f "$_manifest"
+	fi
+	{%- endraw %}
 	{%- endif %}
 }
 {%- endfor %}
@@ -227,10 +333,12 @@ RUN_ARGS=("${BASE_RUN_ARGS[@]}")
 if [[ "${DETACH}" == true ]]; then
 	RUN_ARGS+=("--detach")
 	if [ $# -gt 0 ]; then
+		# Exec form: pass arguments directly (no shell wrapping).
+		# Users who need shell features use: ./run.sh bash -c "cmd1 && cmd2"
 		${RUNTIME} run "${RUN_ARGS[@]}" \
 			-w "${WORKDIR}/${WORKSPACE_NAME}" \
 			"${IMAGE_NAME}:${TAG}" \
-			"${SHELL}" -c "$*"
+			"$@"
 	else
 		${RUNTIME} run "${RUN_ARGS[@]}" \
 			-w "${WORKDIR}/${WORKSPACE_NAME}" \
@@ -238,13 +346,12 @@ if [[ "${DETACH}" == true ]]; then
 			"${SHELL}"
 	fi
 else
-	# Run command or shell
 	if [ $# -gt 0 ]; then
-		# Run specific command (no TTY flags)
+		# Exec form: pass arguments directly (no shell wrapping)
 		${RUNTIME} run "${RUN_ARGS[@]}" \
 			-w "${WORKDIR}/${WORKSPACE_NAME}" \
 			"${IMAGE_NAME}:${TAG}" \
-			"${SHELL}" -c "$*"
+			"$@"
 	else
 		# Interactive shell (add TTY flags only if stdin is a TTY)
 		if [[ -t 0 ]]; then

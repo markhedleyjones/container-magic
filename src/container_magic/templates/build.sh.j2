@@ -17,12 +17,12 @@ TAG="latest"
 
 # Detect runtime backend
 {%- if backend == "auto" %}
-if command -v podman >/dev/null 2>&1; then
-	RUNTIME="podman"
-elif command -v docker >/dev/null 2>&1; then
+if command -v docker >/dev/null 2>&1; then
 	RUNTIME="docker"
+elif command -v podman >/dev/null 2>&1; then
+	RUNTIME="podman"
 else
-	echo "Error: Neither podman nor docker found in PATH" >&2
+	echo "Error: Neither docker nor podman found in PATH" >&2
 	exit 1
 fi
 {%- else %}
@@ -67,7 +67,7 @@ echo "Building image: ${IMAGE_NAME}:${TAG} (target: ${TARGET})"
 {% if workspace_symlinks %}
 
 # Stage resolved symlink targets for Docker build context
-STAGING_DIR=".cm-build-staging"
+STAGING_DIR=".cm-cache/staging"
 rm -rf "${STAGING_DIR}"
 trap 'rm -rf "${STAGING_DIR}"' EXIT
 

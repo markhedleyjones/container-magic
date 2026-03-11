@@ -42,25 +42,18 @@ def find_config_file(path: Path) -> Path:
     Find the config file to use.
 
     Raises:
-        SystemExit: If config file not found or old name is used
+        SystemExit: If config file not found
     """
     cm_yaml = path / "cm.yaml"
-    container_magic_yaml = path / "container-magic.yaml"
 
     if cm_yaml.exists():
         return cm_yaml
-    elif container_magic_yaml.exists():
-        print(
-            "Error: Rename container-magic.yaml to cm.yaml",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    else:
-        print(
-            "Error: No config file found (cm.yaml)",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+
+    print(
+        "Error: No config file found (cm.yaml)",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 class AssetItem(BaseModel):
@@ -229,22 +222,16 @@ class StageConfig(BaseModel):
     )
 
 
-class CommandArgument(BaseModel):
-    """Command argument definition."""
+class MountSpec(BaseModel):
+    """Mount specification for a command bind mount."""
 
-    model_config = ConfigDict(extra="allow")
-
-    type: Literal["file", "directory", "string", "int", "float"] = Field(
-        description="Argument type"
+    mode: Literal["ro", "rw"] = Field(
+        description="Mount mode: ro (read-only) or rw (read-write)",
     )
-    mount_as: Optional[str] = Field(
-        default=None, description="Container path to mount file/directory arguments"
+    prefix: str = Field(
+        default="",
+        description="String prepended to container path in the command",
     )
-    readonly: bool = Field(
-        default=True, description="Mount as read-only (for file/directory types)"
-    )
-    default: Optional[Any] = Field(default=None, description="Default value")
-    description: Optional[str] = Field(default=None, description="Argument description")
 
 
 class CustomCommand(BaseModel):
@@ -252,10 +239,7 @@ class CustomCommand(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    command: str = Field(description="Command template with {arg_name} placeholders")
-    args: Dict[str, CommandArgument] = Field(
-        default_factory=dict, description="Command arguments"
-    )
+    command: str = Field(description="Base command to execute")
     description: Optional[str] = Field(default=None, description="Command description")
     env: Dict[str, str] = Field(
         default_factory=dict, description="Environment variables"
@@ -264,14 +248,48 @@ class CustomCommand(BaseModel):
         default_factory=list,
         description="Ports to publish (host:container format)",
     )
-    standalone: bool = Field(
-        default=False,
-        description="Generate standalone script for this command",
-    )
     ipc: Optional[str] = Field(
         default=None,
         description="IPC namespace mode override (e.g. container:<name>)",
     )
+    mounts: Dict[str, MountSpec] = Field(
+        default_factory=dict,
+        description="Named bind mounts (provided at runtime via name=/path syntax)",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalise_mounts(cls, data):
+        """Convert shorthand mount values to MountSpec dicts."""
+        if not isinstance(data, dict):
+            return data
+        mounts = data.get("mounts")
+        if isinstance(mounts, dict):
+            normalised = {}
+            for name, spec in mounts.items():
+                if isinstance(spec, str):
+                    if spec not in ("ro", "rw"):
+                        raise ValueError(
+                            f"Mount '{name}' shorthand must be 'ro' or 'rw', got '{spec}'"
+                        )
+                    normalised[name] = {"mode": spec}
+                else:
+                    normalised[name] = spec
+            data["mounts"] = normalised
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_removed_fields(cls, data):
+        """Reject fields removed in v3 with migration messages."""
+        if not isinstance(data, dict):
+            return data
+        if "args" in data:
+            raise ValueError(
+                "Command 'args' have been replaced by 'mounts' in v3. "
+                "See the v3 migration guide for details."
+            )
+        return data
 
 
 class BuildScriptConfig(BaseModel):
@@ -294,10 +312,6 @@ class ContainerMagicConfig(BaseModel):
         default="auto", description="Container runtime to use"
     )
     names: NamesConfig
-    auto_update: bool = Field(
-        default=True,
-        description="Automatically regenerate files when config changes",
-    )
     assets: List[AssetItem] = Field(
         default_factory=list,
         description="Assets to download and cache (URLs or {filename: url} dicts)",
@@ -347,6 +361,11 @@ class ContainerMagicConfig(BaseModel):
                 "    user: appuser"
             )
 
+        if "auto_update" in data:
+            raise ValueError(
+                "'auto_update' is no longer used. Remove it from your cm.yaml."
+            )
+
         return data
 
     @classmethod
@@ -377,6 +396,13 @@ class ContainerMagicConfig(BaseModel):
                 f"Warning: Unknown config key '{field_path}' (ignored)", file=sys.stderr
             )
 
+        if "build_script" in data:
+            print(
+                "Warning: 'build_script.default_target' only affects the standalone build.sh script. "
+                "cm build uses --production instead.",
+                file=sys.stderr,
+            )
+
         return config
 
     def to_yaml(self, path: Path) -> None:
@@ -386,10 +412,6 @@ class ContainerMagicConfig(BaseModel):
         # Remove backend when it matches the default ("auto")
         if data.get("backend") == "auto":
             data.pop("backend", None)
-
-        # Remove auto_update when it matches the default (True)
-        if data.get("auto_update") is True:
-            data.pop("auto_update", None)
 
         # Serialise assets back to YAML-friendly format
         raw_assets = data.get("assets", [])

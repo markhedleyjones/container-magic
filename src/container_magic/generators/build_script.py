@@ -10,12 +10,15 @@ from container_magic.core.steps import has_create_user_in_stages
 from container_magic.core.symlinks import scan_workspace_symlinks
 
 
-def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> None:
+def generate_build_script(
+    config: ContainerMagicConfig, project_dir: Path, workspace_symlinks=None
+) -> None:
     """Generate build.sh script from configuration.
 
     Args:
         config: Configuration object
         project_dir: Path to project directory
+        workspace_symlinks: Pre-scanned symlinks (avoids redundant scan)
     """
     env = Environment(
         loader=PackageLoader("container_magic", "templates"),
@@ -33,9 +36,10 @@ def generate_build_script(config: ContainerMagicConfig, project_dir: Path) -> No
     production_user_gid = 1000 if has_user else 0
     production_user_home = f"/home/{production_user_name}" if has_user else "/root"
 
-    # Scan workspace for external symlinks
-    workspace_path = project_dir / config.names.workspace
-    workspace_symlinks = scan_workspace_symlinks(workspace_path)
+    # Scan workspace for external symlinks (unless pre-scanned)
+    if workspace_symlinks is None:
+        workspace_path = project_dir / config.names.workspace
+        workspace_symlinks = scan_workspace_symlinks(workspace_path)
 
     content = template.render(
         project_name=config.names.image,

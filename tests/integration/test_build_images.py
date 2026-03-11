@@ -151,9 +151,14 @@ def built_project(request):
 
 
 def _run_in_container(project_dir: Path, command: str, timeout: int = 30):
-    """Run a command inside the built container via run.sh."""
+    """Run a command inside the built container via run.sh.
+
+    Uses exec form - command string is split into separate arguments.
+    """
+    import shlex
+
     return subprocess.run(
-        ["./run.sh", command],
+        ["./run.sh"] + shlex.split(command),
         cwd=project_dir,
         capture_output=True,
         text=True,

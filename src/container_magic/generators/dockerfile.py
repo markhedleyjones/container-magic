@@ -297,7 +297,9 @@ def process_stage_steps(
     return ordered_steps
 
 
-def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None:
+def generate_dockerfile(
+    config: ContainerMagicConfig, output_path: Path, workspace_symlinks=None
+) -> None:
     """Generate Dockerfile from configuration."""
     env = Environment(
         loader=PackageLoader("container_magic", "templates"),
@@ -337,9 +339,10 @@ def generate_dockerfile(config: ContainerMagicConfig, output_path: Path) -> None
     project_dir = output_path.parent
     asset_map = build_asset_map(project_dir, config.assets)
 
-    # Scan workspace for external symlinks
-    workspace_path = project_dir / config.names.workspace
-    workspace_symlinks = scan_workspace_symlinks(workspace_path)
+    # Scan workspace for external symlinks (unless pre-scanned)
+    if workspace_symlinks is None:
+        workspace_path = project_dir / config.names.workspace
+        workspace_symlinks = scan_workspace_symlinks(workspace_path)
 
     user_uid = 1000 if has_user else 0
     user_gid = 1000 if has_user else 0
