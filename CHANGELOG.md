@@ -2,6 +2,162 @@
 
 <!-- version list -->
 
+## v3.0.0 (2026-03-11)
+
+### Bug Fixes
+
+- Add container rm to clean, workdir to exec, conditional xhost
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Address code review issues in runner, CLI, and config
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Capture user cwd before chdir in cm run
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Clean up stale Justfile references and dead code
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Escape Jinja2 comment markers in run.sh template
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Manifest cleanup without overwriting xhost trap
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Mount parsing in run.sh and shell-safe command handling
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Only warn about container-magic generated Justfiles
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Reject auto_update field instead of warning
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Remove unicode checkmark from cache clear output
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Use shlex.join to preserve argument quoting
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+### Chores
+
+- Clean up stale files and update cm.yaml to current format
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Remove CLAUDE.md and REVIEW.md from .gitignore
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Remove migration validators for unreleased features
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+### Documentation
+
+- Add runtime flag passthrough documentation
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Add stop/clean commands and v2 migration guide
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Document working directory behaviour and exec/shell
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Replace inputs/outputs with mounts documentation
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Update documentation for v3 Justfile removal
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+### Features
+
+- Add cm stop and cm clean commands
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Prefer docker over podman in auto-detection
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Replace inputs/outputs with unified mounts block
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Replace Justfile with Python-native build and run commands
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Replace Justfile with Python-native commands
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Runtime flag passthrough with -- separator
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+### Performance Improvements
+
+- Scan workspace symlinks once and skip symlinked directories
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+### Refactoring
+
+- Consolidate build staging into .cm-cache/
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Remove container-magic.yaml support
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Remove standalone build and run entry points
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Update runner to use mounts instead of inputs/outputs
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Use exec form for ad-hoc commands instead of shell wrapping
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+### Testing
+
+- Add mount config schema tests ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Add tests for runtime flag passthrough parsing
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Add unit tests for runner and builder modules
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+- Update tests for v3 Justfile removal
+  ([#36](https://github.com/markhedleyjones/container-magic/pull/36),
+  [`575f9dd`](https://github.com/markhedleyjones/container-magic/commit/575f9ddf0638003592f0279372f1ca3b4de85bf0))
+
+
 ## v2.2.1 (2026-03-09)
 
 ### Bug Fixes
