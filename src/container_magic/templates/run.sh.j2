@@ -333,10 +333,12 @@ RUN_ARGS=("${BASE_RUN_ARGS[@]}")
 if [[ "${DETACH}" == true ]]; then
 	RUN_ARGS+=("--detach")
 	if [ $# -gt 0 ]; then
+		# Exec form: pass arguments directly (no shell wrapping).
+		# Users who need shell features use: ./run.sh bash -c "cmd1 && cmd2"
 		${RUNTIME} run "${RUN_ARGS[@]}" \
 			-w "${WORKDIR}/${WORKSPACE_NAME}" \
 			"${IMAGE_NAME}:${TAG}" \
-			"${SHELL}" -c "$*"
+			"$@"
 	else
 		${RUNTIME} run "${RUN_ARGS[@]}" \
 			-w "${WORKDIR}/${WORKSPACE_NAME}" \
@@ -344,13 +346,12 @@ if [[ "${DETACH}" == true ]]; then
 			"${SHELL}"
 	fi
 else
-	# Run command or shell
 	if [ $# -gt 0 ]; then
-		# Run specific command (no TTY flags)
+		# Exec form: pass arguments directly (no shell wrapping)
 		${RUNTIME} run "${RUN_ARGS[@]}" \
 			-w "${WORKDIR}/${WORKSPACE_NAME}" \
 			"${IMAGE_NAME}:${TAG}" \
-			"${SHELL}" -c "$*"
+			"$@"
 	else
 		# Interactive shell (add TTY flags only if stdin is a TTY)
 		if [[ -t 0 ]]; then

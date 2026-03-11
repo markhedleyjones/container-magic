@@ -266,9 +266,9 @@ def test_direct_script_execution(fixtures_dir, temp_project):
     )
     assert result.returncode == 0, f"build.sh failed:\n{result.stderr}"
 
-    # Execute script directly (run.sh defaults to WORKDIR/WORKSPACE for general commands)
+    # Execute script directly (exec form: each argument separate)
     result = subprocess.run(
-        ["./run.sh", "python test.py"],
+        ["./run.sh", "python", "test.py"],
         cwd=temp_project,
         capture_output=True,
         text=True,
@@ -309,8 +309,9 @@ def test_production_workspace_permissions(fixtures_dir, temp_project):
     assert result.returncode == 0, f"build.sh failed:\n{result.stderr}"
 
     # Verify workspace exists in image
+    # Shell variable expansion and && require explicit bash -c (exec form)
     result = subprocess.run(
-        ["./run.sh", "ls -la ${WORKSPACE}"],
+        ["./run.sh", "bash", "-c", "ls -la ${WORKSPACE}"],
         cwd=temp_project,
         capture_output=True,
         text=True,
@@ -323,7 +324,7 @@ def test_production_workspace_permissions(fixtures_dir, temp_project):
 
     # Verify file ownership (should be owned by the configured user, not root)
     result = subprocess.run(
-        ["./run.sh", "stat -c '%U:%G' ${WORKSPACE}/test_file.txt"],
+        ["./run.sh", "bash", "-c", "stat -c '%U:%G' ${WORKSPACE}/test_file.txt"],
         cwd=temp_project,
         capture_output=True,
         text=True,
@@ -337,7 +338,12 @@ def test_production_workspace_permissions(fixtures_dir, temp_project):
 
     # Verify the user can write to the workspace
     result = subprocess.run(
-        ["./run.sh", "touch ${WORKSPACE}/test_write.txt && echo 'Write successful'"],
+        [
+            "./run.sh",
+            "bash",
+            "-c",
+            "touch ${WORKSPACE}/test_write.txt && echo 'Write successful'",
+        ],
         cwd=temp_project,
         capture_output=True,
         text=True,
@@ -363,13 +369,13 @@ def test_image_tagging_by_target(fixtures_dir, temp_project):
     )
     assert result.returncode == 0
 
-    # Detect which runtime is available (same logic as build.sh)
-    if shutil.which("podman"):
-        runtime = "podman"
-    elif shutil.which("docker"):
+    # Detect which runtime is available (same logic as build.sh: prefer docker)
+    if shutil.which("docker"):
         runtime = "docker"
+    elif shutil.which("podman"):
+        runtime = "podman"
     else:
-        pytest.skip("Neither podman nor docker found")
+        pytest.skip("Neither docker nor podman found")
 
     # Test 1: Default build - should be tagged as 'latest'
     result = subprocess.run(

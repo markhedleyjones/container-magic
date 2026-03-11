@@ -408,13 +408,20 @@ def run_container(
             command_str = command_spec.command
 
     else:
-        # No custom command - use user args as command or open shell
-        if args_remaining:
-            command_str = shlex.join(args_remaining)
+        # No custom command - pass args directly (exec form, no shell wrapping).
+        # This matches docker run behaviour. Users who need shell features
+        # (pipes, &&, variable expansion) use: cm run bash -c "..."
+        pass
 
     # Working directory
     workdir = _translate_workdir(project_dir, user_cwd, container_home)
     run_args.extend(["--workdir", workdir])
+
+    # Determine how to append the command to run_args:
+    # - Custom command (command_str set): shell -c wrapping (command is a shell string)
+    # - Ad-hoc with args: exec form (args passed directly, no shell)
+    # - No command: interactive shell
+    has_command = command_str or (not command_spec and args_remaining)
 
     # Detach mode
     if detach:
@@ -422,6 +429,8 @@ def run_container(
         run_args.append(image)
         if command_str:
             run_args.extend([shell, "-c", command_str])
+        elif args_remaining and not command_spec:
+            run_args.extend(args_remaining)
         else:
             run_args.append(shell)
 
@@ -431,14 +440,16 @@ def run_container(
         finally:
             _cleanup(manifest_file, xhost_cleanup)
 
-    # Interactive mode
-    if not command_str and sys.stdin.isatty():
+    # Interactive mode (only when no command at all)
+    if not has_command and sys.stdin.isatty():
         run_args.extend(["--interactive", "--tty"])
 
     run_args.append(image)
 
     if command_str:
         run_args.extend([shell, "-c", command_str])
+    elif args_remaining and not command_spec:
+        run_args.extend(args_remaining)
     else:
         run_args.append(shell)
 
@@ -474,11 +485,13 @@ def run_container(
                         file=sys.stderr,
                     )
 
-            if not command_str and sys.stdin.isatty():
+            if not has_command and sys.stdin.isatty():
                 exec_args.extend(["--interactive", "--tty"])
             exec_args.append(container_name)
             if command_str:
                 exec_args.extend([shell, "-c", command_str])
+            elif args_remaining and not command_spec:
+                exec_args.extend(args_remaining)
             else:
                 exec_args.append(shell)
             result = subprocess.run(exec_args)

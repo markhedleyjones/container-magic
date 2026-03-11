@@ -1,4 +1,29 @@
-"""Unit tests for container run logic."""
+"""Unit tests for container run logic.
+
+Command execution model
+-----------------------
+Ad-hoc commands (no custom command match) use exec form - arguments are
+passed directly to the container without shell wrapping. This matches
+the behaviour of ``docker run``, ``kubectl exec``, and ``ssh``:
+
+    cm run printenv WORKSPACE     -> ["printenv", "WORKSPACE"]  (exec form)
+    cm run python script.py       -> ["python", "script.py"]    (exec form)
+    cm run echo "hello world"     -> ["echo", "hello world"]    (exec form)
+
+Users who need shell features (pipes, &&, variable expansion) must
+explicitly invoke a shell, exactly as they would with docker run:
+
+    cm run bash -c "ls | grep x"  -> ["bash", "-c", "ls | grep x"]
+
+Custom commands defined in cm.yaml use ``bash -c`` because the command
+field is a shell string that may contain pipes or other metacharacters.
+
+This design was chosen over shell wrapping (``bash -c`` with
+``shlex.join``) because shell wrapping creates ambiguous quoting: a
+single argument like ``"printenv WORKSPACE"`` could be a shell command
+string or a path with spaces, and there is no way to distinguish them.
+Exec form avoids this entirely by not interpreting arguments at all.
+"""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch

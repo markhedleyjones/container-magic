@@ -1,10 +1,25 @@
-"""Test that $WORKSPACE environment variable points to actual mounted workspace."""
+"""Test that $WORKSPACE environment variable points to actual mounted workspace.
 
+Ad-hoc commands use exec form - arguments are passed directly to the
+container without shell wrapping.  This matches docker run behaviour.
+Shell features (pipes, &&) require explicit ``bash -c``.
+"""
+
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
 import pytest
+
+
+def _detect_runtime():
+    """Detect container runtime, matching build.sh/cm preference order."""
+    if shutil.which("docker"):
+        return "docker"
+    elif shutil.which("podman"):
+        return "podman"
+    return None
 
 
 @pytest.fixture
@@ -45,10 +60,11 @@ def test_workspace_env_points_to_mounted_path(test_project):
     )
     assert build_result.returncode == 0, f"Build failed: {build_result.stderr}"
 
+    # Exec form: each argument is a separate list element (no shell wrapping)
+
     # Test 1: Verify $WORKSPACE variable exists and is set
-    # Use printenv which doesn't rely on shell variable expansion
     result = subprocess.run(
-        ["cm", "run", "printenv WORKSPACE"],
+        ["cm", "run", "printenv", "WORKSPACE"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -60,7 +76,7 @@ def test_workspace_env_points_to_mounted_path(test_project):
 
     # Test 2: Verify the workspace directory actually exists
     result = subprocess.run(
-        ["cm", "run", f"test -d {workspace_path} && echo OK"],
+        ["cm", "run", "test", "-d", workspace_path],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -68,11 +84,10 @@ def test_workspace_env_points_to_mounted_path(test_project):
     assert result.returncode == 0, (
         f"WORKSPACE directory does not exist at {workspace_path}: {result.stderr}"
     )
-    assert "OK" in result.stdout, "Directory test failed"
 
     # Test 3: Verify workspace file is accessible
     result = subprocess.run(
-        ["cm", "run", f"test -f {workspace_path}/test.txt && echo OK"],
+        ["cm", "run", "test", "-f", f"{workspace_path}/test.txt"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -83,13 +98,13 @@ def test_workspace_env_points_to_mounted_path(test_project):
 
     # Test 4: Verify $WORKSPACE path is consistent (same in multiple invocations)
     result1 = subprocess.run(
-        ["cm", "run", "printenv WORKSPACE"],
+        ["cm", "run", "printenv", "WORKSPACE"],
         cwd=test_project,
         capture_output=True,
         text=True,
     )
     result2 = subprocess.run(
-        ["cm", "run", "printenv WORKSPACE"],
+        ["cm", "run", "printenv", "WORKSPACE"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -100,7 +115,7 @@ def test_workspace_env_points_to_mounted_path(test_project):
 
     # Test 5: Verify workspace contents are accessible
     result = subprocess.run(
-        ["cm", "run", f"ls {workspace_path}/"],
+        ["cm", "run", "ls", f"{workspace_path}/"],
         cwd=test_project,
         capture_output=True,
         text=True,
@@ -154,11 +169,15 @@ stages:
 
 def test_workspace_accessible_without_user_config(test_project_no_user):
     """Test that WORKSPACE is accessible when no user is configured (runs as root)."""
+    runtime = _detect_runtime()
+    if not runtime:
+        pytest.skip("Neither docker nor podman found")
+
     # Build development with --no-cache to avoid cache pollution from other builds
     # (different USER_HOME values can get cached in base stage layers)
     build_result = subprocess.run(
         [
-            "podman",
+            runtime,
             "build",
             "--no-cache",
             "--target",
@@ -175,9 +194,9 @@ def test_workspace_accessible_without_user_config(test_project_no_user):
     )
     assert build_result.returncode == 0, f"Dev build failed: {build_result.stderr}"
 
-    # Verify WORKSPACE env var is set
+    # Verify WORKSPACE env var is set (exec form)
     result = subprocess.run(
-        ["cm", "run", "printenv WORKSPACE"],
+        ["cm", "run", "printenv", "WORKSPACE"],
         cwd=test_project_no_user,
         capture_output=True,
         text=True,
@@ -188,7 +207,7 @@ def test_workspace_accessible_without_user_config(test_project_no_user):
 
     # Verify workspace directory exists at WORKSPACE path
     result = subprocess.run(
-        ["cm", "run", f"test -d {workspace_path} && echo OK"],
+        ["cm", "run", "test", "-d", workspace_path],
         cwd=test_project_no_user,
         capture_output=True,
         text=True,
@@ -196,11 +215,10 @@ def test_workspace_accessible_without_user_config(test_project_no_user):
     assert result.returncode == 0, (
         f"WORKSPACE directory not found at {workspace_path}: {result.stderr}"
     )
-    assert "OK" in result.stdout
 
     # Verify test file is accessible via WORKSPACE
     result = subprocess.run(
-        ["cm", "run", f"cat {workspace_path}/test.txt"],
+        ["cm", "run", "cat", f"{workspace_path}/test.txt"],
         cwd=test_project_no_user,
         capture_output=True,
         text=True,
@@ -211,11 +229,15 @@ def test_workspace_accessible_without_user_config(test_project_no_user):
 
 def test_workspace_in_production_without_user_config(test_project_no_user):
     """Test that WORKSPACE works in production image when no user is configured."""
+    runtime = _detect_runtime()
+    if not runtime:
+        pytest.skip("Neither docker nor podman found")
+
     # Build production with --no-cache to avoid cache pollution from development builds
     # (dev builds set USER_HOME dynamically, prod uses default /root)
     build_result = subprocess.run(
         [
-            "podman",
+            runtime,
             "build",
             "--no-cache",
             "--target",
@@ -230,9 +252,9 @@ def test_workspace_in_production_without_user_config(test_project_no_user):
     )
     assert build_result.returncode == 0, f"Prod build failed: {build_result.stderr}"
 
-    # Run production image and check WORKSPACE
+    # Run production image and check WORKSPACE (exec form via run.sh)
     result = subprocess.run(
-        ["./run.sh", "printenv WORKSPACE"],
+        ["./run.sh", "printenv", "WORKSPACE"],
         cwd=test_project_no_user,
         capture_output=True,
         text=True,
@@ -243,17 +265,16 @@ def test_workspace_in_production_without_user_config(test_project_no_user):
 
     # Verify workspace directory exists
     result = subprocess.run(
-        ["./run.sh", f"test -d {workspace_path} && echo OK"],
+        ["./run.sh", "test", "-d", workspace_path],
         cwd=test_project_no_user,
         capture_output=True,
         text=True,
     )
     assert result.returncode == 0, f"WORKSPACE not accessible in prod: {result.stderr}"
-    assert "OK" in result.stdout
 
     # Verify test file is embedded in production image
     result = subprocess.run(
-        ["./run.sh", f"cat {workspace_path}/test.txt"],
+        ["./run.sh", "cat", f"{workspace_path}/test.txt"],
         cwd=test_project_no_user,
         capture_output=True,
         text=True,
