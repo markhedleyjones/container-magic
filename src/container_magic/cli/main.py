@@ -388,10 +388,13 @@ def cli_run(args):
 
 
 @cli.command("build")
-@click.option("--production", is_flag=True, help="Build the production target")
+@click.argument("target", default="development")
 @click.option("--tag", default="", help="Override image tag")
-def cli_build(production, tag):
-    """Build the container image."""
+def cli_build(target, tag):
+    """Build the container image.
+
+    TARGET is the Dockerfile stage to build (default: development).
+    """
     from container_magic.core.builder import build_container
 
     project_dir = _find_project_dir()
@@ -404,7 +407,7 @@ def cli_build(production, tag):
     exit_code = build_container(
         config=config,
         project_dir=project_dir,
-        production=production,
+        target=target,
         tag=tag,
     )
     sys.exit(exit_code)

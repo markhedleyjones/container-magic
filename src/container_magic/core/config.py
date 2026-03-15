@@ -399,7 +399,7 @@ class ContainerMagicConfig(BaseModel):
         if "build_script" in data:
             print(
                 "Warning: 'build_script.default_target' only affects the standalone build.sh script. "
-                "cm build uses --production instead.",
+                "cm build accepts a target argument instead (e.g. cm build production).",
                 file=sys.stderr,
             )
 
