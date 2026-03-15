@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v3.1.0 (2026-03-15)
+
+### Features
+
+- **build**: Accept arbitrary build targets
+  ([#37](https://github.com/markhedleyjones/container-magic/pull/37),
+  [`4d6756f`](https://github.com/markhedleyjones/container-magic/commit/4d6756f12aa4587ebfe3302073b869e06ea3cdb1))
+
+### Refactoring
+
+- **test**: Reduce builder test boilerplate with fixture
+  ([#37](https://github.com/markhedleyjones/container-magic/pull/37),
+  [`4d6756f`](https://github.com/markhedleyjones/container-magic/commit/4d6756f12aa4587ebfe3302073b869e06ea3cdb1))
+
+### Testing
+
+- **build**: Update tests for arbitrary build targets
+  ([#37](https://github.com/markhedleyjones/container-magic/pull/37),
+  [`4d6756f`](https://github.com/markhedleyjones/container-magic/commit/4d6756f12aa4587ebfe3302073b869e06ea3cdb1))
+
+
 ## v3.0.0 (2026-03-11)
 
 ### Bug Fixes
