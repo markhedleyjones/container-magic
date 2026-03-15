@@ -18,7 +18,7 @@ from container_magic.core.symlinks import scan_workspace_symlinks
 def build_container(
     config: ContainerMagicConfig,
     project_dir: Path,
-    production: bool = False,
+    target: str = "development",
     tag: str = "",
 ) -> int:
     """Build a container image.
@@ -26,7 +26,7 @@ def build_container(
     Args:
         config: Loaded configuration.
         project_dir: Path to the project root (where cm.yaml lives).
-        production: If True, build the production target. Otherwise, build development.
+        target: Dockerfile stage to build (default: "development").
         tag: Override the image tag.
 
     Returns:
@@ -35,20 +35,19 @@ def build_container(
     runtime = get_runtime(config.backend)
     runtime_cmd = runtime.value
 
-    if production:
-        target = "production"
-        image_tag = tag or "latest"
-    else:
-        target = "development"
-        image_tag = tag or "development"
-
+    image_tag = tag or target
     image_name = config.names.image
 
     # Determine build args for user
     has_user = has_create_user_in_stages(config.stages)
 
-    if production:
-        # Production uses the configured user
+    if target == "development":
+        # Development uses the host user
+        user_name = os.environ.get("USER", "nonroot")
+        user_uid = str(os.getuid())
+        user_gid = str(os.getgid())
+    else:
+        # All other targets use the configured user
         if has_user and config.names.user != "root":
             user_name = config.names.user
             user_uid = "1000"
@@ -57,11 +56,6 @@ def build_container(
             user_name = "root"
             user_uid = "0"
             user_gid = "0"
-    else:
-        # Development uses the host user
-        user_name = os.environ.get("USER", "nonroot")
-        user_uid = str(os.getuid())
-        user_gid = str(os.getgid())
 
     # Regenerate files before building
     from container_magic.generators.dockerfile import generate_dockerfile
@@ -100,7 +94,7 @@ def build_container(
     build_args.extend(["--build-arg", f"USER_GID={user_gid}"])
     build_args.extend(["--build-arg", f"WORKSPACE_NAME={config.names.workspace}"])
 
-    if not production:
+    if target == "development":
         # Development: also pass USER_HOME
         user_home = os.path.expanduser("~")
         build_args.extend(["--build-arg", f"USER_HOME={user_home}"])

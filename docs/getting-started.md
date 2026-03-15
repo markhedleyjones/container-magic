@@ -67,8 +67,9 @@ cm update
 
 # Build and run (development)
 cm build                      # Build development image
-cm build --production         # Build production image
-cm build --tag v1.0           # Build with custom tag
+cm build production           # Build production image
+cm build testing              # Build any Dockerfile stage
+cm build production --tag v1.0  # Build with custom tag
 cm run <command>              # Run command in container
 cm run                        # Interactive shell
 
