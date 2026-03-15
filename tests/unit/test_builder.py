@@ -53,7 +53,7 @@ class TestBuildContainer:
         (tmp_path / "workspace").mkdir()
         config = _make_config()
 
-        build_container(config, tmp_path, production=False)
+        build_container(config, tmp_path, target="development")
 
         build_cmd = mock_run.call_args.args[0]
         assert "docker" == build_cmd[0]
@@ -90,14 +90,48 @@ class TestBuildContainer:
         (tmp_path / "workspace").mkdir()
         config = _make_config()
 
-        build_container(config, tmp_path, production=True)
+        build_container(config, tmp_path, target="production")
 
         build_cmd = mock_run.call_args.args[0]
         assert build_cmd[build_cmd.index("--target") + 1] == "production"
-        assert build_cmd[build_cmd.index("--tag") + 1] == "test-project:latest"
+        assert build_cmd[build_cmd.index("--tag") + 1] == "test-project:production"
         assert "USER_NAME=nonroot" in " ".join(build_cmd)
         assert "USER_UID=1000" in " ".join(build_cmd)
         assert "USER_GID=1000" in " ".join(build_cmd)
+
+    @patch("container_magic.core.builder.scan_workspace_symlinks", return_value=[])
+    @patch("container_magic.generators.run_script.generate_run_script")
+    @patch("container_magic.generators.build_script.generate_build_script")
+    @patch("container_magic.generators.dockerfile.generate_dockerfile")
+    @patch("container_magic.core.builder.subprocess.run")
+    @patch("container_magic.core.builder.get_runtime")
+    def test_arbitrary_target(
+        self,
+        mock_get_runtime,
+        mock_run,
+        mock_gen_dockerfile,
+        mock_gen_build,
+        mock_gen_run,
+        mock_symlinks,
+        tmp_path,
+    ):
+        from container_magic.core.runtime import Runtime
+
+        mock_get_runtime.return_value = Runtime.DOCKER
+        mock_run.return_value = MagicMock(returncode=0)
+
+        (tmp_path / "workspace").mkdir()
+        config = _make_config()
+
+        build_container(config, tmp_path, target="testing")
+
+        build_cmd = mock_run.call_args.args[0]
+        assert build_cmd[build_cmd.index("--target") + 1] == "testing"
+        assert build_cmd[build_cmd.index("--tag") + 1] == "test-project:testing"
+        assert "USER_NAME=nonroot" in " ".join(build_cmd)
+        assert "USER_UID=1000" in " ".join(build_cmd)
+        assert "USER_GID=1000" in " ".join(build_cmd)
+        assert "USER_HOME=" not in " ".join(build_cmd)
 
     @patch("container_magic.core.builder.scan_workspace_symlinks", return_value=[])
     @patch("container_magic.generators.run_script.generate_run_script")
@@ -123,7 +157,7 @@ class TestBuildContainer:
         (tmp_path / "workspace").mkdir()
         config = _make_config()
 
-        build_container(config, tmp_path, production=True, tag="v1.0")
+        build_container(config, tmp_path, target="production", tag="v1.0")
 
         build_cmd = mock_run.call_args.args[0]
         assert build_cmd[build_cmd.index("--tag") + 1] == "test-project:v1.0"
@@ -152,7 +186,7 @@ class TestBuildContainer:
         (tmp_path / "workspace").mkdir()
         config = _make_config()
 
-        build_container(config, tmp_path, production=False)
+        build_container(config, tmp_path, target="development")
 
         build_cmd = " ".join(mock_run.call_args.args[0])
         assert "USER_HOME=" in build_cmd
@@ -181,7 +215,7 @@ class TestBuildContainer:
         (tmp_path / "workspace").mkdir()
         config = _make_config()
 
-        build_container(config, tmp_path, production=True)
+        build_container(config, tmp_path, target="production")
 
         build_cmd = " ".join(mock_run.call_args.args[0])
         assert "USER_HOME=" not in build_cmd
@@ -216,7 +250,7 @@ class TestBuildContainer:
             }
         )
 
-        build_container(config, tmp_path, production=True)
+        build_container(config, tmp_path, target="production")
 
         build_cmd = " ".join(mock_run.call_args.args[0])
         assert "USER_NAME=root" in build_cmd
