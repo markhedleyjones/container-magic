@@ -1,11 +1,15 @@
+# Backward compatibility: explicit create/become steps still work
 names:
-  image: test-minimal
+  image: test-explicit-user
   workspace: workspace
   user: appuser
 
 stages:
   base:
     from: debian:bookworm-slim
+    steps:
+      - {create: user}
+      - {become: user,}
 
   development:
     from: base
@@ -13,4 +17,5 @@ stages:
   production:
     from: base
     steps:
+      - {become: user}
       - copy: workspace
