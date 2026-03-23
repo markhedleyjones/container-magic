@@ -8,6 +8,7 @@ from jinja2 import Environment, PackageLoader
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.core.steps import has_create_user_in_stages
 from container_magic.core.templates import detect_shell, resolve_base_image
+from container_magic.core.volumes import label_volumes
 
 
 def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None:
@@ -70,7 +71,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         privileged=config.runtime.privileged if config.runtime else False,
         network=config.runtime.network_mode if config.runtime else None,
         features=features,
-        volumes=config.runtime.volumes if config.runtime else [],
+        volumes=label_volumes(config.runtime.volumes) if config.runtime else [],
         devices=config.runtime.devices if config.runtime else [],
         commands=commands_escaped,
         ipc=config.runtime.ipc if config.runtime else None,

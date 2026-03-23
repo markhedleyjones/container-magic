@@ -458,6 +458,6 @@ def test_volumes_and_devices_appear_in_generated_files(fixtures_dir, temp_projec
     assert result.returncode == 0, f"cm update failed:\n{result.stderr}"
 
     run_sh = (temp_project / "run.sh").read_text()
-    assert '"-v" "/tmp/test-data:/data:ro"' in run_sh
-    assert '"-v" "/var/log/app:/logs"' in run_sh
+    assert '"-v" "/tmp/test-data:/data:ro,z"' in run_sh
+    assert '"-v" "/var/log/app:/logs:z"' in run_sh
     assert '"--device" "/dev/ttyUSB0"' in run_sh

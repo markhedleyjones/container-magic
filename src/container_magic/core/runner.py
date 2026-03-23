@@ -16,6 +16,7 @@ from container_magic.core.config import ContainerMagicConfig, CustomCommand
 from container_magic.core.runtime import Runtime, get_runtime
 from container_magic.core.symlinks import scan_workspace_symlinks
 from container_magic.core.templates import detect_shell, resolve_base_image
+from container_magic.core.volumes import ensure_selinux_label
 
 
 def _detect_container_home() -> str:
@@ -326,7 +327,7 @@ def run_container(
 
     # Additional volumes
     for volume in config.runtime.volumes:
-        run_args.extend(["-v", volume])
+        run_args.extend(["-v", ensure_selinux_label(volume)])
 
     # Device passthrough
     for device in config.runtime.devices:
