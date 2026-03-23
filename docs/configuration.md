@@ -15,8 +15,8 @@ All three fields are shown above but only `image` and `user` are required (`work
 
 **`user`** controls the container's user identity:
 
-- `user: root` - the container runs as root. No user creation is needed (or allowed - `create: user` and `become: user` are errors when `user` is `root`).
-- `user: <name>` (any other value, e.g. `nonroot`, `appuser`) - a custom user will be created by `create: user` steps and referenced by `become: user` steps. See [User Handling](user-handling.md) for details.
+- `user: root` - the container runs as root. No user management is needed or allowed; `create: user` and `become: user` are errors when `user` is `root`.
+- `user: <name>` (any other value, e.g. `nonroot`, `appuser`) - a custom user is automatically created and the container switches to this user in leaf stages. See [User Handling](user-handling.md) for details.
 
 Run `cm update` after editing `cm.yaml` to regenerate the Dockerfile and scripts. `cm build` also regenerates automatically before building.
 
@@ -68,6 +68,7 @@ runtime:
   privileged: false  # privileged mode
   network_mode: host # host, bridge, or none (optional)
   ipc: shareable     # IPC namespace mode (optional)
+  shell: /bin/bash   # interactive shell (auto-detected if not set)
   features:
     - gpu              # NVIDIA GPU
     - display          # X11/Wayland
@@ -79,6 +80,10 @@ runtime:
   devices:
     - /dev/video0:/dev/video0           # device passthrough
 ```
+
+### Shell
+
+The `shell` field sets the interactive shell used by `cm run` and `run.sh` when no command is given. If not set, it is auto-detected from the base image (Alpine uses `/bin/sh`, everything else uses `/bin/bash`). This does not affect `RUN` commands in the Dockerfile, which always use the container's standard shell.
 
 ### IPC Namespace
 
@@ -136,6 +141,8 @@ Without `--`, all arguments are treated as the command (backwards compatible). T
 
 ## Stages
 
+Each container-magic project builds **one application** with two modes: development (workspace mounted from the host for live editing) and production (workspace copied into the image). Stages let you share build steps between these two modes via a common base.
+
 ```yaml
 stages:
   base:
@@ -161,10 +168,16 @@ stages:
     from: base
 ```
 
+### Multiple applications
+
+If you need genuinely different images - for example a data pipeline and an API server that install different packages - make them separate container-magic projects rather than trying to build multiple targets from one cm.yaml.
+
+Projects that share code can use [workspace symlinks](#workspace-symlinks). Place symlinks in each project's workspace pointing to the shared code. Container-magic will bind-mount the targets during development and copy them into the image for production.
+
 Each stage also supports:
 
-- `package_manager` - Override the auto-detected package manager (`apt`, `apk`, or `dnf`). Normally inferred from the base image.
-- `shell` - Override the default shell for the stage. Normally inferred from the base image.
+- `distro` - Override the auto-detected distribution family. Sets package manager, user creation style, and interactive shell in one field. Inherited by child stages. Useful when using a custom or locally-built base image whose name doesn't match a known distribution. Supported values: `alpine`, `debian`, `ubuntu`, `fedora`, `centos`, `rhel`, `rocky`, `alma`. Unrecognised values warn and default to Debian settings.
+- `package_manager` - Override the package manager (`apt`, `apk`, or `dnf`). Takes precedence over `distro` if both are set.
 
 Package installation uses the command builder step syntax. The command name determines which package manager is used. Container-optimised defaults (flags, cleanup) are applied automatically - see [Package Installation](build-steps.md#package-installation) for details.
 

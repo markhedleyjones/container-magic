@@ -7,9 +7,9 @@ Container-magic handles users differently for development and production.
 Every `cm.yaml` must include `names.user`. This field controls the container's user identity:
 
 - **`user: root`** - the container runs as root. No user creation is needed, and the `create: user` and `become: user` steps are not available (both produce errors, since root already exists and containers default to root).
-- **`user: <name>`** (e.g. `nonroot`, `appuser`) - a custom user will be created by `create: user` steps. The `become: user` step switches to this user, and `copy` steps gain automatic `--chown` when user context is active.
+- **`user: <name>`** (e.g. `nonroot`, `appuser`) - a custom user is automatically created at the start of each stage that uses an external base image. At the end of each leaf stage (development, production, or any custom target stage), the container switches to this user. No explicit `create: user` or `become: user` steps are needed.
 
-The `cm init` scaffold sets `user: nonroot` by default and places `create: user` and `become: user` in the base stage.
+The `cm init` scaffold sets `user: nonroot` by default.
 
 !!! info "How the container user is resolved"
 
@@ -21,9 +21,9 @@ The `cm init` scaffold sets `user: nonroot` by default and places `create: user`
 
     === "Production"
 
-        The container runs as the user defined by `names.user`, created by
-        `create: user` with uid/gid 1000. Override with `./build.sh --uid`
-        and `--gid` if needed.
+        The container runs as the user defined by `names.user`, with
+        uid/gid 1000. Override with `./build.sh --uid` and `--gid` if
+        needed.
 
 ## Development (`cm build` and `cm run`)
 
@@ -35,11 +35,11 @@ When you run `cm build`, the container is built as **your current system user**:
 - File permissions are correct (no permission issues)
 - You can edit code on the host and run it in the container seamlessly
 
-The `create: user` step in the Dockerfile uses `ARG` values for the username and UID/GID, so development builds pass your host identity while production builds use the defaults.
+The user creation step in the Dockerfile uses `ARG` values for the username and UID/GID, so development builds pass your host identity while production builds use the defaults.
 
 ## Production (`./build.sh` and `./run.sh`)
 
-The standalone production scripts use the user defined by `names.user` in your config, created by the `create: user` step:
+The standalone production scripts use the user defined by `names.user`:
 
 ```yaml
 names:
@@ -49,17 +49,34 @@ names:
 stages:
   base:
     from: python:3.11-slim
-    steps:
-      - create: user        # Creates 'nonroot' with uid=1000, gid=1000
-      - become: user        # Switches to 'nonroot'
+
+  development:
+    from: base
+
+  production:
+    from: base
 ```
 
-The user is always created with uid/gid 1000. For rare cases where the host uid/gid must differ, `build.sh` accepts `--uid` and `--gid` flags.
+The user is automatically created with uid/gid 1000. For rare cases where the host uid/gid must differ, `build.sh` accepts `--uid` and `--gid` flags.
 
-If `names.user` is `root` (and therefore no `create: user` step exists), the container runs as root with UID 0.
+If `names.user` is `root`, the container runs as root with UID 0.
 
 !!! note
-    When `names.user` is `root`, the `run.sh` script still works correctly. Commands execute with root privileges - this is the default Docker/Podman behaviour (no `USER` directive means root).
+    When `names.user` is `root`, the `run.sh` script still works correctly. Commands execute with root privileges.
+
+## Workspace Ownership in Production
+
+In production, the workspace is copied into the image as root-owned files. This means the application code is immutable - the running user cannot modify it. The implicit `USER` switch happens after the workspace copy, so the container process runs as the configured user but cannot write to the workspace.
+
+If you need user-owned workspace files in production (e.g. for a writable data directory), use explicit `become: user` before `copy: workspace`:
+
+```yaml
+production:
+  from: base
+  steps:
+    - become: user
+    - copy: workspace          # Gets --chown, user-owned
+```
 
 ## Copy Ownership
 
@@ -69,8 +86,6 @@ The lowercase `copy` step interacts with user context to control file ownership:
 |------|-----------|
 | `copy` (lowercase) | Adds `--chown=<username>:<username>` when `become` is active for a non-root user. Plain `COPY` otherwise. |
 | `COPY` (uppercase) | Raw Dockerfile passthrough, no automatic ownership. |
-
-User context is inherited from parent stages - if a parent ends with `become: user`, child stages start with user context active.
 
 ### Example: Mixed Ownership
 
@@ -83,17 +98,26 @@ stages:
   base:
     from: python:3.11-slim
     steps:
-      - create: user
-      - copy: default.conf /etc/nginx/nginx.conf  # Root-owned (before become)
+      - copy: default.conf /etc/nginx/nginx.conf  # Root-owned (no become active)
       - become: user
-      - copy: workspace                            # User-owned (context-aware)
+      - copy: app.conf /home/nonroot/.config/      # User-owned (become active)
 ```
 
 See [Build Steps](build-steps.md#4-copy) for full details on the copy step.
 
+## Explicit User Steps
+
+For most projects, implicit user handling is all you need. Explicit `create: user` and `become: user` steps are available for cases where you need fine-grained control:
+
+- Controlling exactly where in the step sequence the user is created
+- Switching to a different user mid-stage (e.g. `become: www-data`)
+- Placing `become: user` before `copy: workspace` to get user-owned files
+
+When any stage has an explicit `create: user`, implicit user creation is disabled for all stages. This avoids double-creation.
+
 ## Default Scaffold
 
-When you run `cm init`, the generated `cm.yaml` places `create: user` and `become: user` in the base stage. This means child stages (development, production) inherit the user context automatically:
+When you run `cm init`, the generated `cm.yaml` relies on implicit user handling:
 
 ```yaml
 names:
@@ -103,15 +127,12 @@ names:
 stages:
   base:
     from: python:3.11-slim
-    steps:
-      - create: user
-      - become: user
 
   development:
-    from: base           # Inherits user context from base
+    from: base
 
   production:
     from: base
-    steps:
-      - copy: workspace  # Automatically gets --chown because base ends with become: user
 ```
+
+The user is automatically created in the base stage, and leaf stages (development, production) automatically switch to the configured user at the end.
