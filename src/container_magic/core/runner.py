@@ -57,7 +57,7 @@ def _add_display_args(args: List[str], runtime: Runtime) -> Optional[str]:
         wayland_socket = f"{xdg_runtime_dir}/{wayland_display}"
         args.extend(["-e", "WAYLAND_DISPLAY"])
         args.extend(["-e", f"XDG_RUNTIME_DIR={xdg_runtime_dir}"])
-        args.extend(["-v", f"{wayland_socket}:{wayland_socket}"])
+        args.extend(["-v", f"{wayland_socket}:{wayland_socket}:z"])
 
     display = os.environ.get("DISPLAY")
     if display:
@@ -97,7 +97,7 @@ def _add_display_args(args: List[str], runtime: Runtime) -> Optional[str]:
                 pass
 
         args.extend(["-e", "DISPLAY"])
-        args.extend(["-v", f"{xsock}:{xsock}"])
+        args.extend(["-v", f"{xsock}:{xsock}:z"])
         args.extend(["--env", "QT_X11_NO_MITSHM=1"])
 
     return xauth_file
@@ -124,7 +124,7 @@ def _add_audio_args(args: List[str]) -> None:
     uid = os.getuid()
     pulse_socket = f"/run/user/{uid}/pulse/native"
     if Path(pulse_socket).is_socket():
-        args.extend(["-v", f"{pulse_socket}:{pulse_socket}"])
+        args.extend(["-v", f"{pulse_socket}:{pulse_socket}:z"])
         args.extend(["-e", f"PULSE_SERVER=unix:{pulse_socket}"])
 
 
