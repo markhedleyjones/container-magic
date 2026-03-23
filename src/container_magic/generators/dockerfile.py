@@ -389,9 +389,9 @@ def generate_dockerfile(
                 ancestor = ancestor_config.frm
         distro_settings = resolve_distro(effective_distro)
         if distro_settings:
-            distro_pm, distro_shell, distro_ucs = distro_settings
+            distro_pm, _, distro_ucs = distro_settings
         else:
-            distro_pm, distro_shell, distro_ucs = None, None, None
+            distro_pm, distro_ucs = None, None
 
         package_manager = (
             stage_config.package_manager
