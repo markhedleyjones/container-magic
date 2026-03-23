@@ -162,6 +162,11 @@ def _resolve_copy_source(args: str, asset_map: Dict[str, str]) -> str:
     return args
 
 
+def _step_is_pip(step: Union[str, Dict[str, Any]]) -> bool:
+    """Check if a raw step is a pip step."""
+    return isinstance(step, dict) and len(step) == 1 and next(iter(step)) == "pip"
+
+
 def process_stage_steps(
     stage: StageConfig,
     stage_name: str,
@@ -172,7 +177,8 @@ def process_stage_steps(
     registry: Dict = None,
     asset_map: Dict[str, str] = None,
     workspace_symlinks: List[tuple] = None,
-) -> List[Dict]:
+    venv_active: bool = False,
+) -> tuple:
     """Process build steps for a stage.
 
     When asset_map is provided, copy sources matching asset filenames are
@@ -182,7 +188,7 @@ def process_stage_steps(
     symlink overlay data for the Dockerfile template.
 
     Returns:
-        ordered_steps list
+        (ordered_steps, venv_active) tuple
     """
     if registry is None:
         registry = load_registry()
@@ -195,7 +201,7 @@ def process_stage_steps(
     is_default_production = False
     if stage.steps is None:
         if ":" in stage.frm or "/" in stage.frm:
-            return []
+            return [], venv_active
         else:
             steps: List[Union[str, Dict[str, Any]]] = []
             if stage_name == "production":
@@ -230,6 +236,14 @@ def process_stage_steps(
     ordered_steps = []
 
     for step in steps:
+        if _step_is_pip(step) and not venv_active:
+            is_root = current_user is None
+            venv_step = {"type": "venv_setup", "is_root": is_root}
+            if not is_root:
+                venv_step["restore_user"] = current_user
+            ordered_steps.append(venv_step)
+            venv_active = True
+
         parsed = parse_step(step, registry)
 
         step_type = parsed["type"]
@@ -294,7 +308,7 @@ def process_stage_steps(
         elif step_type == "passthrough":
             ordered_steps.append({"type": "custom", "command": parsed["command"]})
 
-    return ordered_steps
+    return ordered_steps, venv_active
 
 
 def generate_dockerfile(
@@ -349,6 +363,7 @@ def generate_dockerfile(
     user_home = f"/home/{user_name}" if has_user else "/root"
 
     stages_data = []
+    venv_state: Dict[str, bool] = {}
     for stage_name, stage_config in stages.items():
         base_image = stage_config.frm
         resolved_image = resolve_base_image(base_image, stages)
@@ -358,7 +373,13 @@ def generate_dockerfile(
         shell = stage_config.shell or detect_shell(resolved_image)
         user_creation_style = detect_user_creation_style(resolved_image)
 
-        ordered_steps = process_stage_steps(
+        from_is_image = ":" in base_image or "/" in base_image
+        if from_is_image:
+            inherited_venv = False
+        else:
+            inherited_venv = venv_state.get(base_image, False)
+
+        ordered_steps, venv_active = process_stage_steps(
             stage_config,
             stage_name,
             project_dir,
@@ -368,12 +389,13 @@ def generate_dockerfile(
             registry,
             asset_map,
             workspace_symlinks,
+            venv_active=inherited_venv,
         )
+        venv_state[stage_name] = venv_active
 
         ordered_steps = _merge_consecutive_env_steps(ordered_steps)
 
         needs_user_args = _stage_needs_user_args(ordered_steps)
-        from_is_image = ":" in base_image or "/" in base_image
 
         stages_data.append(
             {
