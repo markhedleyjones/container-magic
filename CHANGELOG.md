@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v3.1.2 (2026-03-23)
+
+### Bug Fixes
+
+- Add SELinux :z labels to runtime volumes
+  ([#39](https://github.com/markhedleyjones/container-magic/pull/39),
+  [`b221176`](https://github.com/markhedleyjones/container-magic/commit/b22117622f404d0fc4c6af1d83e0b79fed726344))
+
+
 ## v3.1.1 (2026-03-23)
 
 ### Bug Fixes
