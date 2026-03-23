@@ -15,8 +15,7 @@ from typing import Dict, List, Optional, Tuple
 from container_magic.core.config import ContainerMagicConfig, CustomCommand
 from container_magic.core.runtime import Runtime, get_runtime
 from container_magic.core.symlinks import scan_workspace_symlinks
-from container_magic.core.templates import detect_shell, resolve_base_image
-from container_magic.core.volumes import ensure_selinux_label
+from container_magic.core.templates import detect_shell, resolve_base_image, resolve_distro_shell
 
 
 def _detect_container_home() -> str:
@@ -29,10 +28,19 @@ def _detect_container_home() -> str:
 
 
 def _detect_shell(config: ContainerMagicConfig) -> str:
-    """Detect the shell for the development stage."""
+    """Detect the interactive shell for cm run.
+
+    Priority: runtime.shell > distro field > image-name detection.
+    """
+    runtime_shell = config.runtime.shell if config.runtime else None
+    if runtime_shell:
+        return runtime_shell
     dev_stage = "development" if "development" in config.stages else "base"
+    distro_shell = resolve_distro_shell(dev_stage, config.stages)
+    if distro_shell:
+        return distro_shell
     dev_stage_config = config.stages[dev_stage]
-    return dev_stage_config.shell or detect_shell(
+    return detect_shell(
         resolve_base_image(dev_stage_config.frm, config.stages)
     )
 
@@ -58,7 +66,7 @@ def _add_display_args(args: List[str], runtime: Runtime) -> Optional[str]:
         wayland_socket = f"{xdg_runtime_dir}/{wayland_display}"
         args.extend(["-e", "WAYLAND_DISPLAY"])
         args.extend(["-e", f"XDG_RUNTIME_DIR={xdg_runtime_dir}"])
-        args.extend(["-v", f"{wayland_socket}:{wayland_socket}:z"])
+        args.extend(["-v", f"{wayland_socket}:{wayland_socket}"])
 
     display = os.environ.get("DISPLAY")
     if display:
@@ -98,7 +106,7 @@ def _add_display_args(args: List[str], runtime: Runtime) -> Optional[str]:
                 pass
 
         args.extend(["-e", "DISPLAY"])
-        args.extend(["-v", f"{xsock}:{xsock}:z"])
+        args.extend(["-v", f"{xsock}:{xsock}"])
         args.extend(["--env", "QT_X11_NO_MITSHM=1"])
 
     return xauth_file
@@ -125,7 +133,7 @@ def _add_audio_args(args: List[str]) -> None:
     uid = os.getuid()
     pulse_socket = f"/run/user/{uid}/pulse/native"
     if Path(pulse_socket).is_socket():
-        args.extend(["-v", f"{pulse_socket}:{pulse_socket}:z"])
+        args.extend(["-v", f"{pulse_socket}:{pulse_socket}"])
         args.extend(["-e", f"PULSE_SERVER=unix:{pulse_socket}"])
 
 
@@ -327,7 +335,7 @@ def run_container(
 
     # Additional volumes
     for volume in config.runtime.volumes:
-        run_args.extend(["-v", ensure_selinux_label(volume)])
+        run_args.extend(["-v", volume])
 
     # Device passthrough
     for device in config.runtime.devices:
@@ -414,10 +422,8 @@ def run_container(
         # (pipes, &&, variable expansion) use: cm run bash -c "..."
         pass
 
-    if command_spec:
-        workdir = f"{container_home}/{workspace_name}"
-    else:
-        workdir = _translate_workdir(project_dir, user_cwd, container_home)
+    # Working directory
+    workdir = _translate_workdir(project_dir, user_cwd, container_home)
     run_args.extend(["--workdir", workdir])
 
     # Determine how to append the command to run_args:
