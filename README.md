@@ -3,7 +3,7 @@
 
   # container-magic
 
-  **Turn a YAML file into a Dockerfile, build script, and run script that work with plain Docker or Podman - no tools to install, no dependencies to manage. One config gives you a live-mounted development environment and a production-ready image.**
+  **Define your container workflow in a single YAML file. Container-magic generates a Dockerfile, build script, and run script that work with Docker or Podman - container-magic is not a dependency of your final product.**
 
   [![PyPI version](https://img.shields.io/pypi/v/container-magic.svg)](https://pypi.org/project/container-magic/)
   [![Python versions](https://img.shields.io/pypi/pyversions/container-magic.svg)](https://pypi.org/project/container-magic/)
@@ -13,13 +13,9 @@
 
 ## How It Works
 
-You write a `cm.yaml`. Container-magic generates a Dockerfile, `build.sh`, and `run.sh` from it. You commit those generated files to your repository.
+You write a `cm.yaml`. Container-magic generates a Dockerfile, `build.sh`, and `run.sh` from it. These generated files are committed to your repository so that anyone can build and run the project with Docker or Podman.
 
-Your colleagues run `./build.sh` and `./run.sh` with plain Docker or Podman. They never need to install container-magic.
-
-When you change the config, you regenerate and commit. The generated files are always the source of truth for anyone without container-magic installed.
-
-For your own development, `cm build` and `cm run` read the config directly and handle workspace mounting, user identity mapping, and runtime features automatically.
+For development, `cm build` and `cm run` read the config directly and handle workspace mounting, user identity mapping, and runtime features automatically.
 
 ## Quick Start
 
@@ -59,7 +55,7 @@ stages:
     from: base
 ```
 
-Your colleagues build and run the production image without container-magic:
+Build and run the production image:
 
 ```bash
 ./build.sh
@@ -68,7 +64,6 @@ Your colleagues build and run the production image without container-magic:
 
 ## Key Features
 
-* **Zero-dependency output** - generated Dockerfile, build.sh, and run.sh work with plain Docker or Podman
 * **Development and production from one config** - live-mounted workspace in dev, baked-in code in prod
 * **Automatic user handling** - host user identity in dev, dedicated user in prod, no manual setup
 * **GPU, display, and audio** - NVIDIA GPU passthrough, X11/Wayland forwarding, PulseAudio/PipeWire
@@ -77,7 +72,6 @@ Your colleagues build and run the production image without container-magic:
 * **Transparent execution** - run commands from anywhere in your repo with automatic path translation
 * **AWS credential forwarding** - mount host AWS config into the container
 * **Cached assets** - download models and datasets once, reuse across builds
-* **Docker and Podman** - works with either runtime, auto-detected
 
 ## Documentation
 
