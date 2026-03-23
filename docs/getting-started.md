@@ -154,8 +154,6 @@ stages:
           install:
             - numpy
             - pandas
-      - create: user
-      - become: user
 
   development:
     from: base
@@ -186,8 +184,6 @@ stages:
             - datasets
       - env:
           HF_HOME: /models
-      - create: user
-      - become: user
 
   development:
     from: base

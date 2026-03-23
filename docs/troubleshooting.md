@@ -84,16 +84,7 @@ names:
   user: nonroot           # or 'root' if no custom user is needed
 ```
 
-If you set `user` to anything other than `root`, add `create: user` and `become: user` steps to your base stage:
-
-```yaml
-stages:
-  base:
-    from: python:3.11-slim
-    steps:
-      - create: user
-      - become: user
-```
+If you set `user` to anything other than `root`, the user is created and the container switches to it automatically in leaf stages. No extra steps are needed for the common case.
 
 ## Custom Step Not Producing Expected Output
 
@@ -130,12 +121,10 @@ See [Cached Assets](cached-assets.md) for full details.
 
 ## Permission Denied When Running as Non-root
 
-Use lowercase `copy` instead of uppercase `COPY` - it automatically sets ownership via `--chown` when `become` is active:
+Use lowercase `copy` instead of uppercase `COPY` - it automatically sets ownership via `--chown` when user context is active:
 
 ```yaml
 steps:
-  - create: user
-  - become: user
   - copy: config.yaml /etc/myservice/config.yaml
 ```
 

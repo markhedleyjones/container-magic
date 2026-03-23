@@ -4,85 +4,15 @@ The `steps` field in each stage defines how the image is constructed. Container-
 
 ## Built-in Steps
 
-### 1. `create`
+### 1. `copy: workspace`
 
-Creates a user account in the container image.
-
-**`create: user`** (keyword) - creates the user defined by `names.user` in your config. This is the primary way to set up a non-root user:
-
-```yaml
-names:
-  image: my-project
-  user: nonroot
-
-stages:
-  base:
-    from: python:3.11-slim
-    steps:
-      - create: user  # creates 'nonroot' with uid=1000, gid=1000
-```
-
-The word `user` here is a keyword that resolves to whatever `names.user` is set to. It cannot be used when `names.user` is `root` -- root always exists in every container, so creating it is an error.
-
-**`create: <literal>`** - creates a user with that exact name. Use this for secondary or additional users (e.g. service accounts), not for the primary container user:
-
-```yaml
-steps:
-  - create: www-data-custom  # creates a literal user 'www-data-custom'
-```
-
-**`create: root`** is always an error. Root exists in every container image by default, so there is nothing to create.
-
-**Defaults:**
-
-- `uid`: 1000
-- `gid`: 1000
-- `home`: `/home/<username>`
-
-For rare cases where the host uid/gid must differ, `build.sh` accepts `--uid` and `--gid` flags.
-
----
-
-### 2. `become: <target>`
-
-Switches the current user context. Sets the Dockerfile `USER` directive and controls whether subsequent `copy` steps add `--chown`.
-
-**`become: user`** (keyword) - switches to the user defined by `names.user`. Cannot be used when `names.user` is `root`, because containers already run as root by default -- the step would be redundant.
-
-**`become: root`** - switches back to root. Useful for privileged operations after a previous `become: user`.
-
-**`become: <literal>`** - switches to any other user by name (e.g. `become: www-data`, `become: mysql`). Docker resolves the username against `/etc/passwd` at build time, so this works for users that already exist in the base image without needing a `create` step.
-
-```yaml
-names:
-  image: my-project
-  user: nonroot
-
-stages:
-  base:
-    from: python:3.11-slim
-    steps:
-      - create: user
-      - become: user                    # USER nonroot (resolved from names.user)
-      - copy: entrypoint.sh /opt/       # COPY --chown=nonroot:nonroot ...
-      - become: root                    # USER root
-      - copy: default.conf /etc/nginx/  # COPY default.conf /etc/nginx/ (no --chown)
-```
-
-**Generated Dockerfile:** `USER <username>`
-
----
-
-### 3. `copy: workspace`
-
-The word `workspace` here is a keyword -- it resolves to the directory named by `names.workspace` (default: `workspace`). This copies the entire workspace directory into the image, typically for production builds. Context-aware -- adds `--chown` when `become` is active.
+The word `workspace` here is a keyword -- it resolves to the directory named by `names.workspace` (default: `workspace`). This copies the entire workspace directory into the image, typically for production builds. Context-aware -- adds `--chown` when user context is active.
 
 ```yaml
 stages:
   production:
     from: base
     steps:
-      - become: user
       - copy: workspace
 ```
 
@@ -99,13 +29,13 @@ A single-token `copy:` that does not match `names.workspace` is treated as a dir
 - **Warning** if the workspace is never copied -- you probably meant `copy: workspace` or need to update `names.workspace`
 - **Info** if the workspace is also copied -- you're copying an extra directory alongside the workspace, which is fine
 
-This mirrors the `create:` step behaviour: the keyword form (`copy: workspace`) is the primary mechanism, and literal values are allowed but flagged to catch mistakes.
+The keyword form (`copy: workspace`) is the primary mechanism, and literal values are allowed but flagged to catch mistakes.
 
 ---
 
-### 4. `copy`
+### 2. `copy`
 
-User-context-aware file copy. Behaves like Docker's `COPY` but automatically adds `--chown=<username>:<username>` when `become` is active for a non-root user. Lowercase = smart abstraction, uppercase `COPY` = raw Dockerfile passthrough.
+User-context-aware file copy. Behaves like Docker's `COPY` but automatically adds `--chown=<username>:<username>` when user context is active for a non-root user. Lowercase = smart abstraction, uppercase `COPY` = raw Dockerfile passthrough.
 
 ```yaml
 names:
@@ -116,20 +46,18 @@ stages:
   base:
     from: python:3.11-slim
     steps:
-      - create: user
-      - become: user
       - copy: config.yaml /etc/myservice/config.yaml
       - copy: scripts/init.sh /opt/init.sh
 ```
 
-**Generated Dockerfile:**
+**Generated Dockerfile** (with user context active):
 
 ```dockerfile
 COPY --chown=nonroot:nonroot config.yaml /etc/myservice/config.yaml
 COPY --chown=nonroot:nonroot scripts/init.sh /opt/init.sh
 ```
 
-If the `copy` step appears before `become` or after `become: root`, it generates a plain `COPY` without `--chown`. User context is inherited from parent stages -- if a parent ends with `become: user`, child stages start with user context active.
+If the `copy` step appears before user context is active (e.g. after `become: root`), it generates a plain `COPY` without `--chown`. User context is inherited from parent stages -- if a parent ends with user context active, child stages start with it active.
 
 ### Copying from other stages (`--from=`)
 
@@ -161,10 +89,9 @@ COPY --from=builder /usr/local/lib /usr/local/lib
 COPY --from=builder /usr/local/include /usr/local/include
 ```
 
-When `become` is active, `--chown` is added automatically:
+When user context is active, `--chown` is added automatically:
 
 ```yaml
-- become: user
 - copy: --from=builder /usr/local/bin/myapp /usr/local/bin/myapp
 ```
 
@@ -176,7 +103,7 @@ The `--from=` argument should reference a stage name defined in the same `cm.yam
 
 ---
 
-### 5. `run`
+### 3. `run`
 
 Combines multiple commands into a single `RUN` instruction (one Docker layer). Commands are joined with `&& \` automatically:
 
@@ -203,7 +130,7 @@ See [Multi-command Steps](#multi-command-steps) for more examples and [Docker La
 
 ---
 
-### 6. `env`
+### 4. `env`
 
 Sets environment variables in the image. Accepts either a dict or a list:
 
@@ -351,7 +278,7 @@ If anything changes, the entire layer rebuilds. Good for related commands that s
 You can reference container-magic variables in custom steps:
 
 - `${WORKSPACE}` - Workspace directory path
-- `${USER_NAME}` - Non-root user name (if `create: user` was used)
+- `${USER_NAME}` - Non-root user name (set from `names.user`)
 - `${USER_UID}` / `${USER_GID}` - User IDs
 
 ## Using `$WORKSPACE` in Container Scripts
@@ -406,17 +333,8 @@ If no steps are specified, `copy: workspace` is added automatically.
 ## Step Ordering Rules
 
 1. **Steps execute in order** - left to right, top to bottom
-2. **User creation before switching** - `create: user` must come before `become: user`
-3. **User switching for security** - switch to non-root after setup, use `become: root` if needed for privileged ops
-
-**Common approach:**
-
-```yaml
-steps:
-  - create: user
-  - become: user
-  - copy: workspace
-```
+2. **User context for copies** - `copy` steps automatically add `--chown` when user context is active
+3. **Privilege separation** - privileged operations (e.g. `apt-get`) run before user context is activated; use `become: root` to switch back if needed mid-stage
 
 ## Package Installation
 
@@ -542,8 +460,6 @@ stages:
       - pip:
           install:
             - setuptools
-      - create: user
-      - become: user
 
   development:
     from: base
@@ -588,4 +504,70 @@ stages:
       - ENV NODE_ENV=production
       - ENV PATH=/app/node_modules/.bin:$PATH
       - RUN npm install --global yarn
+```
+
+## Advanced: User Management Steps
+
+When `names.user` is set to anything other than `root`, container-magic automatically creates that user and switches to it in leaf stages. These explicit steps are optional -- they exist for cases where the implicit behaviour isn't enough.
+
+### `create: user`
+
+Explicitly creates the user defined by `names.user` with uid/gid 1000. Useful when you need to control where in the build the user is created, or when you are copying files that must be owned by that user before the end of the stage.
+
+```yaml
+steps:
+  - create: user  # creates names.user with uid=1000, gid=1000
+```
+
+The word `user` is a keyword that resolves to the value of `names.user`. It cannot be used when `names.user` is `root`.
+
+**Defaults:**
+
+- `uid`: 1000
+- `gid`: 1000
+- `home`: `/home/<username>`
+
+For rare cases where the host uid/gid must differ, `build.sh` accepts `--uid` and `--gid` flags.
+
+**`create: <literal>`** creates a user with that exact name. Use this for secondary users such as service accounts:
+
+```yaml
+steps:
+  - create: www-data-custom
+```
+
+**`create: root`** is always an error. Root exists in every container image by default.
+
+When any stage contains an explicit `create: user`, implicit user creation is disabled globally -- you take full control of where and when the user is created.
+
+---
+
+### `become: <target>`
+
+Switches the active user context. Sets the Dockerfile `USER` directive and controls whether subsequent `copy` steps add `--chown`.
+
+**`become: user`** (keyword) - switches to the user defined by `names.user`. Cannot be used when `names.user` is `root`.
+
+**`become: root`** - switches back to root. Useful for privileged operations after switching to the non-root user.
+
+**`become: <literal>`** - switches to any other user by name (e.g. `become: www-data`). Docker resolves the name against `/etc/passwd` at build time, so this works for users that already exist in the base image without a `create` step.
+
+**Generated Dockerfile:** `USER <username>`
+
+**Example -- explicit ownership control:**
+
+```yaml
+names:
+  image: my-project
+  user: nonroot
+
+stages:
+  base:
+    from: python:3.11-slim
+    steps:
+      - create: user
+      - become: user                    # USER nonroot
+      - copy: entrypoint.sh /opt/       # COPY --chown=nonroot:nonroot ...
+      - become: root                    # USER root
+      - copy: default.conf /etc/nginx/  # COPY default.conf /etc/nginx/ (no --chown)
 ```
