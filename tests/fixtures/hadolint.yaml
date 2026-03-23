@@ -1,0 +1,25 @@
+# Hadolint configuration for testing container-magic generated Dockerfiles.
+#
+# These rules are ignored because they apply to user-authored content
+# (run: steps in cm.yaml) that container-magic passes through verbatim,
+# not to container-magic's own generated code.
+ignored:
+  # User chooses base image tags
+  - DL3007  # Using latest is prone to errors
+  # User controls package installation commands
+  - DL3008  # Pin versions in apt-get install
+  - DL3009  # Delete the apt-get lists after installing
+  - DL3015  # Avoid additional packages by specifying --no-install-recommends
+  # User controls pip commands
+  - DL3013  # Pin versions in pip install
+  - DL3042  # Avoid use of cache directory with pip
+  # User creation block uses pipe in an if-condition where failure is handled
+  - DL4006  # Set the SHELL option -o pipefail before RUN with a pipe
+  # apk-specific rules for user content
+  - DL3018  # Pin versions in apk add
+  - DL3019  # Use --no-cache with apk add
+  # User content may use cd in RUN steps
+  - DL3003  # Use WORKDIR to switch to a directory
+  # False positive: nested if-inside-else with variable assignment between
+  # else and if is parsed as "else if" by hadolint's shellcheck
+  - SC1075  # Use 'elif' instead of 'else if'

@@ -1,0 +1,32 @@
+# AWS credentials feature with downloadable assets
+names:
+  image: test-cloud-tool
+  workspace: workspace
+  user: appuser
+
+assets:
+  - awscli.zip: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+
+runtime:
+  features:
+    - aws_credentials
+
+stages:
+  base:
+    from: python:3.11-slim
+    steps:
+      - apt-get: {install: [unzip, curl]}
+      - {env: {TZ: UTC}}
+      - {create: user}
+      - {become: user,}
+
+  development:
+    from: base
+    steps:
+      - {become: user,}
+
+  production:
+    from: base
+    steps:
+      - {become: user}
+      - copy: workspace

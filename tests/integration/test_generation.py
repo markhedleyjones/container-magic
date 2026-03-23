@@ -56,11 +56,19 @@ def validate_yaml(yaml_file: Path) -> bool:
 
 
 def validate_dockerfile(dockerfile: Path) -> bool:
-    """Validate Dockerfile with hadolint (errors only)."""
+    """Validate Dockerfile with hadolint."""
     if not LINTERS["hadolint"]:
         return True
+    hadolint_config = Path(__file__).parent.parent / "fixtures" / "hadolint.yaml"
     result = subprocess.run(
-        ["hadolint", "--failure-threshold", "error", str(dockerfile)],
+        [
+            "hadolint",
+            "--config",
+            str(hadolint_config),
+            "--failure-threshold",
+            "warning",
+            str(dockerfile),
+        ],
         capture_output=True,
     )
     return result.returncode == 0

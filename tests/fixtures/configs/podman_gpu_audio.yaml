@@ -1,0 +1,37 @@
+# Podman backend with GPU and audio features
+backend: podman
+
+names:
+  image: test-media-processor
+  workspace: workspace
+  user: appuser
+
+runtime:
+  privileged: true
+  features:
+    - gpu
+    - audio
+  devices:
+    - /dev/snd
+
+stages:
+  base:
+    from: pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
+    steps:
+      - apt-get: {install: [ffmpeg, libasound2-plugins]}
+      - pip: {install: [torchaudio, soundfile]}
+      - env:
+          MODEL_CACHE: /home/appuser/.cache/models
+      - {create: user}
+      - {become: user,}
+
+  development:
+    from: base
+    steps:
+      - {become: user,}
+
+  production:
+    from: base
+    steps:
+      - {become: user}
+      - copy: workspace

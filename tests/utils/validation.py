@@ -90,16 +90,18 @@ def validate_yaml(yaml_file: Path) -> ValidationResult:
 
 
 def validate_dockerfile(dockerfile: Path) -> ValidationResult:
-    """Validate Dockerfile with hadolint (errors only)."""
+    """Validate Dockerfile with hadolint."""
     hadolint = shutil.which("hadolint")
     if not hadolint:
         return ValidationResult(True, "hadolint not available (skipped)")
 
-    result = subprocess.run(
-        ["hadolint", "--failure-threshold", "error", str(dockerfile)],
-        capture_output=True,
-        text=True,
-    )
+    hadolint_config = Path(__file__).parent.parent / "fixtures" / "hadolint.yaml"
+    cmd = ["hadolint", "--failure-threshold", "warning"]
+    if hadolint_config.exists():
+        cmd.extend(["--config", str(hadolint_config)])
+    cmd.append(str(dockerfile))
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
         return ValidationResult(

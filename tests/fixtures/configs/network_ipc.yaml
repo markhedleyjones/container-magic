@@ -1,0 +1,27 @@
+# Network host mode, IPC sharing, explicit docker backend
+backend: docker
+
+names:
+  image: test-network-app
+  workspace: workspace
+  user: root
+
+runtime:
+  network_mode: host
+  ipc: shareable
+  features:
+    - display
+
+stages:
+  base:
+    from: ubuntu:22.04
+    steps:
+      - apt-get: {install: [libgl1, libx11-6]}
+      - env:
+          DISPLAY_APP: "true"
+
+  development:
+    from: base
+
+  production:
+    from: base
