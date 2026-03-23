@@ -6,7 +6,7 @@ names:
 
 stages:
   base:
-    from: python:3.11-slim
+    from: debian:bookworm-slim
 
   development:
     from: base

@@ -22,7 +22,7 @@ def test_build_script_default_target_production(temp_project_dir):
     config = ContainerMagicConfig(
         names={"image": "test-project", "user": "root"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },
@@ -42,7 +42,7 @@ def test_build_script_executable(temp_project_dir):
     config = ContainerMagicConfig(
         names={"image": "test-project", "user": "root"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },
@@ -60,7 +60,7 @@ def test_build_script_help_output(temp_project_dir):
     config = ContainerMagicConfig(
         names={"image": "test-project", "user": "root"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },
@@ -87,7 +87,7 @@ def test_build_script_tag_override(temp_project_dir):
     config = ContainerMagicConfig(
         names={"image": "test-project", "user": "root"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },
@@ -106,7 +106,7 @@ def test_build_script_rejects_unknown_args(temp_project_dir):
     config = ContainerMagicConfig(
         names={"image": "test-project", "user": "root"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },

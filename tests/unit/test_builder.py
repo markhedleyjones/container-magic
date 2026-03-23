@@ -15,7 +15,7 @@ def _make_config(**overrides):
         "names": {"image": "test-project", "user": "nonroot", "workspace": "workspace"},
         "stages": {
             "base": {
-                "from": "ubuntu:22.04",
+                "from": "debian:bookworm-slim",
                 "steps": [{"create": "user"}, {"become": "user"}],
             },
             "development": {"from": "base"},
@@ -139,11 +139,12 @@ class TestBuildContainer:
 
     def test_root_user_build(self, build_env):
         config = _make_config(
+            names={"image": "test-project", "user": "root", "workspace": "workspace"},
             stages={
-                "base": {"from": "ubuntu:22.04"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
-            }
+            },
         )
         build_container(config, build_env.path, target="production")
 

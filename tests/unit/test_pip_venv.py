@@ -21,7 +21,7 @@ def _base_config(**overrides):
     config = {
         "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
-            "base": {"from": "python:3-slim", **overrides},
+            "base": {"from": "debian:bookworm-slim", **overrides},
             "development": {"from": "base", "steps": []},
             "production": {"from": "base", "steps": []},
         },
@@ -51,7 +51,7 @@ class TestVenvCreation:
             "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
             "stages": {
                 "base": {
-                    "from": "python:3-slim",
+                    "from": "debian:bookworm-slim",
                     "steps": [
                         {"create": "user"},
                         {"become": "user"},
@@ -87,7 +87,7 @@ class TestVenvCreation:
             "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
             "stages": {
                 "base": {
-                    "from": "python:3-slim",
+                    "from": "debian:bookworm-slim",
                     "steps": [
                         {"pip": {"install": ["numpy"]}},
                         {"create": "user"},
@@ -112,7 +112,7 @@ class TestVenvCreation:
             "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
             "stages": {
                 "base": {
-                    "from": "python:3-slim",
+                    "from": "debian:bookworm-slim",
                     "steps": [{"create": "user"}],
                 },
                 "development": {
@@ -180,7 +180,7 @@ class TestVenvCreation:
             "names": {"image": "test", "workspace": "workspace", "user": "root"},
             "stages": {
                 "base": {
-                    "from": "python:3-slim",
+                    "from": "debian:bookworm-slim",
                     "steps": [
                         {"become": "www-data"},
                         {"pip": {"install": ["flask"]}},
@@ -201,11 +201,11 @@ class TestVenvCreation:
             "names": {"image": "test", "workspace": "workspace", "user": "root"},
             "stages": {
                 "builder": {
-                    "from": "python:3-slim",
+                    "from": "debian:bookworm-slim",
                     "steps": [{"pip": {"install": ["build"]}}],
                 },
                 "base": {
-                    "from": "ubuntu:24.04",
+                    "from": "debian:bookworm-slim",
                     "steps": [{"pip": {"install": ["requests"]}}],
                 },
                 "development": {"from": "base"},

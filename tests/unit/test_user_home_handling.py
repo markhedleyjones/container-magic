@@ -38,7 +38,7 @@ class TestRunScriptHomePath:
             "names": {"image": "test", "workspace": "workspace", "user": "app"},
             "stages": {
                 "base": {
-                    "from": "python:3-slim",
+                    "from": "debian:bookworm-slim",
                     "steps": [{"create": "user"}],
                 },
                 "development": {"from": "base", "steps": []},
@@ -62,7 +62,7 @@ class TestToYamlStepsField:
                 "names": {"image": "test", "workspace": "workspace", "user": "app"},
                 "stages": {
                     "base": {
-                        "from": "python:3-slim",
+                        "from": "debian:bookworm-slim",
                         "steps": [{"create": "user"}],
                     },
                     "development": {"from": "base", "steps": []},

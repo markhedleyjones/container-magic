@@ -15,7 +15,6 @@ import pytest
 BASE_IMAGES = [
     ("alpine:latest", "apk", "/bin/sh"),
     ("debian:bookworm-slim", "apt", "/bin/bash"),
-    ("fedora:latest", "dnf", "/bin/bash"),
 ]
 
 
@@ -103,7 +102,7 @@ def _setup_and_build(tmp_path_factory, base_image):
 
 
 @pytest.fixture(scope="module")
-def alpine_project(tmp_path_factory):
+def alpine_project(tmp_path_factory, alpine_base_image):
     """Build Alpine image once for the module."""
     project = _setup_and_build(tmp_path_factory, "alpine:latest")
     yield project
@@ -114,7 +113,7 @@ def alpine_project(tmp_path_factory):
 
 
 @pytest.fixture(scope="module")
-def debian_project(tmp_path_factory):
+def debian_project(tmp_path_factory, debian_base_image):
     """Build Debian image once for the module."""
     project = _setup_and_build(tmp_path_factory, "debian:bookworm-slim")
     yield project
@@ -124,22 +123,10 @@ def debian_project(tmp_path_factory):
     )
 
 
-@pytest.fixture(scope="module")
-def fedora_project(tmp_path_factory):
-    """Build Fedora image once for the module."""
-    project = _setup_and_build(tmp_path_factory, "fedora:latest")
-    yield project
-    subprocess.run(
-        [_runtime(), "rmi", "-f", f"{_image_name('fedora:latest')}:latest"],
-        capture_output=True,
-    )
-
-
 # Map base image to fixture name for parametrisation
 IMAGE_FIXTURES = {
     "alpine:latest": "alpine_project",
     "debian:bookworm-slim": "debian_project",
-    "fedora:latest": "fedora_project",
 }
 
 

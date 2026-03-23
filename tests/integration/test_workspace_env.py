@@ -23,30 +23,43 @@ def _detect_runtime():
 
 
 @pytest.fixture
-def test_project():
-    """Create a temporary test project."""
+def test_project(debian_base_image):
+    """Create a temporary test project with cm-test:debian base."""
     with tempfile.TemporaryDirectory() as tmpdir:
         project_dir = Path(tmpdir)
 
-        # Initialize a basic Python project via cm command
-        init_result = subprocess.run(
-            ["cm", "init", "python", "test-workspace-env"],
+        config_content = """\
+names:
+  image: test-workspace-env
+  workspace: workspace
+  user: nonroot
+
+stages:
+  base:
+    from: cm-test:debian
+  development:
+    from: base
+  production:
+    from: base
+    steps:
+      - copy: workspace
+"""
+        (project_dir / "cm.yaml").write_text(config_content)
+
+        workspace_dir = project_dir / "workspace"
+        workspace_dir.mkdir()
+        (workspace_dir / "test.txt").write_text("workspace test file\n")
+
+        # Generate files
+        result = subprocess.run(
+            ["cm", "update"],
             cwd=project_dir,
             capture_output=True,
             text=True,
         )
-        assert init_result.returncode == 0, f"cm init failed: {init_result.stderr}"
+        assert result.returncode == 0, f"cm update failed: {result.stderr}"
 
-        # The init creates a subdirectory with the project name
-        actual_project_dir = project_dir / "test-workspace-env"
-
-        # Create a simple workspace file to verify mount
-        workspace_dir = actual_project_dir / "workspace"
-        workspace_dir.mkdir(exist_ok=True)
-        test_file = workspace_dir / "test.txt"
-        test_file.write_text("workspace test file\n")
-
-        yield actual_project_dir
+        yield project_dir
 
 
 def test_workspace_env_points_to_mounted_path(test_project):
@@ -127,7 +140,7 @@ def test_workspace_env_points_to_mounted_path(test_project):
 
 
 @pytest.fixture
-def test_project_no_user():
+def test_project_no_user(debian_base_image):
     """Create a test project with no user configuration."""
     with tempfile.TemporaryDirectory() as tmpdir:
         project_dir = Path(tmpdir)
@@ -140,7 +153,7 @@ def test_project_no_user():
 
 stages:
   base:
-    from: python:3.11-slim
+    from: cm-test:debian
   development:
     from: base
   production:

@@ -13,7 +13,7 @@ def test_valid_image_name():
         config = ContainerMagicConfig(
             names={"image": name, "workspace": "workspace", "user": "root"},
             stages={
-                "base": {"from": "python:3-slim"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
@@ -29,7 +29,7 @@ def test_invalid_image_name():
             ContainerMagicConfig(
                 names={"image": name, "workspace": "workspace", "user": "root"},
                 stages={
-                    "base": {"from": "python:3-slim"},
+                    "base": {"from": "debian:bookworm-slim"},
                     "development": {"from": "base"},
                     "production": {"from": "base"},
                 },
@@ -41,7 +41,7 @@ def test_default_values():
     config = ContainerMagicConfig(
         names={"image": "test", "user": "root"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },
@@ -63,7 +63,7 @@ def test_names_user_required():
         ContainerMagicConfig(
             names={"image": "test"},
             stages={
-                "base": {"from": "python:3-slim"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
@@ -76,7 +76,7 @@ def test_config_with_features():
         names={"image": "test", "user": "root"},
         runtime={"features": ["display", "gpu", "audio"]},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },
@@ -91,7 +91,7 @@ def test_config_with_volumes():
         names={"image": "test", "user": "root"},
         runtime={"volumes": ["/tmp/data:/data:ro", "/var/log:/logs"]},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },
@@ -106,7 +106,7 @@ def test_config_with_devices():
         names={"image": "test", "user": "root"},
         runtime={"devices": ["/dev/ttyUSB0", "/dev/video0:/dev/video0:rw"]},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },
@@ -122,7 +122,7 @@ def test_invalid_volume_format():
             names={"image": "test", "user": "root"},
             runtime={"volumes": ["no-colon"]},
             stages={
-                "base": {"from": "python:3-slim"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
@@ -136,7 +136,7 @@ def test_invalid_volume_empty_parts():
             names={"image": "test", "user": "root"},
             runtime={"volumes": [":/container"]},
             stages={
-                "base": {"from": "python:3-slim"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
@@ -150,7 +150,7 @@ def test_removed_runtime_backend_raises():
             names={"image": "test", "user": "root"},
             runtime={"backend": "docker"},
             stages={
-                "base": {"from": "python:3-slim"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
@@ -164,7 +164,7 @@ def test_removed_network_field_raises():
             names={"image": "test", "user": "root"},
             runtime={"network": "host"},
             stages={
-                "base": {"from": "python:3-slim"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
@@ -176,7 +176,7 @@ def test_build_script_custom_default_target():
     config = ContainerMagicConfig(
         names={"image": "test", "user": "root"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
             "testing": {"from": "base"},
@@ -193,7 +193,7 @@ def test_build_script_invalid_default_target():
         ContainerMagicConfig(
             names={"image": "test", "user": "root"},
             stages={
-                "base": {"from": "python:3-slim"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
@@ -210,7 +210,7 @@ def test_user_block_rejected():
             names={"image": "test", "user": "root"},
             user={"name": "appuser"},
             stages={
-                "base": {"from": "python:3-slim"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
@@ -224,7 +224,7 @@ def test_auto_update_rejected():
             names={"image": "test", "user": "root"},
             auto_update=True,
             stages={
-                "base": {"from": "python:3-slim"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
@@ -237,7 +237,7 @@ def test_project_block_rejected():
         ContainerMagicConfig(
             project={"name": "test"},
             stages={
-                "base": {"from": "python:3-slim"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
@@ -250,7 +250,7 @@ def test_create_user_rejected_when_user_is_root():
         ContainerMagicConfig(
             names={"image": "test", "user": "root"},
             stages={
-                "base": {"from": "python:3-slim", "steps": [{"create": "user"}]},
+                "base": {"from": "debian:bookworm-slim", "steps": [{"create": "user"}]},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
@@ -263,7 +263,7 @@ def test_become_user_rejected_when_user_is_root():
         ContainerMagicConfig(
             names={"image": "test", "user": "root"},
             stages={
-                "base": {"from": "python:3-slim"},
+                "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base", "steps": [{"become": "user"}]},
                 "production": {"from": "base"},
             },
@@ -275,7 +275,7 @@ def test_become_literal_with_root_user():
     config = ContainerMagicConfig(
         names={"image": "test", "user": "root"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base", "steps": [{"become": "www-data"}]},
             "production": {"from": "base"},
         },
@@ -288,7 +288,7 @@ def test_copy_non_workspace_without_workspace_warns(capsys):
     ContainerMagicConfig(
         names={"image": "test", "user": "root", "workspace": "workspace"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base", "steps": [{"copy": "app"}]},
         },
@@ -304,7 +304,7 @@ def test_copy_non_workspace_with_workspace_infos(capsys):
     ContainerMagicConfig(
         names={"image": "test", "user": "root", "workspace": "workspace"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {
                 "from": "base",
@@ -322,7 +322,7 @@ def test_copy_workspace_no_warning(capsys):
     ContainerMagicConfig(
         names={"image": "test", "user": "root", "workspace": "workspace"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base", "steps": [{"copy": "workspace"}]},
         },
@@ -337,7 +337,7 @@ def test_copy_with_dest_no_warning(capsys):
     ContainerMagicConfig(
         names={"image": "test", "user": "root", "workspace": "workspace"},
         stages={
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {
                 "from": "base",
@@ -348,3 +348,16 @@ def test_copy_with_dest_no_warning(capsys):
     captured = capsys.readouterr()
     assert "Warning" not in captured.err
     assert "Info" not in captured.err
+
+
+def test_stage_shell_rejected_with_migration_message():
+    """Stage-level shell field should be rejected pointing to runtime.shell."""
+    with pytest.raises(ValidationError, match="runtime.shell"):
+        ContainerMagicConfig(
+            names={"image": "test", "user": "root"},
+            stages={
+                "base": {"from": "debian:bookworm-slim", "shell": "/bin/bash"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )

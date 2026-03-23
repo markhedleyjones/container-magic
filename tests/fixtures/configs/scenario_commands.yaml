@@ -1,0 +1,23 @@
+# Scenario: custom commands with environment variables
+# Tests: command registry, env passthrough, run.sh integration
+names:
+  image: cm-scenario-commands
+  workspace: workspace
+  user: appuser
+
+stages:
+  base:
+    from: cm-test:debian
+
+  development:
+    from: base
+
+  production:
+    from: base
+
+commands:
+  check:
+    command: python3 workspace/check_env.py APP_ENV
+    description: Check environment variable
+    env:
+      APP_ENV: production

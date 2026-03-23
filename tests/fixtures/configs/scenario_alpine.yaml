@@ -1,0 +1,23 @@
+# Scenario: Alpine with distro override
+# Tests: distro field sets package_manager, shell, and user creation style.
+#   cm-test:apk name deliberately avoids "alpine" so auto-detection fails,
+#   making the distro field load-bearing. Child stages inherit distro from base.
+names:
+  image: cm-scenario-alpine
+  workspace: workspace
+  user: appuser
+
+stages:
+  base:
+    from: cm-test:apk
+    distro: alpine
+    steps:
+      - pip:
+          install:
+            - tomli
+
+  development:
+    from: base
+
+  production:
+    from: base

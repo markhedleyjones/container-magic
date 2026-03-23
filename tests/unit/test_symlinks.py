@@ -145,7 +145,7 @@ class TestDockerfileSymlinks:
             "names": {"image": "test", "workspace": "workspace", "user": "app"},
             "stages": {
                 "base": {
-                    "from": "python:3-slim",
+                    "from": "debian:bookworm-slim",
                     "steps": [{"create": "user"}, {"become": "user"}],
                 },
                 "development": {"from": "base", "steps": []},
@@ -199,7 +199,7 @@ class TestBuildScriptSymlinks:
                 "names": {"image": "test", "workspace": "workspace", "user": "app"},
                 "stages": {
                     "base": {
-                        "from": "python:3-slim",
+                        "from": "debian:bookworm-slim",
                         "steps": [{"create": "user"}, {"become": "user"}],
                     },
                     "development": {"from": "base", "steps": []},

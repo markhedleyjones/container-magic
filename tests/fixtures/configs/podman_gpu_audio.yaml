@@ -1,4 +1,3 @@
-# Podman backend with GPU and audio features
 backend: podman
 
 names:
@@ -22,16 +21,11 @@ stages:
       - pip: {install: [torchaudio, soundfile]}
       - env:
           MODEL_CACHE: /home/appuser/.cache/models
-      - {create: user}
-      - {become: user,}
 
   development:
     from: base
-    steps:
-      - {become: user,}
 
   production:
     from: base
     steps:
-      - {become: user}
       - copy: workspace

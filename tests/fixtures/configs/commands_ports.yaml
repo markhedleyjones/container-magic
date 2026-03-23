@@ -1,4 +1,3 @@
-# Complex custom commands with ports, env, and mounts
 names:
   image: test-service-app
   workspace: workspace
@@ -12,24 +11,19 @@ runtime:
 
 stages:
   base:
-    from: python:3.11-slim
+    from: debian:bookworm-slim
     steps:
       - pip: {install: [flask, pytest, gunicorn]}
       - env:
           APP_PORT: "8080"
           CACHE_DIR: /tmp/.cache
-      - {create: user}
-      - {become: user,}
 
   development:
     from: base
-    steps:
-      - {become: user,}
 
   production:
     from: base
     steps:
-      - {become: user}
       - copy: workspace
 
 commands:
