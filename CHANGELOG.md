@@ -2,6 +2,37 @@
 
 <!-- version list -->
 
+## v4.0.0 (2026-03-23)
+
+### Bug Fixes
+
+- Remove unused distro_shell variable and Path import
+  ([`5206f54`](https://github.com/markhedleyjones/container-magic/commit/5206f546141a2d1a5e95a20f4fc8d0c9f4d3642d))
+
+### Documentation
+
+- Update all documentation for implicit user handling and distro field
+  ([`a9e6f83`](https://github.com/markhedleyjones/container-magic/commit/a9e6f83987944d5634ee787426f7134606729271))
+
+### Features
+
+- Add distro config field with inheritance
+  ([`5abfcf8`](https://github.com/markhedleyjones/container-magic/commit/5abfcf8e791b8738a1f5c64b6bc0a937306a3415))
+
+- Implicit user creation and become when names.user is not root
+  ([`5e58f01`](https://github.com/markhedleyjones/container-magic/commit/5e58f01f08ba72bb9fe7b91664a442d11b24d0ca))
+
+### Refactoring
+
+- Move shell from stages to runtime config
+  ([`d5b8e3e`](https://github.com/markhedleyjones/container-magic/commit/d5b8e3e37f5af29b8b08e3ecedee4970107bdbab))
+
+### Testing
+
+- Standardise base images and add end-to-end scenarios
+  ([`4c88569`](https://github.com/markhedleyjones/container-magic/commit/4c885699e5edbd8e3eb5687349216e73b4fa1f14))
+
+
 ## v3.2.0 (2026-03-23)
 
 ### Features
