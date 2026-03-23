@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v3.1.3 (2026-03-23)
+
+### Bug Fixes
+
+- Run custom commands from workspace directory
+  ([#40](https://github.com/markhedleyjones/container-magic/pull/40),
+  [`aac5aa1`](https://github.com/markhedleyjones/container-magic/commit/aac5aa124c40a004f266ee1fe0797e4137d6c1b7))
+
+
 ## v3.1.2 (2026-03-23)
 
 ### Bug Fixes
