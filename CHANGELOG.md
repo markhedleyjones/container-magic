@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v3.1.1 (2026-03-23)
+
+### Bug Fixes
+
+- Add SELinux labels to display and audio feature mounts
+  ([#38](https://github.com/markhedleyjones/container-magic/pull/38),
+  [`48874cb`](https://github.com/markhedleyjones/container-magic/commit/48874cbd0b3d5fcedab09168f1f9342fb66581a5))
+
+
 ## v3.1.0 (2026-03-15)
 
 ### Features
