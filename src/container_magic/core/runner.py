@@ -414,8 +414,10 @@ def run_container(
         # (pipes, &&, variable expansion) use: cm run bash -c "..."
         pass
 
-    # Working directory
-    workdir = _translate_workdir(project_dir, user_cwd, container_home)
+    if command_spec:
+        workdir = f"{container_home}/{workspace_name}"
+    else:
+        workdir = _translate_workdir(project_dir, user_cwd, container_home)
     run_args.extend(["--workdir", workdir])
 
     # Determine how to append the command to run_args:
