@@ -47,7 +47,7 @@ def _make_config(**overrides):
     data = {
         "names": {"image": "test-project", "user": "nonroot"},
         "stages": {
-            "base": {"from": "ubuntu:22.04"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },
@@ -70,11 +70,7 @@ class TestDetectShell:
 
     def test_explicit_shell_override(self):
         config = _make_config(
-            stages={
-                "base": {"from": "ubuntu:22.04"},
-                "development": {"from": "base", "shell": "/bin/zsh"},
-                "production": {"from": "base"},
-            }
+            runtime={"shell": "/bin/zsh"},
         )
         shell = _detect_shell(config)
         assert shell == "/bin/zsh"
@@ -82,13 +78,37 @@ class TestDetectShell:
     def test_alpine_defaults_to_sh(self):
         config = _make_config(
             stages={
-                "base": {"from": "alpine:3.18"},
+                "base": {"from": "alpine:latest"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             }
         )
         shell = _detect_shell(config)
         assert shell == "/bin/sh"
+
+    def test_distro_alpine_sets_shell(self):
+        """distro: alpine on a non-alpine-named image should resolve to /bin/sh."""
+        config = _make_config(
+            stages={
+                "base": {"from": "myimage:latest", "distro": "alpine"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            }
+        )
+        shell = _detect_shell(config)
+        assert shell == "/bin/sh"
+
+    def test_runtime_shell_takes_precedence_over_distro(self):
+        config = _make_config(
+            runtime={"shell": "/bin/zsh"},
+            stages={
+                "base": {"from": "myimage:latest", "distro": "alpine"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+        shell = _detect_shell(config)
+        assert shell == "/bin/zsh"
 
 
 class TestBuildFeatureFlags:
