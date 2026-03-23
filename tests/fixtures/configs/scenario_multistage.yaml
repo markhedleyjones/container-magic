@@ -1,0 +1,27 @@
+# Scenario: multi-stage build with intermediate and leaf stages
+# Tests: intermediate vs leaf, implicit user on leaves only, root-owned workspace
+names:
+  image: cm-scenario-multistage
+  workspace: workspace
+  user: appuser
+
+stages:
+  base:
+    from: cm-test:debian
+    steps:
+      - pip:
+          install:
+            - tomli
+
+  builder:
+    from: base
+    steps:
+      - apt-get:
+          install:
+            - make
+
+  development:
+    from: base
+
+  production:
+    from: base

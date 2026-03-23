@@ -15,7 +15,7 @@ def test_no_user_keywords_no_warnings(capsys):
         "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [{"run": "echo test"}],
             },
             "development": {"from": "base", "steps": []},
@@ -37,7 +37,7 @@ def test_become_root_no_validation_needed(capsys):
         "names": {"image": "test", "workspace": "workspace", "user": "myuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [
                     {"create": "user"},
                     {"become": "root"},
@@ -61,7 +61,7 @@ def test_no_create_user_no_user_args(capsys):
     config_dict = {
         "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
-            "base": {"from": "python:3-slim"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base", "steps": []},
             "production": {"from": "base", "steps": []},
         },
@@ -85,7 +85,7 @@ def test_create_user_with_defaults():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [{"create": "user"}],
             },
             "development": {"from": "base", "steps": []},
@@ -110,7 +110,7 @@ def test_create_user_default_home_path():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [{"create": "user"}],
             },
             "development": {"from": "base", "steps": []},
@@ -136,7 +136,7 @@ def test_copy_after_become_user_gets_chown():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [
                     {"create": "user"},
                     {"become": "user"},
@@ -162,7 +162,7 @@ def test_copy_before_become_no_chown():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [
                     "copy app /app",
                     {"create": "user"},
@@ -189,7 +189,7 @@ def test_copy_after_become_root_no_chown():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [
                     {"create": "user"},
                     {"become": "user"},
@@ -221,7 +221,7 @@ def test_copy_inherits_user_from_parent():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [
                     {"create": "user"},
                     {"become": "user"},
@@ -249,7 +249,7 @@ def test_copy_parent_ends_with_become_root():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [
                     {"create": "user"},
                     {"become": "user"},
@@ -283,7 +283,7 @@ def test_uppercase_copy_unchanged():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [
                     {"create": "user"},
                     {"become": "user"},
@@ -313,7 +313,7 @@ def test_multiple_copy_steps_mixed_context():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [
                     "copy config /etc/config",
                     {"create": "user"},
@@ -363,7 +363,7 @@ def test_become_produces_user_directive():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [{"create": "user"}, {"become": "user"}],
             },
             "development": {"from": "base", "steps": []},
@@ -385,7 +385,7 @@ def test_become_root_produces_user_root_directive():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [
                     {"create": "user"},
                     {"become": "user"},
@@ -411,7 +411,7 @@ def test_become_arbitrary_user():
         "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
             "base": {
-                "from": "python:3-slim",
+                "from": "debian:bookworm-slim",
                 "steps": [{"become": "www-data"}],
             },
             "development": {"from": "base", "steps": []},
@@ -433,7 +433,7 @@ def test_alpine_child_stage_uses_adduser():
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
             "base": {
-                "from": "alpine:3.19",
+                "from": "alpine:latest",
                 "steps": [{"create": "user"}],
             },
             "development": {
@@ -467,9 +467,9 @@ def test_copy_with_from_in_root_context():
     config_dict = {
         "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
-            "builder": {"from": "ubuntu:24.04", "steps": []},
+            "builder": {"from": "debian:bookworm-slim", "steps": []},
             "base": {
-                "from": "ubuntu:24.04",
+                "from": "debian:bookworm-slim",
                 "steps": [
                     "copy --from=builder /usr/local/lib /usr/local/lib",
                 ],
@@ -492,9 +492,9 @@ def test_copy_with_from_in_user_context():
     config_dict = {
         "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
         "stages": {
-            "builder": {"from": "ubuntu:24.04", "steps": []},
+            "builder": {"from": "debian:bookworm-slim", "steps": []},
             "base": {
-                "from": "ubuntu:24.04",
+                "from": "debian:bookworm-slim",
                 "steps": [
                     {"create": "user"},
                     {"become": "user"},

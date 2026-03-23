@@ -1,0 +1,16 @@
+# Scenario: root user, no user creation or implicit become
+# Tests: root-user path end-to-end
+names:
+  image: cm-scenario-root
+  workspace: workspace
+  user: root
+
+stages:
+  base:
+    from: cm-test:debian
+
+  development:
+    from: base
+
+  production:
+    from: base

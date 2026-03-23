@@ -133,9 +133,9 @@ def test_no_custom_commands_section_when_empty(temp_project_dir):
     )
 
 
-def test_custom_commands_use_workspace_as_workdir(temp_project_dir):
-    """Test that custom commands use WORKDIR/WORKSPACE as working directory."""
-    # Initialise project
+def test_custom_commands_use_workdir_not_workspace(temp_project_dir):
+    """Test that custom commands use WORKDIR (not WORKDIR/WORKSPACE) as working directory."""
+    # Initialize project
     result = subprocess.run(
         ["cm", "init", "--here", "python"],
         cwd=temp_project_dir,
@@ -151,7 +151,7 @@ def test_custom_commands_use_workspace_as_workdir(temp_project_dir):
     custom_commands = """
 commands:
   daemon:
-    command: "python daemon.py"
+    command: "python workspace/daemon.py"
     description: "Run daemon"
 """
     config_file.write_text(config_content + custom_commands)
@@ -165,8 +165,11 @@ commands:
     )
     assert result.returncode == 0, f"cm update failed: {result.stderr}"
 
+    # Check run.sh uses WORKDIR (not WORKDIR/WORKSPACE) for custom commands
     run_sh_content = (temp_project_dir / "run.sh").read_text()
 
+    # Should use -w "${WORKDIR}" not -w "${WORKDIR}/${WORKSPACE_NAME}" in custom commands
+    # Look for the pattern in the run_daemon function
     import re
 
     daemon_match = re.search(
@@ -175,12 +178,12 @@ commands:
     assert daemon_match, "Could not find run_daemon function"
     daemon_function = daemon_match.group(0)
 
-    assert '-w "${WORKDIR}/${WORKSPACE_NAME}"' in daemon_function, (
-        "Custom command should use WORKDIR/WORKSPACE as working directory"
+    assert '-w "${WORKDIR}"' in daemon_function, (
+        "Custom command should use WORKDIR as working directory"
     )
-    assert (
-        daemon_function.count('-w "${WORKDIR}/${WORKSPACE_NAME}"') == 2
-    ), "Both branches (with and without extra args) should use workspace workdir"
+    assert '-w "${WORKDIR}/${WORKSPACE_NAME}"' not in daemon_function, (
+        "Custom command should not use WORKDIR/WORKSPACE"
+    )
 
 
 def test_run_sh_shellcheck_validation_with_commands(temp_project_dir):

@@ -14,7 +14,7 @@ runtime:
 
 stages:
   base:
-    from: ubuntu:22.04
+    from: debian:bookworm-slim
     steps:
       - apt-get: {install: [libgl1, libx11-6]}
       - env:

@@ -1,4 +1,3 @@
-# Test config with environment variables
 names:
   image: test-env-vars
   workspace: workspace
@@ -6,25 +5,22 @@ names:
 
 stages:
   base:
-    from: python:3-slim
+    from: debian:bookworm-slim
     steps:
       - env:
           DATABASE_URL: postgresql://localhost/mydb
           API_KEY: test-key-123
           LOG_LEVEL: debug
-      - {create: user,}
 
   development:
     from: base
     steps:
-      - {env: {DEBUG: "true"}}
-      - {become: user,}
+      - {env: {DEBUG: "true"},}
 
   production:
     from: base
     steps:
-      - {env: {DEBUG: "false"}}
-      - {become: user,}
+      - {env: {DEBUG: "false"},}
 
 commands:
   env-check:

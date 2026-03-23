@@ -6,7 +6,7 @@ names:
 
 stages:
   base:
-    from: python:3.11-slim
+    from: debian:bookworm-slim
     steps:
       - apt-get: {install: [curl]}
       - pip: {install: [pytest]}
@@ -26,7 +26,7 @@ commands:
     description: "Run a simple test"
 
   version:
-    command: "python --version"
+    command: "python3 --version"
     description: "Show Python version"
 
   workspace-check:

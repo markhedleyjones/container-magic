@@ -1,0 +1,20 @@
+# Scenario: basic Python app with pip dependency
+# Tests: venv auto-creation, workspace copy, script execution
+names:
+  image: cm-scenario-python-app
+  workspace: workspace
+  user: appuser
+
+stages:
+  base:
+    from: cm-test:debian
+    steps:
+      - pip:
+          install:
+            - tomli
+
+  development:
+    from: base
+
+  production:
+    from: base

@@ -11,7 +11,7 @@ def _make_config_with_command(**command_overrides):
     return ContainerMagicConfig(
         names={"image": "test-project", "user": "nonroot"},
         stages={
-            "base": {"from": "ubuntu:22.04"},
+            "base": {"from": "debian:bookworm-slim"},
             "development": {"from": "base"},
             "production": {"from": "base"},
         },

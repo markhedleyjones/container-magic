@@ -31,7 +31,7 @@ def _base_config(**overrides):
     config = {
         "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
-            "base": {"from": "python:3-slim", "steps": []},
+            "base": {"from": "debian:bookworm-slim", "steps": []},
             "development": {"from": "base", "steps": []},
             "production": {"from": "base", "steps": []},
         },
@@ -116,7 +116,7 @@ class TestConfigAssets:
             names={"image": "test", "user": "root"},
             assets=["https://example.com/model.bin"],
             stages={
-                "base": {"from": "python:3-slim", "steps": []},
+                "base": {"from": "debian:bookworm-slim", "steps": []},
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
             },
@@ -128,7 +128,7 @@ class TestConfigAssets:
         config = ContainerMagicConfig(
             names={"image": "test", "user": "root"},
             stages={
-                "base": {"from": "python:3-slim", "steps": []},
+                "base": {"from": "debian:bookworm-slim", "steps": []},
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
             },

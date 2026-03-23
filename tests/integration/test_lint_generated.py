@@ -139,13 +139,13 @@ def generated_project_with_symlinks(request, tmp_path):
         },
         "stages": {
             "base": {
-                "from": "python:3-slim",
-                "steps": [{"create": "user"}, {"become": "user"}],
+                "from": "debian:bookworm-slim",
+                "steps": [],
             },
             "development": {"from": "base"},
             "production": {
                 "from": "base",
-                "steps": [{"become": "user"}, {"copy": "workspace"}],
+                "steps": [{"copy": "workspace"}],
             },
         },
     }

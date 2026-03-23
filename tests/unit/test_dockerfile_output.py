@@ -23,7 +23,7 @@ def _base_config(**overrides):
     config = {
         "names": {"image": "test", "workspace": "workspace", "user": "root"},
         "stages": {
-            "base": {"from": "python:3-slim", **overrides},
+            "base": {"from": "debian:bookworm-slim", **overrides},
             "development": {"from": "base", "steps": []},
             "production": {"from": "base", "steps": []},
         },
@@ -181,7 +181,7 @@ class TestStagePreamble:
             "names": {"image": "test", "workspace": "ws", "user": "app"},
             "stages": {
                 "base": {
-                    "from": "python:3-slim",
+                    "from": "debian:bookworm-slim",
                     "steps": [{"create": "user"}, {"become": "user"}],
                 },
                 "development": {"from": "base", "steps": []},
@@ -217,7 +217,7 @@ class TestStagePreamble:
         config = {
             "names": {"image": "test", "workspace": "ws", "user": "app"},
             "stages": {
-                "base": {"from": "python:3-slim", "steps": [{"create": "user"}]},
+                "base": {"from": "debian:bookworm-slim", "steps": [{"create": "user"}]},
                 "development": {"from": "base", "steps": []},
                 "production": {
                     "from": "base",
@@ -250,6 +250,53 @@ class TestStagePreamble:
         config = _base_config(steps=[])
         content = _generate(config)
         assert "ENV WORKDIR" not in content
+
+
+# ---------------------------------------------------------------------------
+# 2.1b Package manager and distro overrides
+# ---------------------------------------------------------------------------
+
+
+class TestPackageManagerOverride:
+    def test_package_manager_apk_on_debian_image(self):
+        """Explicit package_manager: apk on a Debian image uses Alpine user creation."""
+        config = {
+            "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
+            "stages": {
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "distro": "alpine",
+                    "steps": [],
+                },
+                "development": {"from": "base", "steps": []},
+                "production": {"from": "base", "steps": []},
+            },
+        }
+        content = _generate(config)
+        base = _get_stage_block(content, "base")
+        assert "adduser" in base, "distro: alpine should use adduser"
+        assert "useradd" not in base
+
+    def test_package_manager_field_takes_precedence_over_distro(self):
+        """Explicit package_manager overrides distro's package manager."""
+        config = {
+            "names": {"image": "test", "workspace": "workspace", "user": "root"},
+            "stages": {
+                "base": {
+                    "from": "myimage:latest",
+                    "distro": "alpine",
+                    "package_manager": "apt",
+                    "steps": [{"apt-get": {"install": ["curl"]}}],
+                },
+                "development": {"from": "base", "steps": []},
+                "production": {"from": "base", "steps": []},
+            },
+        }
+        content = _generate(config)
+        base = _get_stage_block(content, "base")
+        # apt-get should be used (package_manager override) but user creation
+        # should still be Alpine-style (from distro)
+        assert "apt-get" in base
 
 
 # ---------------------------------------------------------------------------

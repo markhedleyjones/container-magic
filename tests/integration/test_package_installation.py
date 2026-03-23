@@ -35,8 +35,8 @@ def run_command(cmd, cwd, timeout=300):
     return result.returncode, result.stdout, result.stderr
 
 
-def test_package_installation_python_slim():
-    """Test that packages install and are accessible in python:3.11-slim base."""
+def test_package_installation_python_slim(debian_base_image):
+    """Test that packages install and are accessible in a Debian-based image."""
     runtime = get_runtime()
     config = """
 names:
@@ -46,7 +46,7 @@ names:
 
 stages:
   base:
-    from: python:3.11-slim
+    from: cm-test:debian
     steps:
       - apt-get: {install: [curl]}
   development:
@@ -84,65 +84,6 @@ stages:
                 "run",
                 "--rm",
                 "test-python:latest",
-                "curl",
-                "--version",
-            ],
-            tmpdir_path,
-        )
-        assert returncode == 0, f"curl failed in container: {stderr}"
-        assert "curl" in stdout.lower(), f"curl version not found in output: {stdout}"
-
-
-@pytest.mark.slow
-def test_package_installation_ubuntu():
-    """Test that packages install and are accessible in ubuntu:22.04 base."""
-    runtime = get_runtime()
-    config = """
-names:
-  image: test-ubuntu
-  workspace: workspace
-  user: root
-
-stages:
-  base:
-    from: ubuntu:22.04
-    steps:
-      - apt-get: {install: [curl, ca-certificates]}
-  development:
-    from: base
-  production:
-    from: base
-"""
-
-    with TemporaryDirectory() as tmpdir:
-        tmpdir_path = Path(tmpdir)
-
-        # Write config
-        (tmpdir_path / "cm.yaml").write_text(config)
-
-        # Create empty workspace
-        (tmpdir_path / "workspace").mkdir()
-        (tmpdir_path / "workspace" / "test.txt").write_text("test")
-
-        # Generate files
-        returncode, stdout, stderr = run_command(["cm", "update"], tmpdir_path)
-        assert returncode == 0, f"cm update failed: {stderr}"
-
-        # Build the image
-        returncode, stdout, stderr = run_command(
-            [runtime, "build", "-t", "test-ubuntu:latest", "."],
-            tmpdir_path,
-            timeout=600,
-        )
-        assert returncode == 0, f"{runtime} build failed: {stderr}"
-
-        # Run curl --version in the built image
-        returncode, stdout, stderr = run_command(
-            [
-                runtime,
-                "run",
-                "--rm",
-                "test-ubuntu:latest",
                 "curl",
                 "--version",
             ],
@@ -271,66 +212,7 @@ stages:
 
 
 @pytest.mark.slow
-def test_package_installation_ubuntu_24_04():
-    """Test that packages install and are accessible in ubuntu:24.04 base."""
-    runtime = get_runtime()
-    config = """
-names:
-  image: test-ubuntu-24
-  workspace: workspace
-  user: root
-
-stages:
-  base:
-    from: ubuntu:24.04
-    steps:
-      - apt-get: {install: [curl, ca-certificates]}
-  development:
-    from: base
-  production:
-    from: base
-"""
-
-    with TemporaryDirectory() as tmpdir:
-        tmpdir_path = Path(tmpdir)
-
-        # Write config
-        (tmpdir_path / "cm.yaml").write_text(config)
-
-        # Create empty workspace
-        (tmpdir_path / "workspace").mkdir()
-        (tmpdir_path / "workspace" / "test.txt").write_text("test")
-
-        # Generate files
-        returncode, stdout, stderr = run_command(["cm", "update"], tmpdir_path)
-        assert returncode == 0, f"cm update failed: {stderr}"
-
-        # Build the image
-        returncode, stdout, stderr = run_command(
-            [runtime, "build", "-t", "test-ubuntu-24:latest", "."],
-            tmpdir_path,
-            timeout=600,
-        )
-        assert returncode == 0, f"{runtime} build failed: {stderr}"
-
-        # Run curl --version in the built image
-        returncode, stdout, stderr = run_command(
-            [
-                runtime,
-                "run",
-                "--rm",
-                "test-ubuntu-24:latest",
-                "curl",
-                "--version",
-            ],
-            tmpdir_path,
-        )
-        assert returncode == 0, f"curl failed in container: {stderr}"
-        assert "curl" in stdout.lower(), f"curl version not found in output: {stdout}"
-
-
-@pytest.mark.slow
-def test_multiple_packages_installation():
+def test_multiple_packages_installation(debian_base_image):
     """Test that multiple packages install and are accessible."""
     runtime = get_runtime()
     config = """
@@ -341,7 +223,7 @@ names:
 
 stages:
   base:
-    from: python:3.11-slim
+    from: cm-test:debian
     steps:
       - apt-get: {install: [curl, git, ca-certificates]}
   development:

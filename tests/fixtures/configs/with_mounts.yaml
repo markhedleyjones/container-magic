@@ -15,7 +15,7 @@ runtime:
 
 stages:
   base:
-    from: python:3-slim
+    from: debian:bookworm-slim
     steps:
       - apt-get: {install: [curl]}
 

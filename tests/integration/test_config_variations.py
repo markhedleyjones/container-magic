@@ -145,12 +145,18 @@ def test_config_regenerates_idempotently(config_fixture, fixtures_dir, temp_proj
         )
 
 
-def test_custom_commands_execute_successfully(fixtures_dir, temp_project):
+def test_custom_commands_execute_successfully(fixtures_dir, temp_project, debian_base_image):
     """Test that custom commands can actually execute in a container."""
     # Use the config with custom commands
     fixture_path = fixtures_dir / "with_custom_commands.yaml"
     config_path = temp_project / "cm.yaml"
     shutil.copy(fixture_path, config_path)
+
+    # Replace base image with locally-built cm-test:debian (has Python installed)
+    config_content = config_path.read_text().replace(
+        "debian:bookworm-slim", "cm-test:debian"
+    )
+    config_path.write_text(config_content)
 
     # Generate files
     result = subprocess.run(
@@ -191,15 +197,21 @@ def test_custom_commands_execute_successfully(fixtures_dir, temp_project):
         timeout=30,
     )
     assert result.returncode == 0, f"Custom command 'version' failed:\n{result.stderr}"
-    assert "Python 3.11" in result.stdout, "Python version check failed"
+    assert "Python 3" in result.stdout, "Python version check failed"
 
 
-def test_env_vars_propagate_correctly(fixtures_dir, temp_project):
+def test_env_vars_propagate_correctly(fixtures_dir, temp_project, debian_base_image):
     """Test that environment variables are set correctly in containers."""
     # Use the config with env vars
     fixture_path = fixtures_dir / "with_env_vars.yaml"
     config_path = temp_project / "cm.yaml"
     shutil.copy(fixture_path, config_path)
+
+    # Replace base image with locally-built cm-test:debian (has Python installed)
+    config_content = config_path.read_text().replace(
+        "debian:bookworm-slim", "cm-test:debian"
+    )
+    config_path.write_text(config_content)
 
     # Generate files
     result = subprocess.run(
@@ -236,12 +248,18 @@ def test_env_vars_propagate_correctly(fixtures_dir, temp_project):
     assert "LOG_LEVEL" in result.stdout
 
 
-def test_direct_script_execution(fixtures_dir, temp_project):
+def test_direct_script_execution(fixtures_dir, temp_project, debian_base_image):
     """Test that direct script execution works (not just custom commands)."""
     # Use minimal config
     fixture_path = fixtures_dir / "minimal.yaml"
     config_path = temp_project / "cm.yaml"
     shutil.copy(fixture_path, config_path)
+
+    # Replace base image with locally-built cm-test:debian (has Python installed)
+    config_content = config_path.read_text().replace(
+        "debian:bookworm-slim", "cm-test:debian"
+    )
+    config_path.write_text(config_content)
 
     # Create a test script in workspace BEFORE building
     test_script = temp_project / "workspace" / "test.py"
@@ -268,7 +286,7 @@ def test_direct_script_execution(fixtures_dir, temp_project):
 
     # Execute script directly (exec form: each argument separate)
     result = subprocess.run(
-        ["./run.sh", "python", "test.py"],
+        ["./run.sh", "python3", "test.py"],
         cwd=temp_project,
         capture_output=True,
         text=True,
@@ -278,12 +296,18 @@ def test_direct_script_execution(fixtures_dir, temp_project):
     assert "Direct execution works" in result.stdout
 
 
-def test_production_workspace_permissions(fixtures_dir, temp_project):
+def test_production_workspace_permissions(fixtures_dir, temp_project, debian_base_image):
     """Test that workspace is copied into production image with correct permissions."""
     # Use minimal config
     fixture_path = fixtures_dir / "minimal.yaml"
     config_path = temp_project / "cm.yaml"
     shutil.copy(fixture_path, config_path)
+
+    # Replace base image with locally-built cm-test:debian (has Python installed)
+    config_content = config_path.read_text().replace(
+        "debian:bookworm-slim", "cm-test:debian"
+    )
+    config_path.write_text(config_content)
 
     # Create test files in workspace
     test_file = temp_project / "workspace" / "test_file.txt"
@@ -322,7 +346,7 @@ def test_production_workspace_permissions(fixtures_dir, temp_project):
         "Workspace file not found in production image"
     )
 
-    # Verify file ownership (should be owned by the configured user, not root)
+    # Verify file ownership (production workspace should be root-owned for security)
     result = subprocess.run(
         ["./run.sh", "bash", "-c", "stat -c '%U:%G' ${WORKSPACE}/test_file.txt"],
         cwd=temp_project,
@@ -331,34 +355,40 @@ def test_production_workspace_permissions(fixtures_dir, temp_project):
         timeout=30,
     )
     assert result.returncode == 0, f"File ownership check failed:\n{result.stderr}"
-    # The minimal.yaml config uses appuser:appuser
-    assert "appuser:appuser" in result.stdout, (
-        f"File ownership incorrect. Expected appuser:appuser, got: {result.stdout}"
+    assert "root:root" in result.stdout, (
+        f"File ownership incorrect. Expected root:root, got: {result.stdout}"
     )
 
-    # Verify the user can write to the workspace
+    # Verify the workspace is read-only for the non-root user (immutable code)
     result = subprocess.run(
         [
             "./run.sh",
             "bash",
             "-c",
-            "touch ${WORKSPACE}/test_write.txt && echo 'Write successful'",
+            "touch ${WORKSPACE}/test_write.txt 2>&1 || echo 'Write denied'",
         ],
         cwd=temp_project,
         capture_output=True,
         text=True,
         timeout=30,
     )
-    assert result.returncode == 0, f"Write test failed:\n{result.stderr}"
-    assert "Write successful" in result.stdout
+    assert "Write denied" in result.stdout or "Permission denied" in result.stdout, (
+        "Workspace should be read-only in production, but write succeeded"
+    )
 
 
-def test_image_tagging_by_target(fixtures_dir, temp_project):
+def test_image_tagging_by_target(fixtures_dir, temp_project, debian_base_image):
     """Test that images are tagged correctly: default 'latest' and --tag override."""
     # Use config with custom stage
     fixture_path = fixtures_dir / "with_custom_stage.yaml"
     config_path = temp_project / "cm.yaml"
     shutil.copy(fixture_path, config_path)
+
+    # Replace base image with locally-built cm-test:debian (has Python installed)
+    config_content = config_path.read_text().replace(
+        "debian:bookworm-slim", "cm-test:debian"
+    )
+    config_path.write_text(config_content)
 
     # Generate files
     result = subprocess.run(
@@ -458,6 +488,6 @@ def test_volumes_and_devices_appear_in_generated_files(fixtures_dir, temp_projec
     assert result.returncode == 0, f"cm update failed:\n{result.stderr}"
 
     run_sh = (temp_project / "run.sh").read_text()
-    assert '"-v" "/tmp/test-data:/data:ro,z"' in run_sh
-    assert '"-v" "/var/log/app:/logs:z"' in run_sh
+    assert '"-v" "/tmp/test-data:/data:ro"' in run_sh
+    assert '"-v" "/var/log/app:/logs"' in run_sh
     assert '"--device" "/dev/ttyUSB0"' in run_sh
