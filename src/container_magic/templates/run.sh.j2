@@ -296,12 +296,12 @@ run_{{ command_name }}() {
 	if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
 	{%- endraw %}
 		${RUNTIME} run "${RUN_ARGS[@]}" \
-			-w "${WORKDIR}" \
+			-w "${WORKDIR}/${WORKSPACE_NAME}" \
 			"${IMAGE_NAME}:${TAG}" \
 			"${SHELL}" -c "${CMD} $(printf '%q ' "${EXTRA_ARGS[@]}")"
 	else
 		${RUNTIME} run "${RUN_ARGS[@]}" \
-			-w "${WORKDIR}" \
+			-w "${WORKDIR}/${WORKSPACE_NAME}" \
 			"${IMAGE_NAME}:${TAG}" \
 			"${SHELL}" -c "${CMD}"
 	fi
