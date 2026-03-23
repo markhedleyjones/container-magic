@@ -8,6 +8,7 @@ from container_magic.core.templates import (
     detect_shell,
     detect_user_creation_style,
     resolve_base_image,
+    resolve_distro,
 )
 
 
@@ -109,3 +110,57 @@ class TestDetectUserCreationStyle:
 
     def test_python(self):
         assert detect_user_creation_style("python:3-slim") == "standard"
+
+
+# --- resolve_distro ---
+
+
+class TestResolveDistro:
+    def test_none_returns_none(self):
+        assert resolve_distro(None) is None
+
+    def test_alpine(self):
+        pm, shell, ucs = resolve_distro("alpine")
+        assert pm == "apk"
+        assert shell == "/bin/sh"
+        assert ucs == "alpine"
+
+    def test_debian(self):
+        pm, shell, ucs = resolve_distro("debian")
+        assert pm == "apt"
+        assert shell == "/bin/bash"
+        assert ucs == "standard"
+
+    def test_ubuntu_maps_to_debian_family(self):
+        pm, shell, ucs = resolve_distro("ubuntu")
+        assert pm == "apt"
+        assert ucs == "standard"
+
+    def test_fedora(self):
+        pm, shell, ucs = resolve_distro("fedora")
+        assert pm == "dnf"
+        assert ucs == "standard"
+
+    def test_rhel_family(self):
+        for name in ("centos", "rhel", "rocky", "alma"):
+            pm, _, _ = resolve_distro(name)
+            assert pm == "dnf", f"{name} should map to dnf"
+
+    def test_case_insensitive(self):
+        pm, shell, ucs = resolve_distro("Alpine")
+        assert pm == "apk"
+        pm, shell, ucs = resolve_distro("DEBIAN")
+        assert pm == "apt"
+
+    def test_unknown_warns_and_defaults_to_debian(self):
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            pm, shell, ucs = resolve_distro("gentoo")
+            assert len(w) == 1
+            assert "Unknown distro" in str(w[0].message)
+            assert "gentoo" in str(w[0].message)
+        assert pm == "apt"
+        assert shell == "/bin/bash"
+        assert ucs == "standard"

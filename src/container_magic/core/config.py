@@ -166,6 +166,11 @@ class RuntimeConfig(BaseModel):
         default=None,
         description="IPC namespace mode (e.g. shareable, container:<name>, host, private)",
     )
+    shell: Optional[str] = Field(
+        default=None,
+        description="Interactive shell for cm run and run.sh when no command is given. "
+        "Auto-detected from the base image if not specified.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -210,16 +215,32 @@ class StageConfig(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     frm: str = Field(description="Base image or stage name to build from", alias="from")
+    distro: Optional[str] = Field(
+        default=None,
+        description="Distribution family override (e.g. alpine, debian, ubuntu, fedora). "
+        "Sets package manager, user creation style, and interactive shell. "
+        "Inherited by child stages. package_manager and runtime.shell take precedence if also set.",
+    )
     package_manager: Optional[Literal["apt", "apk", "dnf"]] = Field(
         default=None, description="Package manager (auto-detected if not specified)"
-    )
-    shell: Optional[str] = Field(
-        default=None, description="Default shell (auto-detected if not specified)"
     )
     steps: Optional[List[Union[str, Dict[str, Any]]]] = Field(
         default=None,
         description="Ordered list of build steps: bare strings for keywords or Dockerfile passthrough, dicts for structured commands (run, copy, env, or command builder syntax)",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_removed_fields(cls, data):
+        """Reject fields that moved in v3 with migration messages."""
+        if not isinstance(data, dict):
+            return data
+        if "shell" in data:
+            raise ValueError(
+                "stages.<name>.shell has moved to runtime.shell. "
+                "The shell field sets the interactive shell for cm run and run.sh."
+            )
+        return data
 
 
 class MountSpec(BaseModel):
