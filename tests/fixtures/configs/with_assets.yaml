@@ -10,11 +10,10 @@ assets:
 
 stages:
   base:
-    from: python:3-slim
+    from: debian:bookworm-slim
     steps:
       - pip: {install: [requests]}
       - {env: {MODEL_PATH: /models}}
-      - {create: user}
       - copy: uuid /models/uuid.json
       - copy: test-model.bin /models/model.bin
 

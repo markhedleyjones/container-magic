@@ -150,10 +150,7 @@ def init(
     config = ContainerMagicConfig(
         names={"image": name, "workspace": "workspace", "user": "nonroot"},
         stages={
-            "base": {
-                "from": base_image,
-                "steps": [{"create": "user"}, {"become": "user"}],
-            },
+            "base": {"from": base_image},
             "development": {"from": "base"},
             "production": {
                 "from": "base",

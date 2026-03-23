@@ -6,7 +6,6 @@ from pathlib import Path
 from jinja2 import Environment, PackageLoader
 
 from container_magic.core.config import ContainerMagicConfig
-from container_magic.core.steps import has_create_user_in_stages
 from container_magic.core.symlinks import scan_workspace_symlinks
 
 
@@ -30,7 +29,7 @@ def generate_build_script(
     default_target = config.build_script.default_target
 
     # Get user info from config.names
-    has_user = has_create_user_in_stages(config.stages)
+    has_user = config.names.user != "root"
     production_user_name = config.names.user or "root"
     production_user_uid = 1000 if has_user else 0
     production_user_gid = 1000 if has_user else 0

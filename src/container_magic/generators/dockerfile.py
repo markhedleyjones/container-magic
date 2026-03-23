@@ -15,9 +15,9 @@ from container_magic.core.steps import has_create_user_in_stages, parse_step
 from container_magic.core.symlinks import scan_workspace_symlinks
 from container_magic.core.templates import (
     detect_package_manager,
-    detect_shell,
     detect_user_creation_style,
     resolve_base_image,
+    resolve_distro,
 )
 
 
@@ -178,6 +178,7 @@ def process_stage_steps(
     asset_map: Dict[str, str] = None,
     workspace_symlinks: List[tuple] = None,
     venv_active: bool = False,
+    implicit_user: bool = False,
 ) -> tuple:
     """Process build steps for a stage.
 
@@ -198,7 +199,6 @@ def process_stage_steps(
         workspace_symlinks = []
 
     # Default build order if not specified
-    is_default_production = False
     if stage.steps is None:
         if ":" in stage.frm or "/" in stage.frm:
             return [], venv_active
@@ -206,14 +206,15 @@ def process_stage_steps(
             steps: List[Union[str, Dict[str, Any]]] = []
             if stage_name == "production":
                 steps = [{"copy": "workspace"}]
-                is_default_production = True
     else:
         steps = list(stage.steps)
 
     # When the configured user is created via create_user (which uses ARGs),
     # become and chown must reference ${USER_NAME} instead of the literal name,
     # because development builds pass the host username as USER_NAME.
-    user_created_via_args = _has_create_user_in_hierarchy(stage_name, stages_dict)
+    user_created_via_args = (
+        _has_create_user_in_hierarchy(stage_name, stages_dict) or implicit_user
+    )
 
     def _resolve_user_ref(name: str) -> str:
         """Return ${USER_NAME} if the name matches the configured user created via ARGs."""
@@ -222,16 +223,13 @@ def process_stage_steps(
         return name
 
     # Track current user context: None = root, string = username or ${USER_NAME}
+    # Only inherit explicit parent context - implicit become is added post-processing
+    # so child stages start as root (matching the intermediate parent's actual state).
     parent_context = _get_parent_user_context(stage_name, stages_dict, production_user)
     if parent_context is not None:
         current_user = _resolve_user_ref(parent_context)
     else:
         current_user = None
-
-    # For default production steps, use configured user for workspace ownership.
-    # Use literal username (not ARG) since production stage won't have ARGs declared.
-    if is_default_production and current_user is None and production_user != "root":
-        current_user = production_user
 
     ordered_steps = []
 
@@ -329,16 +327,15 @@ def generate_dockerfile(
     stages = dict(config.stages)
 
     # Get user info from config.names
-    has_user = has_create_user_in_stages(stages)
     user_name = config.names.user
+    has_user = user_name != "root"
+    has_explicit_create = has_create_user_in_stages(stages)
+    implicit_user = has_user and not has_explicit_create
 
     if "development" not in stages:
         from container_magic.core.config import StageConfig
 
-        dev_steps = []
-        if has_user:
-            dev_steps.append({"become": "user"})
-        stages["development"] = StageConfig(frm="base", steps=dev_steps)
+        stages["development"] = StageConfig(frm="base", steps=[])
 
     if "production" not in stages:
         from container_magic.core.config import StageConfig
@@ -362,22 +359,53 @@ def generate_dockerfile(
     user_gid = 1000 if has_user else 0
     user_home = f"/home/{user_name}" if has_user else "/root"
 
+    # Leaf stages: not inherited by any other stage.
+    # Intermediate stages stay as root so child stages inherit root context.
+    inherited_stages = set()
+    for sc in stages.values():
+        if sc.frm in stages:
+            inherited_stages.add(sc.frm)
+    leaf_stages = set(stages.keys()) - inherited_stages
+
     stages_data = []
     venv_state: Dict[str, bool] = {}
+    user_created_state: Dict[str, bool] = {}
     for stage_name, stage_config in stages.items():
         base_image = stage_config.frm
         resolved_image = resolve_base_image(base_image, stages)
-        package_manager = stage_config.package_manager or detect_package_manager(
-            resolved_image
-        )
-        shell = stage_config.shell or detect_shell(resolved_image)
-        user_creation_style = detect_user_creation_style(resolved_image)
-
         from_is_image = ":" in base_image or "/" in base_image
+
+        # Resolve distro: explicit on this stage, or inherited from parent chain
+        effective_distro = stage_config.distro
+        if effective_distro is None and not from_is_image:
+            ancestor = base_image
+            while ancestor in stages:
+                if stages[ancestor].distro:
+                    effective_distro = stages[ancestor].distro
+                    break
+                ancestor_config = stages[ancestor]
+                if ":" in ancestor_config.frm or "/" in ancestor_config.frm:
+                    break
+                ancestor = ancestor_config.frm
+        distro_settings = resolve_distro(effective_distro)
+        if distro_settings:
+            distro_pm, distro_shell, distro_ucs = distro_settings
+        else:
+            distro_pm, distro_shell, distro_ucs = None, None, None
+
+        package_manager = (
+            stage_config.package_manager
+            or distro_pm
+            or detect_package_manager(resolved_image)
+        )
+        user_creation_style = distro_ucs or detect_user_creation_style(resolved_image)
+
         if from_is_image:
             inherited_venv = False
+            inherited_user_created = False
         else:
             inherited_venv = venv_state.get(base_image, False)
+            inherited_user_created = user_created_state.get(base_image, False)
 
         ordered_steps, venv_active = process_stage_steps(
             stage_config,
@@ -390,8 +418,48 @@ def generate_dockerfile(
             asset_map,
             workspace_symlinks,
             venv_active=inherited_venv,
+            implicit_user=implicit_user,
         )
         venv_state[stage_name] = venv_active
+
+        # Inject implicit create_user for from-image stages
+        has_explicit_create_in_steps = any(
+            s.get("type") == "create_user" for s in ordered_steps
+        )
+        if has_user and from_is_image and not has_explicit_create_in_steps:
+            ordered_steps.insert(0, {"type": "create_user"})
+            user_created_state[stage_name] = True
+        elif has_explicit_create_in_steps:
+            user_created_state[stage_name] = True
+        else:
+            user_created_state[stage_name] = inherited_user_created
+
+        # Inject implicit become at end of leaf stages only
+        # Intermediate stages stay as root so child stages inherit root context
+        if has_user and stage_name in leaf_stages:
+            last_step_is_become = (
+                ordered_steps and ordered_steps[-1].get("type") == "become"
+            )
+            stage_has_user_args = (
+                user_created_state.get(stage_name, False)
+                or inherited_user_created
+                or has_explicit_create_in_steps
+                or implicit_user
+            )
+            become_name = "${USER_NAME}" if stage_has_user_args else user_name
+            # Skip if the last step already switches to the same user
+            already_correct = (
+                last_step_is_become and ordered_steps[-1].get("name") == become_name
+            )
+            # Also skip if no become steps exist but user context is already set
+            # (e.g. explicit become mid-stage followed by non-become steps)
+            last_become = None
+            for s in reversed(ordered_steps):
+                if s.get("type") == "become":
+                    last_become = s.get("name")
+                    break
+            if not already_correct and last_become != become_name:
+                ordered_steps.append({"type": "become", "name": become_name})
 
         ordered_steps = _merge_consecutive_env_steps(ordered_steps)
 
@@ -403,7 +471,6 @@ def generate_dockerfile(
                 "from": base_image,
                 "from_is_image": from_is_image,
                 "package_manager": package_manager,
-                "shell": shell,
                 "user_creation_style": user_creation_style,
                 "user": user_name,
                 "user_uid": user_uid,

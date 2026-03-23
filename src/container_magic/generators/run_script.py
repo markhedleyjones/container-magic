@@ -6,9 +6,7 @@ from pathlib import Path
 from jinja2 import Environment, PackageLoader
 
 from container_magic.core.config import ContainerMagicConfig
-from container_magic.core.steps import has_create_user_in_stages
-from container_magic.core.templates import detect_shell, resolve_base_image
-from container_magic.core.volumes import label_volumes
+from container_magic.core.templates import detect_shell, resolve_base_image, resolve_distro_shell
 
 
 def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None:
@@ -28,7 +26,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     backend = config.backend
 
     # Get user and workspace info from config.names
-    has_user = has_create_user_in_stages(config.stages)
+    has_user = config.names.user != "root"
     production_user = config.names.user or "root"
     workspace_name = config.names.workspace
 
@@ -38,18 +36,21 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     else:
         workdir = f"/home/{production_user}"
 
-    # Determine shell from production or base stage
+    # Determine interactive shell: runtime.shell > distro > image-name detection
+    runtime_shell = config.runtime.shell if config.runtime else None
     prod_stage = "production" if "production" in config.stages else "base"
     stage_config = config.stages[prod_stage]
-    shell = stage_config.shell or detect_shell(
-        resolve_base_image(stage_config.frm, config.stages)
+    shell = (
+        runtime_shell
+        or resolve_distro_shell(prod_stage, config.stages)
+        or detect_shell(resolve_base_image(stage_config.frm, config.stages))
     )
 
     # Escape dollar signs in command strings so they expand in the container
     commands_escaped = {}
     if config.commands:
         for cmd_name, cmd_spec in config.commands.items():
-            cmd_copy = cmd_spec.copy(deep=True)
+            cmd_copy = cmd_spec.model_copy(deep=True)
             cmd_copy.command = cmd_spec.command.replace("$", r"\$")
             commands_escaped[cmd_name] = cmd_copy
 
@@ -71,7 +72,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         privileged=config.runtime.privileged if config.runtime else False,
         network=config.runtime.network_mode if config.runtime else None,
         features=features,
-        volumes=label_volumes(config.runtime.volumes) if config.runtime else [],
+        volumes=config.runtime.volumes if config.runtime else [],
         devices=config.runtime.devices if config.runtime else [],
         commands=commands_escaped,
         ipc=config.runtime.ipc if config.runtime else None,

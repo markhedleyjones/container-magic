@@ -11,7 +11,6 @@ from typing import List
 
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.core.runtime import get_runtime
-from container_magic.core.steps import has_create_user_in_stages
 from container_magic.core.symlinks import scan_workspace_symlinks
 
 
@@ -39,7 +38,7 @@ def build_container(
     image_name = config.names.image
 
     # Determine build args for user
-    has_user = has_create_user_in_stages(config.stages)
+    has_user = config.names.user != "root"
 
     if target == "development":
         # Development uses the host user
@@ -48,7 +47,7 @@ def build_container(
         user_gid = str(os.getgid())
     else:
         # All other targets use the configured user
-        if has_user and config.names.user != "root":
+        if has_user:
             user_name = config.names.user
             user_uid = "1000"
             user_gid = "1000"

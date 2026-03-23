@@ -121,13 +121,12 @@ if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
 	wayland_socket="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
 	BASE_RUN_ARGS+=("-e" "WAYLAND_DISPLAY")
 	BASE_RUN_ARGS+=("-e" "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}")
-	BASE_RUN_ARGS+=("-v" "${wayland_socket}:${wayland_socket}:z")
+	BASE_RUN_ARGS+=("-v" "${wayland_socket}:${wayland_socket}")
 fi
 if [[ -n "${DISPLAY:-}" ]]; then
 	xsock=/tmp/.X11-unix
 {%- if backend == "auto" %}
 	if [[ "${RUNTIME}" == "podman" ]]; then
-		BASE_RUN_ARGS+=("--security-opt=label=disable")
 		xauth=/tmp/.docker.xauth
 		touch "$xauth"
 		if [[ -f "$HOME/.Xauthority" ]]; then
@@ -140,7 +139,6 @@ if [[ -n "${DISPLAY:-}" ]]; then
 		XHOST_CLEANUP=true
 	fi
 {%- elif backend == "podman" %}
-	BASE_RUN_ARGS+=("--security-opt=label=disable")
 	xauth=/tmp/.docker.xauth
 	touch "$xauth"
 	if [[ -f "$HOME/.Xauthority" ]]; then
@@ -153,7 +151,7 @@ if [[ -n "${DISPLAY:-}" ]]; then
 	XHOST_CLEANUP=true
 {%- endif %}
 	BASE_RUN_ARGS+=("-e" "DISPLAY")
-	BASE_RUN_ARGS+=("-v" "${xsock}:${xsock}:z")
+	BASE_RUN_ARGS+=("-v" "${xsock}:${xsock}")
 	BASE_RUN_ARGS+=("--env" "QT_X11_NO_MITSHM=1")
 fi
 if [[ "${XHOST_CLEANUP}" == true ]] && [[ "${DETACH}" != true ]]; then
@@ -181,7 +179,7 @@ fi
 
 # Audio support (PulseAudio/PipeWire)
 if [[ -S "/run/user/$(id -u)/pulse/native" ]]; then
-	BASE_RUN_ARGS+=("-v" "/run/user/$(id -u)/pulse/native:/run/user/$(id -u)/pulse/native:z")
+	BASE_RUN_ARGS+=("-v" "/run/user/$(id -u)/pulse/native:/run/user/$(id -u)/pulse/native")
 	BASE_RUN_ARGS+=("-e" "PULSE_SERVER=unix:/run/user/$(id -u)/pulse/native")
 fi
 {%- endif %}
@@ -296,12 +294,12 @@ run_{{ command_name }}() {
 	if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
 	{%- endraw %}
 		${RUNTIME} run "${RUN_ARGS[@]}" \
-			-w "${WORKDIR}/${WORKSPACE_NAME}" \
+			-w "${WORKDIR}" \
 			"${IMAGE_NAME}:${TAG}" \
 			"${SHELL}" -c "${CMD} $(printf '%q ' "${EXTRA_ARGS[@]}")"
 	else
 		${RUNTIME} run "${RUN_ARGS[@]}" \
-			-w "${WORKDIR}/${WORKSPACE_NAME}" \
+			-w "${WORKDIR}" \
 			"${IMAGE_NAME}:${TAG}" \
 			"${SHELL}" -c "${CMD}"
 	fi
