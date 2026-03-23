@@ -16,7 +16,6 @@ This naming convention is deliberately inconsistent to cover both code paths.
 
 import shutil
 import subprocess
-from pathlib import Path
 
 import pytest
 
