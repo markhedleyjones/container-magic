@@ -2,6 +2,21 @@
 
 <!-- version list -->
 
+## v3.2.0 (2026-03-23)
+
+### Features
+
+- **pip**: Auto-create virtual environment for pip steps
+  ([#42](https://github.com/markhedleyjones/container-magic/pull/42),
+  [`d7e35e5`](https://github.com/markhedleyjones/container-magic/commit/d7e35e588dc4f008bc3e1f2c44976939388d6075))
+
+### Testing
+
+- Add linter validation for generated Dockerfiles and shell scripts
+  ([#41](https://github.com/markhedleyjones/container-magic/pull/41),
+  [`c9de5b0`](https://github.com/markhedleyjones/container-magic/commit/c9de5b0e3b526fc2c64370c2a140671fa4dc89e0))
+
+
 ## v3.1.3 (2026-03-23)
 
 ### Bug Fixes
