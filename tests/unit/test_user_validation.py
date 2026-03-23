@@ -455,7 +455,7 @@ def test_alpine_child_stage_uses_adduser():
 
         assert "adduser -D" in content
         assert "useradd" not in content
-        assert "-G ${USER_NAME}" in content
+        assert '-G "${USER_NAME}"' in content
         assert "-G ${USER_GID}" not in content
 
 

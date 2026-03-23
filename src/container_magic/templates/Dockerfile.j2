@@ -46,18 +46,18 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
                 # Rename the existing user to our desired name
                 echo "Renaming user ${EXISTING_USER} to ${USER_NAME}"; \
                 deluser "${EXISTING_USER}"; \
-                addgroup -g ${USER_GID} ${USER_NAME} 2>/dev/null || true; \
-                adduser -D -u ${USER_UID} -G ${USER_NAME} -h ${USER_HOME} ${USER_NAME}; \
+                addgroup -g "${USER_GID}" "${USER_NAME}" 2>/dev/null || true; \
+                adduser -D -u "${USER_UID}" -G "${USER_NAME}" -h "${USER_HOME}" "${USER_NAME}"; \
             else \
                 # Create new user
-                if ! getent group ${USER_GID} >/dev/null 2>&1; then \
-                    addgroup -g ${USER_GID} ${USER_NAME}; \
+                if ! getent group "${USER_GID}" >/dev/null 2>&1; then \
+                    addgroup -g "${USER_GID}" "${USER_NAME}"; \
                 fi && \
-                adduser -D -u ${USER_UID} -G ${USER_NAME} -h ${USER_HOME} ${USER_NAME}; \
+                adduser -D -u "${USER_UID}" -G "${USER_NAME}" -h "${USER_HOME}" "${USER_NAME}"; \
             fi \
         fi && \
         # Ensure home directory ownership (may have been created by WORKDIR)
-        chown ${USER_UID}:${USER_GID} ${USER_HOME}; \
+        chown "${USER_UID}:${USER_GID}" "${USER_HOME}"; \
     fi
 {% else %}
 RUN if [ "${USER_NAME}" != "root" ]; then \
@@ -70,18 +70,18 @@ RUN if [ "${USER_NAME}" != "root" ]; then \
             if [ -n "${EXISTING_USER}" ] && [ "${EXISTING_USER}" != "${USER_NAME}" ]; then \
                 # Rename the existing user to our desired name
                 echo "Renaming user ${EXISTING_USER} to ${USER_NAME}"; \
-                usermod -l ${USER_NAME} ${EXISTING_USER} && \
-                usermod -d ${USER_HOME} -m ${USER_NAME} || true; \
+                usermod -l "${USER_NAME}" "${EXISTING_USER}" && \
+                usermod -d "${USER_HOME}" -m "${USER_NAME}" || true; \
             else \
                 # Create new user
-                if ! getent group ${USER_GID} >/dev/null 2>&1; then \
-                    groupadd --gid ${USER_GID} ${USER_NAME}; \
+                if ! getent group "${USER_GID}" >/dev/null 2>&1; then \
+                    groupadd --gid "${USER_GID}" "${USER_NAME}"; \
                 fi && \
-                useradd --uid ${USER_UID} --gid ${USER_GID} --home-dir ${USER_HOME} --create-home ${USER_NAME}; \
+                useradd --uid "${USER_UID}" --gid "${USER_GID}" --home-dir "${USER_HOME}" --create-home "${USER_NAME}"; \
             fi \
         fi && \
         # Ensure home directory ownership (may have been created by WORKDIR)
-        chown ${USER_UID}:${USER_GID} ${USER_HOME}; \
+        chown "${USER_UID}:${USER_GID}" "${USER_HOME}"; \
     fi
 {% endif %}
 {% elif step.type == "create_user_literal" %}

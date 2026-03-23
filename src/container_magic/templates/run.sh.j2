@@ -282,7 +282,7 @@ run_{{ command_name }}() {
 	local _manifest=""
 	if [[ ${#MANIFEST_LINES[@]} -gt 0 ]]; then
 		_manifest=$(mktemp /tmp/cm-manifest-XXXXXX)
-		printf '%s\n' "${MANIFEST_LINES[@]}" > "$_manifest"
+		printf '%s\n' "${MANIFEST_LINES[@]}" >"$_manifest"
 		RUN_ARGS+=("-v" "${_manifest}:/run/cm/mounts:ro,z")
 	fi
 	if [[ ${#REMAINING[@]} -gt 0 ]]; then

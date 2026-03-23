@@ -1,0 +1,30 @@
+# Multi-stage build with builder pattern and cross-stage copy
+names:
+  image: test-compiled-app
+  workspace: workspace
+  user: appuser
+
+stages:
+  builder:
+    from: ubuntu:22.04
+    steps:
+      - apt-get: {install: [build-essential, cmake, git]}
+      - RUN mkdir -p /opt/build && cd /opt/build && cmake --version
+
+  base:
+    from: ubuntu:22.04
+    steps:
+      - apt-get: {install: [libstdc++6]}
+      - COPY --from=builder /opt/build/lib /usr/local/lib
+      - {create: user,}
+
+  development:
+    from: base
+    steps:
+      - {become: user,}
+
+  production:
+    from: base
+    steps:
+      - {become: user}
+      - copy: workspace

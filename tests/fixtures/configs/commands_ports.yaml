@@ -1,0 +1,54 @@
+# Complex custom commands with ports, env, and mounts
+names:
+  image: test-service-app
+  workspace: workspace
+  user: appuser
+
+runtime:
+  features:
+    - gpu
+  volumes:
+    - /tmp/.cache:/tmp/.cache
+
+stages:
+  base:
+    from: python:3.11-slim
+    steps:
+      - pip: {install: [flask, pytest, gunicorn]}
+      - env:
+          APP_PORT: "8080"
+          CACHE_DIR: /tmp/.cache
+      - {create: user}
+      - {become: user,}
+
+  development:
+    from: base
+    steps:
+      - {become: user,}
+
+  production:
+    from: base
+    steps:
+      - {become: user}
+      - copy: workspace
+
+commands:
+  serve:
+    command: "gunicorn app:create_app()"
+    description: "Run the web server"
+    env:
+      FLASK_ENV: production
+    ports:
+      - "8080:8080"
+
+  test:
+    command: "pytest"
+    description: "Run test suite"
+
+  process:
+    command: "python process.py"
+    description: "Run data processing"
+    mounts:
+      input: ro
+      output: rw
+    ipc: "host"

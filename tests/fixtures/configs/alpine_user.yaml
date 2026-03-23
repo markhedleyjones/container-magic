@@ -1,0 +1,24 @@
+# Alpine base with user creation (tests alpine-specific adduser/addgroup)
+names:
+  image: test-alpine-app
+  workspace: workspace
+  user: appuser
+
+stages:
+  base:
+    from: alpine:3.19
+    steps:
+      - apk: {add: [python3, py3-pip]}
+      - {create: user}
+      - {become: user,}
+
+  development:
+    from: base
+    steps:
+      - {become: user,}
+
+  production:
+    from: base
+    steps:
+      - {become: user}
+      - copy: workspace
