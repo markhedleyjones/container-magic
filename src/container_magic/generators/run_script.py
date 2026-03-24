@@ -7,6 +7,7 @@ from jinja2 import Environment, PackageLoader
 
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.core.templates import detect_shell, resolve_base_image, resolve_distro_shell
+from container_magic.core.volumes import expand_volumes_for_script
 
 
 def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None:
@@ -63,6 +64,10 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         "aws_credentials": "aws_credentials" in runtime_features,
     }
 
+    # Expand volume variables for production context
+    raw_volumes = config.runtime.volumes if config.runtime else []
+    expanded_volumes = expand_volumes_for_script(raw_volumes, workdir)
+
     content = template.render(
         project_name=config.names.image,
         workspace_name=workspace_name,
@@ -72,7 +77,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         privileged=config.runtime.privileged if config.runtime else False,
         network=config.runtime.network_mode if config.runtime else None,
         features=features,
-        volumes=config.runtime.volumes if config.runtime else [],
+        volumes=expanded_volumes,
         devices=config.runtime.devices if config.runtime else [],
         commands=commands_escaped,
         ipc=config.runtime.ipc if config.runtime else None,
