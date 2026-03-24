@@ -16,7 +16,12 @@ from container_magic.core.config import ContainerMagicConfig, CustomCommand
 from container_magic.core.runtime import Runtime, get_runtime
 from container_magic.core.symlinks import scan_workspace_symlinks
 from container_magic.core.templates import detect_shell, resolve_base_image, resolve_distro_shell
-from container_magic.core.volumes import VolumeContext, expand_mount_path, expand_volumes_for_run
+from container_magic.core.volumes import (
+    VolumeContext,
+    expand_mount_path,
+    expand_volumes_for_run,
+    label_volumes,
+)
 
 
 def _detect_container_home() -> str:
@@ -350,7 +355,8 @@ def run_container(
         workspace_container=f"{container_home}/{config.names.workspace}",
     )
     expanded_volumes = expand_volumes_for_run(config.runtime.volumes, volume_context)
-    for volume in expanded_volumes:
+    labelled_volumes = label_volumes(expanded_volumes)
+    for volume in labelled_volumes:
         run_args.extend(["-v", volume])
 
     # Device passthrough

@@ -7,7 +7,7 @@ from jinja2 import Environment, PackageLoader
 
 from container_magic.core.config import ContainerMagicConfig
 from container_magic.core.templates import detect_shell, resolve_base_image, resolve_distro_shell
-from container_magic.core.volumes import expand_volumes_for_script
+from container_magic.core.volumes import expand_volumes_for_script, label_volumes
 
 
 def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None:
@@ -64,9 +64,10 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         "aws_credentials": "aws_credentials" in runtime_features,
     }
 
-    # Expand volume variables for production context
+    # Expand volume variables and apply SELinux labels for production context
     raw_volumes = config.runtime.volumes if config.runtime else []
     expanded_volumes = expand_volumes_for_script(raw_volumes, workdir)
+    expanded_volumes = label_volumes(expanded_volumes)
 
     content = template.render(
         project_name=config.names.image,
