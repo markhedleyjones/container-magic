@@ -77,9 +77,37 @@ runtime:
   volumes:
     - /host/path:/container/path        # bind mount
     - /host/path:/container/path:ro     # read-only bind mount
+    - ~/.config/tool:~/.config/tool     # tilde expands to home directories
   devices:
     - /dev/video0:/dev/video0           # device passthrough
 ```
+
+### Volumes
+
+Volume paths support variable expansion. Each side of the colon is expanded independently - the left side (your machine) and the right side (inside the container) resolve to different values.
+
+| Variable | Your machine | Inside the container |
+|----------|-------------|---------------------|
+| `~` | Your home directory | Container user's home directory |
+| `$HOME` | Your home directory | Container user's home directory |
+| `$WORKSPACE` | Project workspace directory | Container workspace directory |
+
+Variables are expanded at the start of a path only. Options after the second colon (e.g. `ro`, `z`) are not affected.
+
+```yaml
+runtime:
+  volumes:
+    # Tilde expands differently on each side
+    - ~/.config/tool:~/.config/tool
+
+    # $HOME works the same way as tilde
+    - $HOME/data:/mnt/data:ro
+
+    # Workspace-relative paths
+    - $WORKSPACE/output:$WORKSPACE/output
+```
+
+In the generated `run.sh`, `~` and `$HOME` on your side are rendered as `$HOME` for shell expansion at runtime. The container side is expanded to a literal path at generation time. Volumes using `$WORKSPACE` are not included in `run.sh` because the workspace is baked into the production image - a warning is printed during `cm update` if this applies.
 
 ### Shell
 
