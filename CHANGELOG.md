@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v4.1.0 (2026-03-24)
+
+### Documentation
+
+- Document variable expansion in volume paths
+  ([`a24a03b`](https://github.com/markhedleyjones/container-magic/commit/a24a03b336110edbb39b5303275dba664a5cbde7))
+
+- Fix README tagline to accurately describe zero-dependency output
+  ([`572ad33`](https://github.com/markhedleyjones/container-magic/commit/572ad338475ea0078fbde7e87157744e3e8838d0))
+
+- Rewrite README for implicit user handling and clearer value proposition
+  ([`340ea7e`](https://github.com/markhedleyjones/container-magic/commit/340ea7e5df764aaa3347eab0b54542f90cb21e56))
+
+### Features
+
+- Variable expansion in volume paths
+  ([`c494944`](https://github.com/markhedleyjones/container-magic/commit/c494944a28807e96b4d88e92a45f17ccd2012ac2))
+
+
 ## v4.0.0 (2026-03-23)
 
 ### Bug Fixes
