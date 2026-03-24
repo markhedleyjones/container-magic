@@ -204,7 +204,11 @@ def _add_mount_volumes(
             args.extend(["-v", f"{resolved}:{container_path}:z"])
 
         manifest_lines.append(f"{resolved}:{container_path}")
-        command_fragments.append(f"{spec.prefix}{container_path}")
+        if spec.prefix and spec.prefix != spec.prefix.rstrip():
+            prefix_parts = spec.prefix.rstrip().split()
+            command_fragments.extend(prefix_parts + [container_path])
+        else:
+            command_fragments.append(f"{spec.prefix}{container_path}")
 
     return command_fragments, manifest_lines
 

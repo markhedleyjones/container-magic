@@ -31,6 +31,7 @@ from unittest.mock import MagicMock, patch
 
 from container_magic.core.config import ContainerMagicConfig, CustomCommand
 from container_magic.core.runner import (
+    _add_mount_volumes,
     _build_feature_flags,
     _detect_container_home,
     _detect_shell,
@@ -214,6 +215,46 @@ class TestParseMountArgs:
         mounts, remaining = _parse_mount_args(cmd, ["unknown=value", "data=/input"])
         assert mounts == {"data": "/input"}
         assert remaining == ["unknown=value"]
+
+
+class TestAddMountVolumes:
+    def _make_command(self, mounts=None):
+        data = {"command": "test-cmd"}
+        if mounts:
+            data["mounts"] = mounts
+        return CustomCommand(**data)
+
+    def test_space_prefix_splits_into_separate_fragments(self, tmp_path):
+        test_file = tmp_path / "input.txt"
+        test_file.write_text("test")
+        cmd = self._make_command(mounts={"data": {"mode": "ro", "prefix": "--data "}})
+        args = []
+        fragments, _ = _add_mount_volumes(args, cmd, {"data": str(test_file)})
+        assert fragments == ["--data", f"/mnt/data/{test_file.name}"]
+
+    def test_equals_prefix_stays_as_one_fragment(self, tmp_path):
+        test_file = tmp_path / "input.txt"
+        test_file.write_text("test")
+        cmd = self._make_command(mounts={"data": {"mode": "ro", "prefix": "--data="}})
+        args = []
+        fragments, _ = _add_mount_volumes(args, cmd, {"data": str(test_file)})
+        assert fragments == ["--data=/mnt/data/input.txt"]
+
+    def test_no_prefix_produces_path_only(self, tmp_path):
+        test_file = tmp_path / "input.txt"
+        test_file.write_text("test")
+        cmd = self._make_command(mounts={"data": {"mode": "ro"}})
+        args = []
+        fragments, _ = _add_mount_volumes(args, cmd, {"data": str(test_file)})
+        assert fragments == [f"/mnt/data/{test_file.name}"]
+
+    def test_rw_mount_with_space_prefix(self, tmp_path):
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        cmd = self._make_command(mounts={"results": {"mode": "rw", "prefix": "--output "}})
+        args = []
+        fragments, _ = _add_mount_volumes(args, cmd, {"results": str(output_dir)})
+        assert fragments == ["--output", "/mnt/results"]
 
 
 class TestParseRunArgs:
