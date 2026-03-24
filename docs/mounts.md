@@ -63,6 +63,16 @@ Production works the same way:
 ./run.sh process data=/recordings/set-01 results=/tmp/output
 ```
 
+### Variable expansion
+
+Mount paths support `~`, `$HOME`, and `$WORKSPACE` expansion. For example:
+
+```bash
+cm run process data=~/recordings/set-01 results=$HOME/output
+```
+
+See [Volumes](configuration.md#volumes) for the full list of supported variables.
+
 ### Mounts are optional
 
 If you don't provide a value for a mount, it isn't created. Container-magic
