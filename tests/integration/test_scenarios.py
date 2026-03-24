@@ -88,7 +88,7 @@ def test_python_app(debian_base_image, tmp_path):
     project = _setup_project(
         tmp_path, "scenario_python_app.yaml", ["check_import.py"]
     )
-    result = _build_and_run(project, ["python3", "workspace/check_import.py"])
+    result = _build_and_run(project, ["python3", "check_import.py"])
     assert result.returncode == 0, f"Script failed:\n{result.stderr}"
     assert "import_ok" in result.stdout
 
@@ -98,7 +98,7 @@ def test_multistage(debian_base_image, tmp_path):
     project = _setup_project(
         tmp_path, "scenario_multistage.yaml", ["check_import.py"]
     )
-    result = _build_and_run(project, ["python3", "workspace/check_import.py"])
+    result = _build_and_run(project, ["python3", "check_import.py"])
     assert result.returncode == 0, f"Script failed:\n{result.stderr}"
     assert "import_ok" in result.stdout
 
@@ -108,7 +108,7 @@ def test_multistage(debian_base_image, tmp_path):
             "./run.sh",
             "bash",
             "-c",
-            "stat -c '%U:%G' ${WORKSPACE}/check_import.py",
+            "stat -c '%U:%G' check_import.py",
         ],
         cwd=project,
         capture_output=True,
@@ -126,7 +126,7 @@ def test_alpine(alpine_base_image, tmp_path):
     project = _setup_project(
         tmp_path, "scenario_alpine.yaml", ["check_import.py"]
     )
-    result = _build_and_run(project, ["python3", "workspace/check_import.py"])
+    result = _build_and_run(project, ["python3", "check_import.py"])
     assert result.returncode == 0, f"Script failed:\n{result.stderr}"
     assert "import_ok" in result.stdout
 
@@ -155,7 +155,7 @@ def test_root_user(debian_base_image, tmp_path):
     project = _setup_project(
         tmp_path, "scenario_root_user.yaml", ["check_user.py"]
     )
-    result = _build_and_run(project, ["python3", "workspace/check_user.py"])
+    result = _build_and_run(project, ["python3", "check_user.py"])
     assert result.returncode == 0, f"Script failed:\n{result.stderr}"
     assert "uid=0" in result.stdout
     assert "user=root" in result.stdout

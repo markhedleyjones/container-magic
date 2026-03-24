@@ -1,6 +1,14 @@
-"""Unit tests for volume SELinux labelling."""
+"""Unit tests for volume SELinux labelling and variable expansion."""
 
-from container_magic.core.volumes import ensure_selinux_label, label_volumes
+from container_magic.core.volumes import (
+    VolumeContext,
+    ensure_selinux_label,
+    expand_mount_path,
+    expand_volume,
+    expand_volumes_for_run,
+    expand_volumes_for_script,
+    label_volumes,
+)
 
 
 class TestEnsureSelinuxLabel:
@@ -57,3 +65,192 @@ class TestLabelVolumes:
             "/var/log:/logs:z",
             "/host:/container:z",
         ]
+
+
+def _make_context(**overrides):
+    defaults = dict(
+        user_home="/home/mark",
+        container_home="/home/appuser",
+        workspace_user="/home/mark/repos/myproject/workspace",
+        workspace_container="/home/appuser/workspace",
+    )
+    defaults.update(overrides)
+    return VolumeContext(**defaults)
+
+
+class TestExpandVolume:
+    def test_tilde_both_sides(self):
+        ctx = _make_context()
+        result = expand_volume("~/.config/tool:~/.config/tool", ctx)
+        assert result == "/home/mark/.config/tool:/home/appuser/.config/tool"
+
+    def test_tilde_user_side_only(self):
+        ctx = _make_context()
+        result = expand_volume("~/data:/mnt/data:ro", ctx)
+        assert result == "/home/mark/data:/mnt/data:ro"
+
+    def test_dollar_home_both_sides(self):
+        ctx = _make_context()
+        result = expand_volume("$HOME/.ssh:$HOME/.ssh:ro", ctx)
+        assert result == "/home/mark/.ssh:/home/appuser/.ssh:ro"
+
+    def test_workspace_both_sides(self):
+        ctx = _make_context()
+        result = expand_volume("$WORKSPACE/output:$WORKSPACE/output", ctx)
+        assert result == (
+            "/home/mark/repos/myproject/workspace/output:"
+            "/home/appuser/workspace/output"
+        )
+
+    def test_no_variables_unchanged(self):
+        ctx = _make_context()
+        result = expand_volume("/tmp/data:/data:ro", ctx)
+        assert result == "/tmp/data:/data:ro"
+
+    def test_options_preserved(self):
+        ctx = _make_context()
+        result = expand_volume("~/.config:~/.config:ro,z", ctx)
+        assert result == "/home/mark/.config:/home/appuser/.config:ro,z"
+
+    def test_tilde_mid_path_not_expanded(self):
+        ctx = _make_context()
+        result = expand_volume("/tmp/~test:/data/~test", ctx)
+        assert result == "/tmp/~test:/data/~test"
+
+    def test_dollar_home_mid_path_not_expanded(self):
+        ctx = _make_context()
+        result = expand_volume("/tmp/$HOME:/data/$HOME", ctx)
+        assert result == "/tmp/$HOME:/data/$HOME"
+
+    def test_root_container_home(self):
+        ctx = _make_context(container_home="/root")
+        result = expand_volume("~/.config:~/.config", ctx)
+        assert result == "/home/mark/.config:/root/.config"
+
+    def test_single_part_unchanged(self):
+        ctx = _make_context()
+        result = expand_volume("named-volume", ctx)
+        assert result == "named-volume"
+
+    def test_tilde_alone(self):
+        ctx = _make_context()
+        result = expand_volume("~:~", ctx)
+        assert result == "/home/mark:/home/appuser"
+
+    def test_dollar_home_alone(self):
+        ctx = _make_context()
+        result = expand_volume("$HOME:$HOME", ctx)
+        assert result == "/home/mark:/home/appuser"
+
+
+class TestExpandVolumesForRun:
+    def test_expands_all_variables(self):
+        ctx = _make_context()
+        volumes = [
+            "~/.config/tool:~/.config/tool",
+            "$WORKSPACE/data:$WORKSPACE/data:ro",
+            "/absolute:/absolute",
+        ]
+        result = expand_volumes_for_run(volumes, ctx)
+        assert result == [
+            "/home/mark/.config/tool:/home/appuser/.config/tool",
+            "/home/mark/repos/myproject/workspace/data:/home/appuser/workspace/data:ro",
+            "/absolute:/absolute",
+        ]
+
+    def test_empty_list(self):
+        ctx = _make_context()
+        assert expand_volumes_for_run([], ctx) == []
+
+
+class TestExpandVolumesForScript:
+    def test_tilde_rendered_as_shell_variable(self):
+        result = expand_volumes_for_script(
+            ["~/.config/tool:~/.config/tool"],
+            container_home="/home/appuser",
+            )
+        assert result == ["$HOME/.config/tool:/home/appuser/.config/tool"]
+
+    def test_dollar_home_rendered_as_shell_variable(self):
+        result = expand_volumes_for_script(
+            ["$HOME/.config:$HOME/.config:ro"],
+            container_home="/home/appuser",
+        )
+        assert result == ["$HOME/.config:/home/appuser/.config:ro"]
+
+    def test_workspace_volumes_filtered_out(self, capsys):
+        result = expand_volumes_for_script(
+            [
+                "~/.config:~/.config",
+                "$WORKSPACE/output:$WORKSPACE/output",
+                "$HOME/data:/data",
+            ],
+            container_home="/home/appuser",
+        )
+        assert len(result) == 2
+        assert result[0] == "$HOME/.config:/home/appuser/.config"
+        assert result[1] == "$HOME/data:/data"
+        captured = capsys.readouterr()
+        assert "$WORKSPACE" in captured.err
+        assert "cm run" in captured.err
+
+    def test_workspace_on_container_side_only_filtered(self, capsys):
+        result = expand_volumes_for_script(
+            ["/data:$WORKSPACE/data"],
+            container_home="/home/appuser",
+        )
+        assert result == []
+        captured = capsys.readouterr()
+        assert "$WORKSPACE" in captured.err
+
+    def test_workspace_mid_path_filtered(self, capsys):
+        result = expand_volumes_for_script(
+            ["/data/$WORKSPACE/output:/container/path"],
+            container_home="/home/appuser",
+        )
+        assert result == []
+        captured = capsys.readouterr()
+        assert "$WORKSPACE" in captured.err
+
+    def test_no_variables_unchanged(self):
+        result = expand_volumes_for_script(
+            ["/tmp/data:/data:ro"],
+            container_home="/home/appuser",
+        )
+        assert result == ["/tmp/data:/data:ro"]
+
+    def test_root_container_home(self):
+        result = expand_volumes_for_script(
+            ["~/.config:~/.config"],
+            container_home="/root",
+        )
+        assert result == ["$HOME/.config:/root/.config"]
+
+    def test_empty_list(self):
+        result = expand_volumes_for_script(
+            [], container_home="/home/appuser"
+        )
+        assert result == []
+
+
+class TestExpandMountPath:
+    def test_tilde_expanded(self):
+        ctx = _make_context()
+        assert expand_mount_path("~/data", ctx) == "/home/mark/data"
+
+    def test_dollar_home_expanded(self):
+        ctx = _make_context()
+        assert expand_mount_path("$HOME/data", ctx) == "/home/mark/data"
+
+    def test_workspace_expanded(self):
+        ctx = _make_context()
+        result = expand_mount_path("$WORKSPACE/output", ctx)
+        assert result == "/home/mark/repos/myproject/workspace/output"
+
+    def test_absolute_path_unchanged(self):
+        ctx = _make_context()
+        assert expand_mount_path("/tmp/data", ctx) == "/tmp/data"
+
+    def test_workspace_without_context_returns_literal(self):
+        ctx = _make_context(workspace_user=None)
+        assert expand_mount_path("$WORKSPACE/output", ctx) == "$WORKSPACE/output"

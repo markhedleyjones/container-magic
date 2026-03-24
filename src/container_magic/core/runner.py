@@ -16,6 +16,7 @@ from container_magic.core.config import ContainerMagicConfig, CustomCommand
 from container_magic.core.runtime import Runtime, get_runtime
 from container_magic.core.symlinks import scan_workspace_symlinks
 from container_magic.core.templates import detect_shell, resolve_base_image, resolve_distro_shell
+from container_magic.core.volumes import VolumeContext, expand_mount_path, expand_volumes_for_run
 
 
 def _detect_container_home() -> str:
@@ -172,6 +173,7 @@ def _add_mount_volumes(
     args: List[str],
     command_spec: CustomCommand,
     mounts: Dict[str, str],
+    volume_context: Optional[VolumeContext] = None,
 ) -> Tuple[List[str], List[str]]:
     """Add bind mount volumes and build command fragments.
 
@@ -182,7 +184,10 @@ def _add_mount_volumes(
     manifest_lines = []
 
     for name, host_path in mounts.items():
-        host_path = os.path.expanduser(host_path)
+        if volume_context:
+            host_path = expand_mount_path(host_path, volume_context)
+        else:
+            host_path = os.path.expanduser(host_path)
         resolved = os.path.realpath(host_path)
         spec = command_spec.mounts[name]
 
@@ -333,8 +338,15 @@ def run_container(
     if env_file.is_file():
         run_args.extend(["--env-file", str(env_file)])
 
-    # Additional volumes
-    for volume in config.runtime.volumes:
+    # Additional volumes (with variable expansion)
+    volume_context = VolumeContext(
+        user_home=os.path.expanduser("~"),
+        container_home=container_home,
+        workspace_user=str(project_dir / config.names.workspace),
+        workspace_container=f"{container_home}/{config.names.workspace}",
+    )
+    expanded_volumes = expand_volumes_for_run(config.runtime.volumes, volume_context)
+    for volume in expanded_volumes:
         run_args.extend(["-v", volume])
 
     # Device passthrough
@@ -391,7 +403,7 @@ def run_container(
 
         parsed_mounts, extra_args = _parse_mount_args(command_spec, args_remaining)
         command_fragments, manifest_lines = _add_mount_volumes(
-            run_args, command_spec, parsed_mounts
+            run_args, command_spec, parsed_mounts, volume_context
         )
 
         # Create manifest file if there are any mounts
