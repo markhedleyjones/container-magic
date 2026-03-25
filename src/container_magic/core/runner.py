@@ -15,13 +15,37 @@ from typing import Dict, List, Optional, Tuple
 from container_magic.core.config import ContainerMagicConfig, CustomCommand
 from container_magic.core.runtime import Runtime, get_runtime
 from container_magic.core.symlinks import scan_workspace_symlinks
-from container_magic.core.templates import detect_shell, resolve_base_image, resolve_distro_shell
+from container_magic.core.templates import (
+    detect_shell,
+    resolve_base_image,
+    resolve_distro_shell,
+)
 from container_magic.core.volumes import (
     VolumeContext,
     expand_mount_path,
     expand_volumes_for_run,
     label_volumes,
 )
+
+
+def collect_env_files(project_dir: Path) -> List[Path]:
+    """Walk parent directories collecting .env files.
+
+    Returns paths ordered most distant first, so that closer .env files
+    are loaded last and their values take precedence with --env-file.
+    """
+    env_files = []
+    search_dir = project_dir.resolve()
+    while True:
+        candidate = search_dir / ".env"
+        if candidate.is_file():
+            env_files.append(candidate)
+        parent = search_dir.parent
+        if parent == search_dir:
+            break
+        search_dir = parent
+    env_files.reverse()
+    return env_files
 
 
 def _detect_container_home() -> str:
@@ -46,9 +70,7 @@ def _detect_shell(config: ContainerMagicConfig) -> str:
     if distro_shell:
         return distro_shell
     dev_stage_config = config.stages[dev_stage]
-    return detect_shell(
-        resolve_base_image(dev_stage_config.frm, config.stages)
-    )
+    return detect_shell(resolve_base_image(dev_stage_config.frm, config.stages))
 
 
 def _build_feature_flags(config: ContainerMagicConfig) -> Dict[str, bool]:
@@ -342,9 +364,8 @@ def run_container(
             ]
         )
 
-    # Load .env file
-    env_file = project_dir / ".env"
-    if env_file.is_file():
+    # Load .env files (walk parent directories, most distant first so closer values win)
+    for env_file in collect_env_files(project_dir):
         run_args.extend(["--env-file", str(env_file)])
 
     # Additional volumes (with variable expansion)

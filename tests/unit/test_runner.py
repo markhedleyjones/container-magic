@@ -33,6 +33,7 @@ from container_magic.core.config import ContainerMagicConfig, CustomCommand
 from container_magic.core.runner import (
     _add_mount_volumes,
     _build_feature_flags,
+    collect_env_files,
     _detect_container_home,
     _detect_shell,
     _parse_mount_args,
@@ -173,6 +174,45 @@ class TestTranslateWorkdir:
         assert result == "/home/user/workspace"
 
 
+class TestCollectEnvFiles:
+    def test_no_env_files(self, tmp_path):
+        project = tmp_path / "project"
+        project.mkdir()
+        assert collect_env_files(project) == []
+
+    def test_env_in_project_dir_only(self, tmp_path):
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / ".env").write_text("KEY=value")
+        result = collect_env_files(project)
+        assert result == [project / ".env"]
+
+    def test_env_in_parent_only(self, tmp_path):
+        (tmp_path / ".env").write_text("KEY=parent")
+        project = tmp_path / "project"
+        project.mkdir()
+        result = collect_env_files(project)
+        assert result == [tmp_path / ".env"]
+
+    def test_env_in_both_parent_and_project(self, tmp_path):
+        (tmp_path / ".env").write_text("KEY=parent")
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / ".env").write_text("KEY=project")
+        result = collect_env_files(project)
+        assert result == [tmp_path / ".env", project / ".env"]
+
+    def test_env_in_grandparent_and_project(self, tmp_path):
+        (tmp_path / ".env").write_text("KEY=grandparent")
+        mid = tmp_path / "mid"
+        mid.mkdir()
+        project = mid / "project"
+        project.mkdir()
+        (project / ".env").write_text("KEY=project")
+        result = collect_env_files(project)
+        assert result == [tmp_path / ".env", project / ".env"]
+
+
 class TestParseMountArgs:
     def _make_command(self, mounts=None):
         data = {"command": "test-cmd"}
@@ -251,7 +291,9 @@ class TestAddMountVolumes:
     def test_rw_mount_with_space_prefix(self, tmp_path):
         output_dir = tmp_path / "output"
         output_dir.mkdir()
-        cmd = self._make_command(mounts={"results": {"mode": "rw", "prefix": "--output "}})
+        cmd = self._make_command(
+            mounts={"results": {"mode": "rw", "prefix": "--output "}}
+        )
         args = []
         fragments, _ = _add_mount_volumes(args, cmd, {"results": str(output_dir)})
         assert fragments == ["--output", "/mnt/results"]
