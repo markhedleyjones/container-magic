@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v4.1.2 (2026-03-25)
+
+### Bug Fixes
+
+- Chown venv to runtime user for development writability
+  ([`14c2a18`](https://github.com/markhedleyjones/container-magic/commit/14c2a18f81f1d33ae7525ff1410f2c78d7ce5a21))
+
+- Rename ambiguous loop variable in venv chown test
+  ([`50a6df2`](https://github.com/markhedleyjones/container-magic/commit/50a6df2e056b04e80913b271f060847c6e335728))
+
+
 ## v4.1.1 (2026-03-25)
 
 ### Bug Fixes
