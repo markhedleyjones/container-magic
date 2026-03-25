@@ -18,6 +18,7 @@ from container_magic.core.templates import (
     detect_user_creation_style,
     resolve_base_image,
     resolve_distro,
+    resolve_inherited_distro,
 )
 
 
@@ -376,17 +377,7 @@ def generate_dockerfile(
         from_is_image = ":" in base_image or "/" in base_image
 
         # Resolve distro: explicit on this stage, or inherited from parent chain
-        effective_distro = stage_config.distro
-        if effective_distro is None and not from_is_image:
-            ancestor = base_image
-            while ancestor in stages:
-                if stages[ancestor].distro:
-                    effective_distro = stages[ancestor].distro
-                    break
-                ancestor_config = stages[ancestor]
-                if ":" in ancestor_config.frm or "/" in ancestor_config.frm:
-                    break
-                ancestor = ancestor_config.frm
+        effective_distro = resolve_inherited_distro(stage_name, stages)
         distro_settings = resolve_distro(effective_distro)
         if distro_settings:
             distro_pm, _, distro_ucs = distro_settings

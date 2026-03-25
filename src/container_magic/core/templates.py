@@ -42,11 +42,11 @@ def resolve_distro(
     return DEBIAN_DEFAULTS
 
 
-def resolve_distro_shell(stage_name: str, stages: Dict) -> Optional[str]:
-    """Resolve the interactive shell from the distro field of a stage or its ancestors.
+def resolve_inherited_distro(stage_name: str, stages: Dict) -> Optional[str]:
+    """Resolve the effective distro for a stage by walking its ancestor chain.
 
-    Walks the from: chain looking for a distro field. Returns the shell
-    component if found, None otherwise.
+    Checks the stage itself first, then walks the from: chain looking for a
+    distro field. Returns the distro name if found, None otherwise.
     """
     current = stage_name
     visited: set = set()
@@ -56,14 +56,19 @@ def resolve_distro_shell(stage_name: str, stages: Dict) -> Optional[str]:
         visited.add(current)
         stage = stages[current]
         if stage.distro:
-            settings = resolve_distro(stage.distro)
-            if settings:
-                return settings[1]  # shell component
+            return stage.distro
         frm = stage.frm
         if ":" in frm or "/" in frm:
             break
         current = frm
     return None
+
+
+def resolve_distro_shell(stage_name: str, stages: Dict) -> Optional[str]:
+    """Resolve the interactive shell from the distro field of a stage or its ancestors."""
+    distro = resolve_inherited_distro(stage_name, stages)
+    settings = resolve_distro(distro) if distro else None
+    return settings[1] if settings else None
 
 
 def resolve_base_image(frm: str, stages: Dict) -> str:
