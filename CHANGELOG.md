@@ -2,6 +2,29 @@
 
 <!-- version list -->
 
+## v4.2.0 (2026-03-25)
+
+### Features
+
+- Walk parent directories for .env files
+  ([#52](https://github.com/markhedleyjones/container-magic/pull/52),
+  [`4010d88`](https://github.com/markhedleyjones/container-magic/commit/4010d88a416607b944749f4599afedb01903ebe2))
+
+### Refactoring
+
+- Unify duplicated distro inheritance logic
+  ([#51](https://github.com/markhedleyjones/container-magic/pull/51),
+  [`139896d`](https://github.com/markhedleyjones/container-magic/commit/139896d7dd57b52dee731713888d0669c9995283))
+
+- Wire SELinux label_volumes into runtime volume handling
+  ([`b61de84`](https://github.com/markhedleyjones/container-magic/commit/b61de84bf333f309700cfd90693380ceb3600dae))
+
+### Testing
+
+- Update volume assertions for SELinux labels
+  ([`64c1e5c`](https://github.com/markhedleyjones/container-magic/commit/64c1e5c58fb3c65e61c9b7a60c053fb964a325a0))
+
+
 ## v4.1.2 (2026-03-25)
 
 ### Bug Fixes
