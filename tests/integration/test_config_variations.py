@@ -145,7 +145,9 @@ def test_config_regenerates_idempotently(config_fixture, fixtures_dir, temp_proj
         )
 
 
-def test_custom_commands_execute_successfully(fixtures_dir, temp_project, debian_base_image):
+def test_custom_commands_execute_successfully(
+    fixtures_dir, temp_project, debian_base_image
+):
     """Test that custom commands can actually execute in a container."""
     # Use the config with custom commands
     fixture_path = fixtures_dir / "with_custom_commands.yaml"
@@ -296,7 +298,9 @@ def test_direct_script_execution(fixtures_dir, temp_project, debian_base_image):
     assert "Direct execution works" in result.stdout
 
 
-def test_production_workspace_permissions(fixtures_dir, temp_project, debian_base_image):
+def test_production_workspace_permissions(
+    fixtures_dir, temp_project, debian_base_image
+):
     """Test that workspace is copied into production image with correct permissions."""
     # Use minimal config
     fixture_path = fixtures_dir / "minimal.yaml"
@@ -488,6 +492,6 @@ def test_volumes_and_devices_appear_in_generated_files(fixtures_dir, temp_projec
     assert result.returncode == 0, f"cm update failed:\n{result.stderr}"
 
     run_sh = (temp_project / "run.sh").read_text()
-    assert '"-v" "/tmp/test-data:/data:ro"' in run_sh
-    assert '"-v" "/var/log/app:/logs"' in run_sh
+    assert '"-v" "/tmp/test-data:/data:ro,z"' in run_sh
+    assert '"-v" "/var/log/app:/logs:z"' in run_sh
     assert '"--device" "/dev/ttyUSB0"' in run_sh
