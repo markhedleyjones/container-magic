@@ -195,6 +195,59 @@ class TestVenvCreation:
         assert "USER www-data" in content
         assert "python3 -m venv" in content
 
+    def test_venv_chowned_to_user_in_leaf_stage(self):
+        """Venv is chowned to the configured user so it's writable at runtime."""
+        config = {
+            "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
+            "stages": {
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [
+                        {"pip": {"install": ["flask"]}},
+                    ],
+                },
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        }
+        content = _generate(config)
+        assert "chown -R" in content
+        assert "/opt/venv" in content
+
+    def test_venv_chown_not_added_for_root_user(self):
+        """No venv chown when user is root."""
+        config = _base_config(steps=[{"pip": {"install": ["numpy"]}}])
+        content = _generate(config)
+        assert (
+            "chown" not in content
+            or "USER_HOME" in content.split("chown")[0].split("\n")[-1]
+        )
+
+    def test_venv_chown_after_all_pip_steps(self):
+        """Venv chown appears after the last pip install, not between them."""
+        config = {
+            "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
+            "stages": {
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [
+                        {"pip": {"install": ["flask"]}},
+                        {"pip": {"install": ["numpy"]}},
+                    ],
+                },
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        }
+        content = _generate(config)
+        lines = content.splitlines()
+        pip_lines = [i for i, line in enumerate(lines) if "pip install" in line]
+        chown_lines = [
+            i for i, line in enumerate(lines) if "chown" in line and "/opt/venv" in line
+        ]
+        assert len(chown_lines) >= 1
+        assert chown_lines[0] > pip_lines[-1]
+
     def test_stage_from_external_image_resets_venv(self):
         """Stage from external image (not parent stage) starts fresh."""
         config = {

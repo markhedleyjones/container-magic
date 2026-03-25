@@ -434,6 +434,10 @@ def generate_dockerfile(
         else:
             user_created_state[stage_name] = inherited_user_created
 
+        # Chown venv to runtime user in leaf stages so it's writable in development
+        if has_user and stage_name in leaf_stages and venv_active:
+            ordered_steps.append({"type": "venv_chown"})
+
         # Inject implicit become at end of leaf stages only
         # Intermediate stages stay as root so child stages inherit root context
         if has_user and stage_name in leaf_stages:
