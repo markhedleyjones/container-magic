@@ -51,15 +51,19 @@ Relative symlinks pointing within the workspace work naturally and aren't touche
 
 ## Environment File
 
-If a `.env` file exists in the project root, its variables are automatically passed to the container via `--env-file`. No configuration is needed.
+`.env` files are automatically passed to the container via `--env-file`. Container-magic walks up from the project directory looking for `.env` files, loading them from most distant to closest so that closer values take precedence.
 
 ```
-# .env
-DATABASE_URL=postgres://localhost/mydb
-API_KEY=secret123
+# .env (repository root)
+API_KEY=sk-shared-key
+
+# pdf/.env (project root)
+WORKER_COUNT=4
 ```
 
-This works in both development (`cm run`) and production (`run.sh`). If no `.env` file is present, nothing happens.
+Running `cm run` from `pdf/` loads both files. `pdf/.env` values override the parent `.env` if the same variable appears in both.
+
+This works in both development (`cm run`) and production (`run.sh`). If no `.env` file is found in any parent directory, nothing happens.
 
 ## Runtime
 
