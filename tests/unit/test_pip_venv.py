@@ -218,7 +218,10 @@ class TestVenvCreation:
         """No venv chown when user is root."""
         config = _base_config(steps=[{"pip": {"install": ["numpy"]}}])
         content = _generate(config)
-        assert "chown" not in content or "USER_HOME" in content.split("chown")[0].split("\n")[-1]
+        assert (
+            "chown" not in content
+            or "USER_HOME" in content.split("chown")[0].split("\n")[-1]
+        )
 
     def test_venv_chown_after_all_pip_steps(self):
         """Venv chown appears after the last pip install, not between them."""
@@ -238,8 +241,10 @@ class TestVenvCreation:
         }
         content = _generate(config)
         lines = content.splitlines()
-        pip_lines = [i for i, l in enumerate(lines) if "pip install" in l]
-        chown_lines = [i for i, l in enumerate(lines) if "chown" in l and "/opt/venv" in l]
+        pip_lines = [i for i, line in enumerate(lines) if "pip install" in line]
+        chown_lines = [
+            i for i, line in enumerate(lines) if "chown" in line and "/opt/venv" in line
+        ]
         assert len(chown_lines) >= 1
         assert chown_lines[0] > pip_lines[-1]
 
