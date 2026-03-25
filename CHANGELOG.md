@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v4.1.1 (2026-03-25)
+
+### Bug Fixes
+
+- Split mount prefixes with trailing space into separate arguments
+  ([`df160bf`](https://github.com/markhedleyjones/container-magic/commit/df160bf2b6430e5bfa0f57e219dc73510df7a458))
+
+
 ## v4.1.0 (2026-03-24)
 
 ### Documentation
