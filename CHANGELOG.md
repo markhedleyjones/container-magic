@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v4.2.1 (2026-03-26)
+
+### Bug Fixes
+
+- Switch to root for venv chown when inheriting non-root context
+  ([#53](https://github.com/markhedleyjones/container-magic/pull/53),
+  [`a9d10fb`](https://github.com/markhedleyjones/container-magic/commit/a9d10fb7404382e5f18efcc83f23e68925905da2))
+
+
 ## v4.2.0 (2026-03-25)
 
 ### Features
