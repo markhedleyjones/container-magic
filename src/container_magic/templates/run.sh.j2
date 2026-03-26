@@ -18,7 +18,7 @@ if command -v docker >/dev/null 2>&1; then
 elif command -v podman >/dev/null 2>&1; then
 	RUNTIME="podman"
 else
-	echo "Error: Neither docker nor podman found in PATH"
+	echo "Error: Neither docker nor podman found in PATH" >&2
 	exit 1
 fi
 {%- else %}
@@ -292,6 +292,7 @@ run_{{ command_name }}() {
 	local _manifest=""
 	if [[ ${#MANIFEST_LINES[@]} -gt 0 ]]; then
 		_manifest=$(mktemp /tmp/cm-manifest-XXXXXX)
+		trap 'rm -f "$_manifest"' EXIT
 		printf '%s\n' "${MANIFEST_LINES[@]}" >"$_manifest"
 		RUN_ARGS+=("-v" "${_manifest}:/run/cm/mounts:ro,z")
 	fi
