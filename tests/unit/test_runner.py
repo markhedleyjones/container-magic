@@ -32,7 +32,7 @@ from unittest.mock import MagicMock, patch
 from container_magic.core.config import ContainerMagicConfig, CustomCommand
 from container_magic.core.runner import (
     _add_mount_volumes,
-    _build_feature_flags,
+    build_feature_flags,
     collect_env_files,
     _detect_container_home,
     _detect_shell,
@@ -116,7 +116,7 @@ class TestDetectShell:
 class TestBuildFeatureFlags:
     def test_no_features(self):
         config = _make_config()
-        flags = _build_feature_flags(config)
+        flags = build_feature_flags(config)
         assert flags == {
             "display": False,
             "gpu": False,
@@ -128,12 +128,12 @@ class TestBuildFeatureFlags:
         config = _make_config(
             runtime={"features": ["display", "gpu", "audio", "aws_credentials"]}
         )
-        flags = _build_feature_flags(config)
+        flags = build_feature_flags(config)
         assert all(flags.values())
 
     def test_partial_features(self):
         config = _make_config(runtime={"features": ["gpu"]})
-        flags = _build_feature_flags(config)
+        flags = build_feature_flags(config)
         assert flags["gpu"] is True
         assert flags["display"] is False
         assert flags["audio"] is False

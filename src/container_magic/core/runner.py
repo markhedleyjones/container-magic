@@ -62,7 +62,7 @@ def _detect_shell(config: ContainerMagicConfig) -> str:
 
     Priority: runtime.shell > distro field > image-name detection.
     """
-    runtime_shell = config.runtime.shell if config.runtime else None
+    runtime_shell = config.runtime.shell
     if runtime_shell:
         return runtime_shell
     dev_stage = "development" if "development" in config.stages else "base"
@@ -73,14 +73,14 @@ def _detect_shell(config: ContainerMagicConfig) -> str:
     return detect_shell(resolve_base_image(dev_stage_config.frm, config.stages))
 
 
-def _build_feature_flags(config: ContainerMagicConfig) -> Dict[str, bool]:
+def build_feature_flags(config: ContainerMagicConfig) -> Dict[str, bool]:
     """Build feature flags dict from runtime config."""
-    runtime_features = config.runtime.features if config.runtime else []
+    features = config.runtime.features
     return {
-        "display": "display" in runtime_features,
-        "gpu": "gpu" in runtime_features,
-        "audio": "audio" in runtime_features,
-        "aws_credentials": "aws_credentials" in runtime_features,
+        "display": "display" in features,
+        "gpu": "gpu" in features,
+        "audio": "audio" in features,
+        "aws_credentials": "aws_credentials" in features,
     }
 
 
@@ -301,7 +301,7 @@ def run_container(
     runtime_cmd = runtime.value
     shell = _detect_shell(config)
     container_home = _detect_container_home()
-    features = _build_feature_flags(config)
+    features = build_feature_flags(config)
     image = f"{config.names.image}:development"
     container_name = f"{config.names.image}-development"
 
@@ -584,7 +584,7 @@ def stop_container(config: ContainerMagicConfig) -> int:
     )
 
     # xhost cleanup if display feature enabled with Docker
-    features = _build_feature_flags(config)
+    features = build_feature_flags(config)
     if features["display"] and runtime == Runtime.DOCKER and os.environ.get("DISPLAY"):
         try:
             subprocess.run(["xhost", "-local:"], capture_output=True)
