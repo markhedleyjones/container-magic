@@ -1,7 +1,0 @@
-{#- Shared macros for container-magic templates -#}
-
-{%- macro symlink_mounts(workspace_name, container_base, workspace_symlinks) -%}
-{% for rel_path in workspace_symlinks %}
-RUN_ARGS+=("-v" "$(pwd)/{{ workspace_name }}/{{ rel_path }}:{{ container_base }}/{{ workspace_name }}/{{ rel_path }}:z")
-{% endfor -%}
-{%- endmacro -%}

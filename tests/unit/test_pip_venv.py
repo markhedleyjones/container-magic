@@ -1,19 +1,6 @@
 """Tests for automatic venv creation on pip steps."""
 
-from pathlib import Path
-from tempfile import TemporaryDirectory
-
-from container_magic.core.config import ContainerMagicConfig
-from container_magic.generators.dockerfile import generate_dockerfile
-
-
-def _generate(config_dict):
-    """Generate a Dockerfile from a config dict and return its content."""
-    config = ContainerMagicConfig(**config_dict)
-    with TemporaryDirectory() as tmpdir:
-        output_path = Path(tmpdir) / "Dockerfile"
-        generate_dockerfile(config, output_path)
-        return output_path.read_text()
+from tests.unit.conftest import generate_dockerfile_from_dict as _generate
 
 
 def _base_config(**overrides):

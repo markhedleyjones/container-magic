@@ -11,19 +11,9 @@ from container_magic.core.config import (
     ContainerMagicConfig,
     _parse_asset_items,
 )
-from container_magic.generators.dockerfile import (
-    _resolve_copy_source,
-    generate_dockerfile,
-)
+from container_magic.generators.dockerfile import _resolve_copy_source
 
-
-def _generate(config_dict):
-    """Generate a Dockerfile from a config dict and return its content."""
-    config = ContainerMagicConfig(**config_dict)
-    with TemporaryDirectory() as tmpdir:
-        output_path = Path(tmpdir) / "Dockerfile"
-        generate_dockerfile(config, output_path)
-        return output_path.read_text()
+from tests.unit.conftest import generate_dockerfile_from_dict as _generate
 
 
 def _base_config(**overrides):

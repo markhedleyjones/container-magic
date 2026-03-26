@@ -1,39 +1,7 @@
 """Tests for implicit user creation and become."""
 
-from pathlib import Path
-from tempfile import TemporaryDirectory
-
-from container_magic.core.config import ContainerMagicConfig
-from container_magic.generators.dockerfile import generate_dockerfile
-
-
-def _generate(config_dict):
-    config = ContainerMagicConfig(**config_dict)
-    with TemporaryDirectory() as tmpdir:
-        output_path = Path(tmpdir) / "Dockerfile"
-        generate_dockerfile(config, output_path)
-        return output_path.read_text()
-
-
-def _get_stage_block(content, stage_name):
-    lines = content.splitlines()
-    start = None
-    end = None
-    for i, line in enumerate(lines):
-        if "FROM " in line and line.rstrip().endswith(f" AS {stage_name}"):
-            start = i
-        elif start is not None and line.startswith("FROM "):
-            end = i
-            break
-    if start is not None:
-        block_lines = lines[start : end if end else len(lines)]
-        # Trim trailing separator/comment lines
-        while block_lines and (
-            block_lines[-1].startswith("#") or not block_lines[-1].strip()
-        ):
-            block_lines.pop()
-        return "\n".join(block_lines)
-    return ""
+from tests.unit.conftest import generate_dockerfile_from_dict as _generate
+from tests.unit.conftest import get_stage_block as _get_stage_block
 
 
 class TestImplicitCreateUser:
@@ -42,7 +10,10 @@ class TestImplicitCreateUser:
         config = {
             "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
             "stages": {
-                "base": {"from": "debian:bookworm-slim", "steps": [{"run": "echo hello"}]},
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [{"run": "echo hello"}],
+                },
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
             },
@@ -55,7 +26,10 @@ class TestImplicitCreateUser:
         config = {
             "names": {"image": "test", "workspace": "workspace", "user": "root"},
             "stages": {
-                "base": {"from": "debian:bookworm-slim", "steps": [{"run": "echo hello"}]},
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [{"run": "echo hello"}],
+                },
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
             },
@@ -139,7 +113,10 @@ class TestImplicitBecome:
         config = {
             "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
             "stages": {
-                "base": {"from": "debian:bookworm-slim", "steps": [{"run": "echo hello"}]},
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [{"run": "echo hello"}],
+                },
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
             },
@@ -198,7 +175,10 @@ class TestImplicitBecome:
         config = {
             "names": {"image": "test", "workspace": "workspace", "user": "root"},
             "stages": {
-                "base": {"from": "debian:bookworm-slim", "steps": [{"run": "echo hello"}]},
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [{"run": "echo hello"}],
+                },
                 "development": {"from": "base", "steps": []},
                 "production": {"from": "base", "steps": []},
             },
@@ -243,9 +223,7 @@ class TestImplicitBecome:
         content = _generate(config)
         prod = _get_stage_block(content, "production")
         copy_lines = [
-            ln.strip()
-            for ln in prod.splitlines()
-            if "COPY" in ln and "workspace" in ln
+            ln.strip() for ln in prod.splitlines() if "COPY" in ln and "workspace" in ln
         ]
         assert len(copy_lines) == 1
         assert "--chown" in copy_lines[0]
@@ -265,7 +243,9 @@ class TestImplicitBecome:
         content_leaf = _generate(config_leaf)
         testing_block = _get_stage_block(content_leaf, "testing")
         testing_lines = [ln.strip() for ln in testing_block.splitlines() if ln.strip()]
-        assert testing_lines[-1].startswith("USER "), "Leaf testing stage should have USER"
+        assert testing_lines[-1].startswith("USER "), (
+            "Leaf testing stage should have USER"
+        )
 
         # Config where testing has a child (now intermediate)
         config_intermediate = {

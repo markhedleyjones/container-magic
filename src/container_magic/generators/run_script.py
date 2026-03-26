@@ -6,7 +6,12 @@ from pathlib import Path
 from jinja2 import Environment, PackageLoader
 
 from container_magic.core.config import ContainerMagicConfig
-from container_magic.core.templates import detect_shell, resolve_base_image, resolve_distro_shell
+from container_magic.core.runner import build_feature_flags
+from container_magic.core.templates import (
+    detect_shell,
+    resolve_base_image,
+    resolve_distro_shell,
+)
 from container_magic.core.volumes import expand_volumes_for_script, label_volumes
 
 
@@ -38,7 +43,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         workdir = f"/home/{production_user}"
 
     # Determine interactive shell: runtime.shell > distro > image-name detection
-    runtime_shell = config.runtime.shell if config.runtime else None
+    runtime_shell = config.runtime.shell
     prod_stage = "production" if "production" in config.stages else "base"
     stage_config = config.stages[prod_stage]
     shell = (
@@ -55,17 +60,10 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
             cmd_copy.command = cmd_spec.command.replace("$", r"\$")
             commands_escaped[cmd_name] = cmd_copy
 
-    # Build feature flags
-    runtime_features = config.runtime.features if config.runtime else []
-    features = {
-        "display": "display" in runtime_features,
-        "gpu": "gpu" in runtime_features,
-        "audio": "audio" in runtime_features,
-        "aws_credentials": "aws_credentials" in runtime_features,
-    }
+    features = build_feature_flags(config)
 
     # Expand volume variables and apply SELinux labels for production context
-    raw_volumes = config.runtime.volumes if config.runtime else []
+    raw_volumes = config.runtime.volumes
     expanded_volumes = expand_volumes_for_script(raw_volumes, workdir)
     expanded_volumes = label_volumes(expanded_volumes)
 
@@ -75,13 +73,13 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         workdir=workdir,
         shell=shell,
         backend=backend,
-        privileged=config.runtime.privileged if config.runtime else False,
-        network=config.runtime.network_mode if config.runtime else None,
+        privileged=config.runtime.privileged,
+        network=config.runtime.network_mode,
         features=features,
         volumes=expanded_volumes,
-        devices=config.runtime.devices if config.runtime else [],
+        devices=config.runtime.devices,
         commands=commands_escaped,
-        ipc=config.runtime.ipc if config.runtime else None,
+        ipc=config.runtime.ipc,
     )
 
     run_script = project_dir / "run.sh"

@@ -32,7 +32,7 @@ from unittest.mock import MagicMock, patch
 from container_magic.core.config import ContainerMagicConfig, CustomCommand
 from container_magic.core.runner import (
     _add_mount_volumes,
-    _build_feature_flags,
+    build_feature_flags,
     collect_env_files,
     _detect_container_home,
     _detect_shell,
@@ -40,6 +40,7 @@ from container_magic.core.runner import (
     _parse_run_args,
     _translate_workdir,
     clean_images,
+    run_container,
     stop_container,
 )
 
@@ -116,7 +117,7 @@ class TestDetectShell:
 class TestBuildFeatureFlags:
     def test_no_features(self):
         config = _make_config()
-        flags = _build_feature_flags(config)
+        flags = build_feature_flags(config)
         assert flags == {
             "display": False,
             "gpu": False,
@@ -128,12 +129,12 @@ class TestBuildFeatureFlags:
         config = _make_config(
             runtime={"features": ["display", "gpu", "audio", "aws_credentials"]}
         )
-        flags = _build_feature_flags(config)
+        flags = build_feature_flags(config)
         assert all(flags.values())
 
     def test_partial_features(self):
         config = _make_config(runtime={"features": ["gpu"]})
-        flags = _build_feature_flags(config)
+        flags = build_feature_flags(config)
         assert flags["gpu"] is True
         assert flags["display"] is False
         assert flags["audio"] is False
@@ -421,3 +422,178 @@ class TestCleanImages:
         result = clean_images(config)
 
         assert result == 0  # Idempotent
+
+
+def _mock_subprocess_run(returncode=0, stdout="", stderr=""):
+    """Create a mock for subprocess.run with configurable return."""
+    mock = MagicMock()
+    mock.returncode = returncode
+    mock.stdout = stdout
+    mock.stderr = stderr
+    return mock
+
+
+def _run_container_patches(stack):
+    """Set up common patches for run_container tests. Returns (mock_run, mock_runtime, mock_stdin)."""
+    from container_magic.core.runtime import Runtime
+
+    mock_run = stack.enter_context(patch("container_magic.core.runner.subprocess.run"))
+    mock_runtime = stack.enter_context(patch("container_magic.core.runner.get_runtime"))
+    stack.enter_context(
+        patch("container_magic.core.runner.scan_workspace_symlinks", return_value=[])
+    )
+    stack.enter_context(
+        patch("container_magic.core.runner.collect_env_files", return_value=[])
+    )
+    stack.enter_context(
+        patch(
+            "container_magic.core.runner._detect_container_home",
+            return_value="/home/testuser",
+        )
+    )
+    mock_stdin = stack.enter_context(patch("container_magic.core.runner.sys.stdin"))
+    mock_runtime.return_value = Runtime.DOCKER
+    mock_stdin.isatty.return_value = False
+    return mock_run, mock_runtime, mock_stdin
+
+
+class TestRunContainer:
+    """Tests for run_container argument assembly."""
+
+    def _run(self, config=None, user_args=None, project_dir=None, user_cwd=None):
+        """Run run_container with mocks and return the captured run args."""
+        from contextlib import ExitStack
+
+        if config is None:
+            config = _make_config()
+        if user_args is None:
+            user_args = ["echo", "hello"]
+        if project_dir is None:
+            project_dir = Path("/tmp/test-project")
+        if user_cwd is None:
+            user_cwd = project_dir
+
+        with ExitStack() as stack:
+            mock_run, _, _ = _run_container_patches(stack)
+
+            mock_run.side_effect = [
+                _mock_subprocess_run(returncode=0),  # image inspect
+                _mock_subprocess_run(returncode=0, stdout=""),  # ps check
+                _mock_subprocess_run(returncode=0),  # docker run
+            ]
+
+            run_container(config, project_dir, user_cwd, user_args)
+
+            calls = mock_run.call_args_list
+            for call in calls:
+                args = call.args[0] if call.args else []
+                if len(args) > 1 and args[1] == "run":
+                    return args
+            return calls[-1].args[0]
+
+    def test_basic_args(self):
+        args = self._run()
+        assert args[0] == "docker"
+        assert args[1] == "run"
+        name_idx = args.index("--name")
+        assert args[name_idx + 1] == "test-project-development"
+        assert "test-project:development" in args
+
+    def test_workspace_mount(self):
+        args = self._run(project_dir=Path("/tmp/test-project"))
+        volume_args = [args[i + 1] for i in range(len(args)) if args[i] == "-v"]
+        workspace_mounts = [v for v in volume_args if "workspace" in v and ":z" in v]
+        assert len(workspace_mounts) >= 1
+
+    def test_workdir_set(self):
+        args = self._run()
+        assert "--workdir" in args
+
+    def test_image_not_found_returns_1(self):
+        from contextlib import ExitStack
+
+        config = _make_config()
+        with ExitStack() as stack:
+            mock_run, _, _ = _run_container_patches(stack)
+            mock_run.return_value = _mock_subprocess_run(returncode=1)
+
+            result = run_container(config, Path("/tmp/test"), Path("/tmp/test"), [])
+            assert result == 1
+
+    def test_ipc_mode(self):
+        config = _make_config(runtime={"ipc": "host"})
+        args = self._run(config=config)
+        ipc_idx = args.index("--ipc")
+        assert args[ipc_idx + 1] == "host"
+
+    def test_network_mode(self):
+        config = _make_config(runtime={"network_mode": "host"})
+        args = self._run(config=config)
+        net_idx = args.index("--net")
+        assert args[net_idx + 1] == "host"
+
+    def test_privileged_mode(self):
+        config = _make_config(runtime={"privileged": True})
+        args = self._run(config=config)
+        assert "--privileged" in args
+
+    def test_volumes_expanded_and_labelled(self):
+        config = _make_config(runtime={"volumes": ["/tmp/data:/data:ro"]})
+        args = self._run(config=config)
+        volume_args = [args[i + 1] for i in range(len(args)) if args[i] == "-v"]
+        data_mounts = [v for v in volume_args if "/tmp/data" in v]
+        assert len(data_mounts) == 1
+        assert ":ro,z" in data_mounts[0]
+
+    def test_devices_passthrough(self):
+        config = _make_config(runtime={"devices": ["/dev/video0:/dev/video0"]})
+        args = self._run(config=config)
+        dev_idx = args.index("--device")
+        assert args[dev_idx + 1] == "/dev/video0:/dev/video0"
+
+    def test_ad_hoc_command_exec_form(self):
+        args = self._run(user_args=["python3", "script.py"])
+        assert "python3" in args
+        assert "script.py" in args
+        assert "-c" not in args
+
+    def test_custom_command_shell_wrapped(self):
+        config = _make_config(commands={"train": {"command": "python train.py"}})
+        args = self._run(config=config, user_args=["train"])
+        c_idx = args.index("-c")
+        assert "python train.py" in args[c_idx + 1]
+
+    def test_custom_command_env_vars(self):
+        config = _make_config(
+            commands={"train": {"command": "echo", "env": {"CUDA": "0"}}}
+        )
+        args = self._run(config=config, user_args=["train"])
+        e_idx = args.index("-e")
+        assert args[e_idx + 1] == "CUDA=0"
+
+    def test_custom_command_ports(self):
+        config = _make_config(
+            commands={"serve": {"command": "echo", "ports": ["8000:8000"]}}
+        )
+        args = self._run(config=config, user_args=["serve"])
+        pub_idx = args.index("--publish")
+        assert args[pub_idx + 1] == "8000:8000"
+
+    def test_detach_mode(self):
+        from contextlib import ExitStack
+
+        config = _make_config()
+        with ExitStack() as stack:
+            mock_run, _, _ = _run_container_patches(stack)
+            mock_run.side_effect = [
+                _mock_subprocess_run(returncode=0),  # image inspect
+                _mock_subprocess_run(returncode=0),  # docker run (detach skips ps)
+            ]
+
+            run_container(
+                config, Path("/tmp/test"), Path("/tmp/test"), ["--detach", "echo"]
+            )
+
+            run_call = mock_run.call_args_list[-1]
+            args = run_call.args[0]
+            assert "--detach" in args

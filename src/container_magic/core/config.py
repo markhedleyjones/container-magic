@@ -395,6 +395,10 @@ class ContainerMagicConfig(BaseModel):
         with open(path) as f:
             data = yaml.safe_load(f)
 
+        if not isinstance(data, dict):
+            print("Error: cm.yaml must contain a YAML mapping", file=sys.stderr)
+            sys.exit(1)
+
         try:
             config = cls(**data)
         except ValidationError as e:
