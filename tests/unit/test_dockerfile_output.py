@@ -1,21 +1,9 @@
 """Tests for Dockerfile output correctness."""
 
-from pathlib import Path
-from tempfile import TemporaryDirectory
-
 import pytest
 
-from container_magic.core.config import ContainerMagicConfig
-from container_magic.generators.dockerfile import generate_dockerfile
-
-
-def _generate(config_dict):
-    """Generate a Dockerfile from a config dict and return its content."""
-    config = ContainerMagicConfig(**config_dict)
-    with TemporaryDirectory() as tmpdir:
-        output_path = Path(tmpdir) / "Dockerfile"
-        generate_dockerfile(config, output_path)
-        return output_path.read_text()
+from tests.unit.conftest import generate_dockerfile_from_dict as _generate
+from tests.unit.conftest import get_stage_block as _get_stage_block
 
 
 def _base_config(**overrides):
@@ -156,22 +144,6 @@ class TestEmptyCopyArgs:
 # ---------------------------------------------------------------------------
 # 2.1 Stage preamble variants
 # ---------------------------------------------------------------------------
-
-
-def _get_stage_block(content, stage_name):
-    """Extract lines for a single stage from a generated Dockerfile."""
-    lines = content.splitlines()
-    start = None
-    end = None
-    for i, line in enumerate(lines):
-        if "FROM " in line and f" AS {stage_name}" in line:
-            start = i
-        elif start is not None and line.startswith("FROM "):
-            end = i
-            break
-    if start is not None:
-        return "\n".join(lines[start : end if end else len(lines)])
-    return ""
 
 
 class TestStagePreamble:
