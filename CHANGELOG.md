@@ -2,6 +2,50 @@
 
 <!-- version list -->
 
+## v4.2.3 (2026-03-26)
+
+### Bug Fixes
+
+- Codebase review cleanup ([#55](https://github.com/markhedleyjones/container-magic/pull/55),
+  [`c8da2bf`](https://github.com/markhedleyjones/container-magic/commit/c8da2bfe4928b48358c18eb6000ca444e3a4d540))
+
+- Guard empty YAML, read version from metadata, clean up manifest on exit
+  ([#55](https://github.com/markhedleyjones/container-magic/pull/55),
+  [`c8da2bf`](https://github.com/markhedleyjones/container-magic/commit/c8da2bfe4928b48358c18eb6000ca444e3a4d540))
+
+- Use ExitStack for Python 3.8 compatible mock context managers
+  ([#55](https://github.com/markhedleyjones/container-magic/pull/55),
+  [`c8da2bf`](https://github.com/markhedleyjones/container-magic/commit/c8da2bfe4928b48358c18eb6000ca444e3a4d540))
+
+### Chores
+
+- Remove dead macros template and unused asset dest reference
+  ([#55](https://github.com/markhedleyjones/container-magic/pull/55),
+  [`c8da2bf`](https://github.com/markhedleyjones/container-magic/commit/c8da2bfe4928b48358c18eb6000ca444e3a4d540))
+
+### Documentation
+
+- Fix American English spellings and cached-assets download step
+  ([#55](https://github.com/markhedleyjones/container-magic/pull/55),
+  [`c8da2bf`](https://github.com/markhedleyjones/container-magic/commit/c8da2bfe4928b48358c18eb6000ca444e3a4d540))
+
+### Refactoring
+
+- Deduplicate feature flags and remove unnecessary runtime guards
+  ([#55](https://github.com/markhedleyjones/container-magic/pull/55),
+  [`c8da2bf`](https://github.com/markhedleyjones/container-magic/commit/c8da2bfe4928b48358c18eb6000ca444e3a4d540))
+
+- Extract shared test helpers into unit conftest
+  ([#55](https://github.com/markhedleyjones/container-magic/pull/55),
+  [`c8da2bf`](https://github.com/markhedleyjones/container-magic/commit/c8da2bfe4928b48358c18eb6000ca444e3a4d540))
+
+### Testing
+
+- Add unit tests for run_container argument assembly
+  ([#55](https://github.com/markhedleyjones/container-magic/pull/55),
+  [`c8da2bf`](https://github.com/markhedleyjones/container-magic/commit/c8da2bfe4928b48358c18eb6000ca444e3a4d540))
+
+
 ## v4.2.2 (2026-03-26)
 
 ### Bug Fixes
