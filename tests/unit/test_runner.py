@@ -433,11 +433,37 @@ def _mock_subprocess_run(returncode=0, stdout="", stderr=""):
     return mock
 
 
+def _run_container_patches(stack):
+    """Set up common patches for run_container tests. Returns (mock_run, mock_runtime, mock_stdin)."""
+    from container_magic.core.runtime import Runtime
+
+    mock_run = stack.enter_context(patch("container_magic.core.runner.subprocess.run"))
+    mock_runtime = stack.enter_context(patch("container_magic.core.runner.get_runtime"))
+    stack.enter_context(
+        patch("container_magic.core.runner.scan_workspace_symlinks", return_value=[])
+    )
+    stack.enter_context(
+        patch("container_magic.core.runner.collect_env_files", return_value=[])
+    )
+    stack.enter_context(
+        patch(
+            "container_magic.core.runner._detect_container_home",
+            return_value="/home/testuser",
+        )
+    )
+    mock_stdin = stack.enter_context(patch("container_magic.core.runner.sys.stdin"))
+    mock_runtime.return_value = Runtime.DOCKER
+    mock_stdin.isatty.return_value = False
+    return mock_run, mock_runtime, mock_stdin
+
+
 class TestRunContainer:
     """Tests for run_container argument assembly."""
 
     def _run(self, config=None, user_args=None, project_dir=None, user_cwd=None):
         """Run run_container with mocks and return the captured run args."""
+        from contextlib import ExitStack
+
         if config is None:
             config = _make_config()
         if user_args is None:
@@ -447,23 +473,8 @@ class TestRunContainer:
         if user_cwd is None:
             user_cwd = project_dir
 
-        with (
-            patch("container_magic.core.runner.subprocess.run") as mock_run,
-            patch("container_magic.core.runner.get_runtime") as mock_runtime,
-            patch(
-                "container_magic.core.runner.scan_workspace_symlinks", return_value=[]
-            ),
-            patch("container_magic.core.runner.collect_env_files", return_value=[]),
-            patch(
-                "container_magic.core.runner._detect_container_home",
-                return_value="/home/testuser",
-            ),
-            patch("container_magic.core.runner.sys.stdin") as mock_stdin,
-        ):
-            from container_magic.core.runtime import Runtime
-
-            mock_runtime.return_value = Runtime.DOCKER
-            mock_stdin.isatty.return_value = False
+        with ExitStack() as stack:
+            mock_run, _, _ = _run_container_patches(stack)
 
             mock_run.side_effect = [
                 _mock_subprocess_run(returncode=0),  # image inspect
@@ -499,22 +510,11 @@ class TestRunContainer:
         assert "--workdir" in args
 
     def test_image_not_found_returns_1(self):
-        config = _make_config()
-        with (
-            patch("container_magic.core.runner.subprocess.run") as mock_run,
-            patch("container_magic.core.runner.get_runtime") as mock_runtime,
-            patch(
-                "container_magic.core.runner.scan_workspace_symlinks", return_value=[]
-            ),
-            patch("container_magic.core.runner.collect_env_files", return_value=[]),
-            patch(
-                "container_magic.core.runner._detect_container_home",
-                return_value="/home/testuser",
-            ),
-        ):
-            from container_magic.core.runtime import Runtime
+        from contextlib import ExitStack
 
-            mock_runtime.return_value = Runtime.DOCKER
+        config = _make_config()
+        with ExitStack() as stack:
+            mock_run, _, _ = _run_container_patches(stack)
             mock_run.return_value = _mock_subprocess_run(returncode=1)
 
             result = run_container(config, Path("/tmp/test"), Path("/tmp/test"), [])
@@ -580,22 +580,11 @@ class TestRunContainer:
         assert args[pub_idx + 1] == "8000:8000"
 
     def test_detach_mode(self):
-        config = _make_config()
-        with (
-            patch("container_magic.core.runner.subprocess.run") as mock_run,
-            patch("container_magic.core.runner.get_runtime") as mock_runtime,
-            patch(
-                "container_magic.core.runner.scan_workspace_symlinks", return_value=[]
-            ),
-            patch("container_magic.core.runner.collect_env_files", return_value=[]),
-            patch(
-                "container_magic.core.runner._detect_container_home",
-                return_value="/home/testuser",
-            ),
-        ):
-            from container_magic.core.runtime import Runtime
+        from contextlib import ExitStack
 
-            mock_runtime.return_value = Runtime.DOCKER
+        config = _make_config()
+        with ExitStack() as stack:
+            mock_run, _, _ = _run_container_patches(stack)
             mock_run.side_effect = [
                 _mock_subprocess_run(returncode=0),  # image inspect
                 _mock_subprocess_run(returncode=0),  # docker run (detach skips ps)
