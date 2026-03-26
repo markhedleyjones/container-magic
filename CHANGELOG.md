@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v4.2.2 (2026-03-26)
+
+### Bug Fixes
+
+- Pass --help through to container commands instead of intercepting
+  ([#54](https://github.com/markhedleyjones/container-magic/pull/54),
+  [`8dbcd04`](https://github.com/markhedleyjones/container-magic/commit/8dbcd04cf3ef53370ed78060756dba933c0e8e5e))
+
+
 ## v4.2.1 (2026-03-26)
 
 ### Bug Fixes
