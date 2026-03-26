@@ -113,6 +113,35 @@ runtime:
 
 In the generated `run.sh`, `~` and `$HOME` on your side are rendered as `$HOME` for shell expansion at runtime. The container side is expanded to a literal path at generation time. Volumes using `$WORKSPACE` are not included in `run.sh` because the workspace is baked into the production image - a warning is printed during `cm update` if this applies.
 
+### Per-Stage Runtime
+
+Stages can override or extend the global runtime configuration by adding a `runtime` block within the stage definition:
+
+```yaml
+runtime:
+  features:
+    - gpu
+
+stages:
+  development:
+    from: base
+    runtime:
+      network_mode: host
+      volumes:
+        - ~/.local/bin/claude:/usr/local/bin/claude:ro
+        - ~/.claude:~/.claude
+
+  production:
+    from: base
+```
+
+**Merge rules:**
+
+- **Scalar fields** (network_mode, privileged, ipc, shell): stage value overrides the global value
+- **List fields** (volumes, devices, features): stage values are appended to the global values
+
+In the example above, `cm run` (development) gets `network_mode: host`, the Claude CLI mounts, and the global `gpu` feature. `run.sh` (production) gets only the global `gpu` feature with no extra volumes.
+
 ### Shell
 
 The `shell` field sets the interactive shell used by `cm run` and `run.sh` when no command is given. If not set, it is auto-detected from the base image (Alpine uses `/bin/sh`, everything else uses `/bin/bash`). This does not affect `RUN` commands in the Dockerfile, which always use the container's standard shell.

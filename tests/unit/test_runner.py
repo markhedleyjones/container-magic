@@ -117,7 +117,7 @@ class TestDetectShell:
 class TestBuildFeatureFlags:
     def test_no_features(self):
         config = _make_config()
-        flags = build_feature_flags(config)
+        flags = build_feature_flags(config.runtime)
         assert flags == {
             "display": False,
             "gpu": False,
@@ -129,12 +129,12 @@ class TestBuildFeatureFlags:
         config = _make_config(
             runtime={"features": ["display", "gpu", "audio", "aws_credentials"]}
         )
-        flags = build_feature_flags(config)
+        flags = build_feature_flags(config.runtime)
         assert all(flags.values())
 
     def test_partial_features(self):
         config = _make_config(runtime={"features": ["gpu"]})
-        flags = build_feature_flags(config)
+        flags = build_feature_flags(config.runtime)
         assert flags["gpu"] is True
         assert flags["display"] is False
         assert flags["audio"] is False

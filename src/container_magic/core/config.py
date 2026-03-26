@@ -208,6 +208,31 @@ class RuntimeConfig(BaseModel):
                 raise ValueError("Device path must not be empty")
         return v
 
+    def merge_with(self, stage_runtime: "RuntimeConfig") -> "RuntimeConfig":
+        """Merge this (global) runtime with a stage-specific override.
+
+        Scalars: stage value wins if set (not None / not default).
+        Lists: stage values are appended to global values.
+        """
+        merged = self.model_copy(deep=True)
+
+        # Scalar overrides - stage wins if explicitly set
+        if stage_runtime.privileged:
+            merged.privileged = stage_runtime.privileged
+        if stage_runtime.network_mode is not None:
+            merged.network_mode = stage_runtime.network_mode
+        if stage_runtime.ipc is not None:
+            merged.ipc = stage_runtime.ipc
+        if stage_runtime.shell is not None:
+            merged.shell = stage_runtime.shell
+
+        # List appends - stage values added to global
+        merged.features = list(dict.fromkeys(merged.features + stage_runtime.features))
+        merged.volumes = merged.volumes + stage_runtime.volumes
+        merged.devices = merged.devices + stage_runtime.devices
+
+        return merged
+
 
 class StageConfig(BaseModel):
     """Build stage configuration."""
@@ -228,6 +253,11 @@ class StageConfig(BaseModel):
         default=None,
         description="Ordered list of build steps: bare strings for keywords or Dockerfile passthrough, dicts for structured commands (run, copy, env, or command builder syntax)",
     )
+    runtime: Optional[RuntimeConfig] = Field(
+        default=None,
+        description="Stage-specific runtime overrides. Scalars override the global runtime; "
+        "lists (volumes, devices, features) are appended to the global values.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -237,7 +267,8 @@ class StageConfig(BaseModel):
             return data
         if "shell" in data:
             raise ValueError(
-                "stages.<name>.shell has moved to runtime.shell. "
+                "stages.<name>.shell has moved to runtime.shell or "
+                "stages.<name>.runtime.shell. "
                 "The shell field sets the interactive shell for cm run and run.sh."
             )
         return data
@@ -347,6 +378,18 @@ class ContainerMagicConfig(BaseModel):
         description="Per-project command registry overrides for structured step syntax",
     )
     build_script: BuildScriptConfig = Field(default_factory=BuildScriptConfig)
+
+    def effective_runtime(self, stage_name: str) -> RuntimeConfig:
+        """Resolve the effective runtime for a stage.
+
+        Merges the global runtime with the stage-specific runtime override
+        if one exists. Returns the global runtime unchanged if the stage
+        has no override.
+        """
+        stage = self.stages.get(stage_name)
+        if stage and stage.runtime:
+            return self.runtime.merge_with(stage.runtime)
+        return self.runtime
 
     @field_validator("assets", mode="before")
     @classmethod

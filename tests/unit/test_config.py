@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from container_magic.core.config import ContainerMagicConfig
+from container_magic.core.config import ContainerMagicConfig, RuntimeConfig
 
 
 def test_valid_image_name():
@@ -361,3 +361,109 @@ def test_stage_shell_rejected_with_migration_message():
                 "production": {"from": "base"},
             },
         )
+
+
+class TestRuntimeMerge:
+    def test_scalar_override(self):
+        global_rt = RuntimeConfig(network_mode="bridge", ipc="private")
+        stage_rt = RuntimeConfig(network_mode="host")
+        merged = global_rt.merge_with(stage_rt)
+        assert merged.network_mode == "host"
+        assert merged.ipc == "private"
+
+    def test_list_append_volumes(self):
+        global_rt = RuntimeConfig(volumes=["/data:/data"])
+        stage_rt = RuntimeConfig(volumes=["~/.config:~/.config"])
+        merged = global_rt.merge_with(stage_rt)
+        assert merged.volumes == ["/data:/data", "~/.config:~/.config"]
+
+    def test_list_append_features(self):
+        global_rt = RuntimeConfig(features=["gpu"])
+        stage_rt = RuntimeConfig(features=["display"])
+        merged = global_rt.merge_with(stage_rt)
+        assert "gpu" in merged.features
+        assert "display" in merged.features
+
+    def test_features_deduplicated(self):
+        global_rt = RuntimeConfig(features=["gpu"])
+        stage_rt = RuntimeConfig(features=["gpu", "display"])
+        merged = global_rt.merge_with(stage_rt)
+        assert merged.features.count("gpu") == 1
+
+    def test_list_append_devices(self):
+        global_rt = RuntimeConfig(devices=["/dev/video0:/dev/video0"])
+        stage_rt = RuntimeConfig(devices=["/dev/dri:/dev/dri"])
+        merged = global_rt.merge_with(stage_rt)
+        assert len(merged.devices) == 2
+
+    def test_empty_stage_returns_global(self):
+        global_rt = RuntimeConfig(network_mode="host", volumes=["/data:/data"])
+        stage_rt = RuntimeConfig()
+        merged = global_rt.merge_with(stage_rt)
+        assert merged.network_mode == "host"
+        assert merged.volumes == ["/data:/data"]
+
+    def test_shell_override(self):
+        global_rt = RuntimeConfig(shell="/bin/bash")
+        stage_rt = RuntimeConfig(shell="/bin/sh")
+        merged = global_rt.merge_with(stage_rt)
+        assert merged.shell == "/bin/sh"
+
+    def test_privileged_override(self):
+        global_rt = RuntimeConfig(privileged=False)
+        stage_rt = RuntimeConfig(privileged=True)
+        merged = global_rt.merge_with(stage_rt)
+        assert merged.privileged is True
+
+
+class TestEffectiveRuntime:
+    def _make_config(self, **overrides):
+        data = {
+            "names": {"image": "test", "user": "root"},
+            "stages": {
+                "base": {"from": "debian:bookworm-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        }
+        data.update(overrides)
+        return ContainerMagicConfig(**data)
+
+    def test_no_stage_runtime_returns_global(self):
+        config = self._make_config(runtime={"network_mode": "host"})
+        rt = config.effective_runtime("development")
+        assert rt.network_mode == "host"
+
+    def test_stage_runtime_merges_with_global(self):
+        config = self._make_config(
+            runtime={"volumes": ["/data:/data"]},
+            stages={
+                "base": {"from": "debian:bookworm-slim"},
+                "development": {
+                    "from": "base",
+                    "runtime": {"volumes": ["~/.config:~/.config"]},
+                },
+                "production": {"from": "base"},
+            },
+        )
+        dev_rt = config.effective_runtime("development")
+        assert len(dev_rt.volumes) == 2
+        prod_rt = config.effective_runtime("production")
+        assert len(prod_rt.volumes) == 1
+
+    def test_stage_scalar_overrides_global(self):
+        config = self._make_config(
+            runtime={"network_mode": "bridge"},
+            stages={
+                "base": {"from": "debian:bookworm-slim"},
+                "development": {
+                    "from": "base",
+                    "runtime": {"network_mode": "host"},
+                },
+                "production": {"from": "base"},
+            },
+        )
+        dev_rt = config.effective_runtime("development")
+        assert dev_rt.network_mode == "host"
+        prod_rt = config.effective_runtime("production")
+        assert prod_rt.network_mode == "bridge"
