@@ -248,6 +248,34 @@ class TestVenvCreation:
         assert len(chown_lines) >= 1
         assert chown_lines[0] > pip_lines[-1]
 
+    def test_venv_chown_switches_to_root_when_base_has_become(self):
+        """Venv chown wraps with USER root when inheriting non-root context."""
+        config = {
+            "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
+            "stages": {
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [
+                        {"pip": {"install": ["flask"]}},
+                        {"create": "user"},
+                        {"become": "user"},
+                    ],
+                },
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        }
+        content = _generate(config)
+        lines = content.splitlines()
+        chown_lines = [
+            i for i, line in enumerate(lines) if "chown" in line and "/opt/venv" in line
+        ]
+        assert len(chown_lines) >= 1
+        # USER root should appear before the chown
+        chown_idx = chown_lines[0]
+        preceding = [line.strip() for line in lines[:chown_idx] if line.strip()]
+        assert preceding[-1] == "USER root"
+
     def test_stage_from_external_image_resets_venv(self):
         """Stage from external image (not parent stage) starts fresh."""
         config = {
