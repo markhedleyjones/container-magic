@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v4.3.0 (2026-03-26)
+
+### Bug Fixes
+
+- Allow per-stage privileged override to disable global privileged
+  ([#56](https://github.com/markhedleyjones/container-magic/pull/56),
+  [`c2bf9a7`](https://github.com/markhedleyjones/container-magic/commit/c2bf9a7ee44a004c5137f3235c69a0e3465f715e))
+
+- Import RuntimeConfig to resolve forward reference lint errors
+  ([#56](https://github.com/markhedleyjones/container-magic/pull/56),
+  [`c2bf9a7`](https://github.com/markhedleyjones/container-magic/commit/c2bf9a7ee44a004c5137f3235c69a0e3465f715e))
+
+### Features
+
+- Per-stage runtime configuration
+  ([#56](https://github.com/markhedleyjones/container-magic/pull/56),
+  [`c2bf9a7`](https://github.com/markhedleyjones/container-magic/commit/c2bf9a7ee44a004c5137f3235c69a0e3465f715e))
+
+
 ## v4.2.3 (2026-03-26)
 
 ### Bug Fixes
