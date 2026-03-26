@@ -323,8 +323,6 @@ def cache_list(path: Path):
         size_mb = asset["size"] / (1024 * 1024)
         click.echo(f"  {asset['filename']} ({size_mb:.2f} MB)")
         click.echo(f"    URL: {asset['url']}")
-        if asset.get("dest"):
-            click.echo(f"    Dest: {asset['dest']}")
         click.echo(f"    Hash: {asset['hash'][:16]}...")
 
 
