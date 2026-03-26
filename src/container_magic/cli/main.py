@@ -97,7 +97,7 @@ def cli():
     "--in-place",
     "in_place",
     is_flag=True,
-    help="Initialize in current directory instead of creating new one",
+    help="Initialise in current directory instead of creating new one",
 )
 def init(
     template: str,
@@ -122,7 +122,7 @@ def init(
 
     # Determine project path
     if in_place:
-        # Initialize in current directory
+        # Initialise in current directory
         path = Path.cwd()
     elif path is None:
         # Create new directory with project name
@@ -141,7 +141,7 @@ def init(
         click.echo(f"Creating project at {path}")
         path.mkdir(parents=True)
     else:
-        click.echo(f"Initializing in {path}")
+        click.echo(f"Initialising in {path}")
 
     # Create default config with base, development, and production stages
     # If no tag specified, append :latest
