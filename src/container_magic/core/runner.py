@@ -12,7 +12,11 @@ import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from container_magic.core.config import ContainerMagicConfig, CustomCommand
+from container_magic.core.config import (
+    ContainerMagicConfig,
+    CustomCommand,
+    RuntimeConfig,
+)
 from container_magic.core.runtime import Runtime, get_runtime
 from container_magic.core.symlinks import scan_workspace_symlinks
 from container_magic.core.templates import (
@@ -58,7 +62,7 @@ def _detect_container_home() -> str:
 
 
 def _detect_shell(
-    config: ContainerMagicConfig, runtime_override: "RuntimeConfig" = None
+    config: ContainerMagicConfig, runtime_override: RuntimeConfig = None
 ) -> str:
     """Detect the interactive shell for cm run.
 
@@ -76,7 +80,7 @@ def _detect_shell(
     return detect_shell(resolve_base_image(dev_stage_config.frm, config.stages))
 
 
-def build_feature_flags(runtime: "RuntimeConfig") -> Dict[str, bool]:
+def build_feature_flags(runtime: RuntimeConfig) -> Dict[str, bool]:
     """Build feature flags dict from a runtime config."""
     features = runtime.features
     return {
