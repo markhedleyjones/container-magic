@@ -12,7 +12,11 @@ import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from container_magic.core.config import ContainerMagicConfig, CustomCommand
+from container_magic.core.config import (
+    ContainerMagicConfig,
+    CustomCommand,
+    RuntimeConfig,
+)
 from container_magic.core.runtime import Runtime, get_runtime
 from container_magic.core.symlinks import scan_workspace_symlinks
 from container_magic.core.templates import (
@@ -57,12 +61,15 @@ def _detect_container_home() -> str:
     return os.path.expanduser("~")
 
 
-def _detect_shell(config: ContainerMagicConfig) -> str:
+def _detect_shell(
+    config: ContainerMagicConfig, runtime_override: RuntimeConfig = None
+) -> str:
     """Detect the interactive shell for cm run.
 
     Priority: runtime.shell > distro field > image-name detection.
     """
-    runtime_shell = config.runtime.shell
+    rt = runtime_override or config.runtime
+    runtime_shell = rt.shell
     if runtime_shell:
         return runtime_shell
     dev_stage = "development" if "development" in config.stages else "base"
@@ -73,9 +80,9 @@ def _detect_shell(config: ContainerMagicConfig) -> str:
     return detect_shell(resolve_base_image(dev_stage_config.frm, config.stages))
 
 
-def build_feature_flags(config: ContainerMagicConfig) -> Dict[str, bool]:
-    """Build feature flags dict from runtime config."""
-    features = config.runtime.features
+def build_feature_flags(runtime: RuntimeConfig) -> Dict[str, bool]:
+    """Build feature flags dict from a runtime config."""
+    features = runtime.features
     return {
         "display": "display" in features,
         "gpu": "gpu" in features,
@@ -299,9 +306,10 @@ def run_container(
     """
     runtime = get_runtime(config.backend)
     runtime_cmd = runtime.value
-    shell = _detect_shell(config)
+    effective_rt = config.effective_runtime("development")
+    shell = _detect_shell(config, effective_rt)
     container_home = _detect_container_home()
-    features = build_feature_flags(config)
+    features = build_feature_flags(effective_rt)
     image = f"{config.names.image}:development"
     container_name = f"{config.names.image}-development"
 
@@ -331,17 +339,17 @@ def run_container(
     run_args.extend(["--hostname", config.names.image])
     run_args.append("--rm")
 
-    if config.runtime.ipc:
-        run_args.extend(["--ipc", config.runtime.ipc])
-    if config.runtime.network_mode:
-        run_args.extend(["--net", config.runtime.network_mode])
+    if effective_rt.ipc:
+        run_args.extend(["--ipc", effective_rt.ipc])
+    if effective_rt.network_mode:
+        run_args.extend(["--net", effective_rt.network_mode])
 
     if runtime == Runtime.PODMAN:
         run_args.append("--replace")
         run_args.append("--userns=keep-id")
         run_args.append("--env-host=false")
 
-    if config.runtime.privileged:
+    if effective_rt.privileged:
         run_args.append("--privileged")
 
     # Mount workspace
@@ -375,13 +383,13 @@ def run_container(
         workspace_user=str(project_dir / config.names.workspace),
         workspace_container=f"{container_home}/{config.names.workspace}",
     )
-    expanded_volumes = expand_volumes_for_run(config.runtime.volumes, volume_context)
+    expanded_volumes = expand_volumes_for_run(effective_rt.volumes, volume_context)
     labelled_volumes = label_volumes(expanded_volumes)
     for volume in labelled_volumes:
         run_args.extend(["-v", volume])
 
     # Device passthrough
-    for device in config.runtime.devices:
+    for device in effective_rt.devices:
         run_args.extend(["--device", device])
 
     # Feature flags
@@ -584,7 +592,7 @@ def stop_container(config: ContainerMagicConfig) -> int:
     )
 
     # xhost cleanup if display feature enabled with Docker
-    features = build_feature_flags(config)
+    features = build_feature_flags(config.effective_runtime("development"))
     if features["display"] and runtime == Runtime.DOCKER and os.environ.get("DISPLAY"):
         try:
             subprocess.run(["xhost", "-local:"], capture_output=True)

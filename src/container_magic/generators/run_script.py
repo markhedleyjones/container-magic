@@ -42,12 +42,14 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     else:
         workdir = f"/home/{production_user}"
 
-    # Determine interactive shell: runtime.shell > distro > image-name detection
-    runtime_shell = config.runtime.shell
+    # Resolve effective runtime for production stage
     prod_stage = "production" if "production" in config.stages else "base"
+    effective_rt = config.effective_runtime(prod_stage)
+
+    # Determine interactive shell: runtime.shell > distro > image-name detection
     stage_config = config.stages[prod_stage]
     shell = (
-        runtime_shell
+        effective_rt.shell
         or resolve_distro_shell(prod_stage, config.stages)
         or detect_shell(resolve_base_image(stage_config.frm, config.stages))
     )
@@ -60,11 +62,10 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
             cmd_copy.command = cmd_spec.command.replace("$", r"\$")
             commands_escaped[cmd_name] = cmd_copy
 
-    features = build_feature_flags(config)
+    features = build_feature_flags(effective_rt)
 
     # Expand volume variables and apply SELinux labels for production context
-    raw_volumes = config.runtime.volumes
-    expanded_volumes = expand_volumes_for_script(raw_volumes, workdir)
+    expanded_volumes = expand_volumes_for_script(effective_rt.volumes, workdir)
     expanded_volumes = label_volumes(expanded_volumes)
 
     content = template.render(
@@ -73,13 +74,13 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         workdir=workdir,
         shell=shell,
         backend=backend,
-        privileged=config.runtime.privileged,
-        network=config.runtime.network_mode,
+        privileged=effective_rt.privileged,
+        network=effective_rt.network_mode,
         features=features,
         volumes=expanded_volumes,
-        devices=config.runtime.devices,
+        devices=effective_rt.devices,
         commands=commands_escaped,
-        ipc=config.runtime.ipc,
+        ipc=effective_rt.ipc,
     )
 
     run_script = project_dir / "run.sh"
