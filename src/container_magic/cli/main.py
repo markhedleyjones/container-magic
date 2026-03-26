@@ -363,7 +363,14 @@ def clean():
     clean_images(config)
 
 
-@cli.command("run", context_settings=dict(ignore_unknown_options=True))
+@cli.command(
+    "run",
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+        help_option_names=[],
+    ),
+)
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
 def cli_run(args):
     """Run a command in the development container."""
