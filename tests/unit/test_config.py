@@ -50,7 +50,7 @@ def test_default_values():
     assert config.names.workspace == "workspace"
     assert config.names.user == "root"
     assert config.backend == "auto"
-    assert config.runtime.privileged is False
+    assert config.runtime.privileged is None
     assert config.runtime.features == []
     assert config.runtime.volumes == []
     assert config.runtime.devices == []
@@ -409,9 +409,21 @@ class TestRuntimeMerge:
         merged = global_rt.merge_with(stage_rt)
         assert merged.shell == "/bin/sh"
 
-    def test_privileged_override(self):
+    def test_privileged_override_enable(self):
         global_rt = RuntimeConfig(privileged=False)
         stage_rt = RuntimeConfig(privileged=True)
+        merged = global_rt.merge_with(stage_rt)
+        assert merged.privileged is True
+
+    def test_privileged_override_disable(self):
+        global_rt = RuntimeConfig(privileged=True)
+        stage_rt = RuntimeConfig(privileged=False)
+        merged = global_rt.merge_with(stage_rt)
+        assert merged.privileged is False
+
+    def test_privileged_not_set_keeps_global(self):
+        global_rt = RuntimeConfig(privileged=True)
+        stage_rt = RuntimeConfig()
         merged = global_rt.merge_with(stage_rt)
         assert merged.privileged is True
 

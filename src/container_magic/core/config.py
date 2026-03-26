@@ -144,8 +144,8 @@ class RuntimeConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    privileged: bool = Field(
-        default=False, description="Run containers in privileged mode"
+    privileged: Optional[bool] = Field(
+        default=None, description="Run containers in privileged mode"
     )
     network_mode: Optional[Literal["host", "bridge", "none"]] = Field(
         default=None,
@@ -217,7 +217,7 @@ class RuntimeConfig(BaseModel):
         merged = self.model_copy(deep=True)
 
         # Scalar overrides - stage wins if explicitly set
-        if stage_runtime.privileged:
+        if stage_runtime.privileged is not None:
             merged.privileged = stage_runtime.privileged
         if stage_runtime.network_mode is not None:
             merged.network_mode = stage_runtime.network_mode
