@@ -168,6 +168,29 @@ def _step_is_pip(step: Union[str, Dict[str, Any]]) -> bool:
     return isinstance(step, dict) and len(step) == 1 and next(iter(step)) == "pip"
 
 
+def _step_installs_python_packages(
+    step: Union[str, Dict[str, Any]], registry: Dict
+) -> bool:
+    """Return True if the step's registry entry sets installs_python_packages.
+
+    Used to trigger PEP 668 marker removal and post-install bytecode
+    compilation. Any registered tool can opt in via its YAML file, not just pip.
+    """
+    from container_magic.core.registry import lookup as registry_lookup
+
+    if not isinstance(step, dict) or len(step) != 1:
+        return False
+    tool = next(iter(step))
+    value = step[tool]
+    if not isinstance(value, dict):
+        return False
+    for key in value:
+        entry = registry_lookup(registry, tool, key)
+        if entry is not None and entry.installs_python_packages:
+            return True
+    return False
+
+
 def process_stage_steps(
     stage: StageConfig,
     stage_name: str,
@@ -237,7 +260,7 @@ def process_stage_steps(
     ordered_steps = []
 
     for step in steps:
-        if _step_is_pip(step):
+        if _step_installs_python_packages(step, registry):
             pip_used_in_stage = True
             if not pip_prepared:
                 is_root = current_user is None

@@ -121,11 +121,13 @@ def build_command(
     tool: str,
     body: Any,
     registry_entry: Optional[RegistryEntry] = None,
+    field_values: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Build a complete RUN command from a tool name and its body.
 
     Flattens the dict structure into a command, injects registry flags
-    after the subcommand, and appends cleanup if present.
+    after the subcommand, expands any field values declared by the registry
+    entry, and appends cleanup if present.
     """
     segments = [tool]
 
@@ -135,6 +137,17 @@ def build_command(
         segments.append(subcommand)
         if registry_entry.flags:
             segments.append(registry_entry.flags)
+        for field_name, spec in registry_entry.fields.items():
+            values = (
+                field_values[field_name]
+                if field_values and field_name in field_values
+                else spec.default
+            )
+            if not values:
+                continue
+            if spec.type == "repeated_flag":
+                for v in values:
+                    segments.append(f"{spec.flag} {v}")
         if isinstance(args_value, list):
             if len(args_value) > 1:
                 base = " ".join(segments)
@@ -302,16 +315,34 @@ def parse_dict_step(
     # Command builder - look up in registry
     from container_magic.core.registry import lookup as registry_lookup
 
-    # Determine subcommand for registry lookup
+    # Determine subcommand and field values for registry lookup.
+    # When value is a dict, one key should match a registered subcommand; any
+    # remaining keys are fields whose handling is declared on that subcommand's
+    # registry entry (e.g. conda's `channels`).
     subcommand = None
-    if isinstance(value, dict) and len(value) == 1:
-        subcommand = next(iter(value))
-
+    field_values: Dict[str, Any] = {}
     entry = None
-    if subcommand is not None:
-        entry = registry_lookup(registry, key, subcommand)
+    body = value
 
-    command = build_command(key, value, entry)
+    if isinstance(value, dict) and value:
+        matching = [k for k in value if registry_lookup(registry, key, k) is not None]
+        if len(matching) == 1:
+            subcommand = matching[0]
+            entry = registry_lookup(registry, key, subcommand)
+            body = {subcommand: value[subcommand]}
+            field_values = {k: v for k, v in value.items() if k != subcommand}
+            unknown = [f for f in field_values if f not in entry.fields]
+            if unknown:
+                valid = ", ".join(sorted(entry.fields)) or "(none)"
+                raise ValueError(
+                    f"Unknown field(s) {unknown!r} on step '{key}: {subcommand}'. "
+                    f"Valid fields: {valid}"
+                )
+        elif len(matching) == 0 and len(value) == 1:
+            # No registry entry for the subcommand - pass through as-is
+            body = value
+
+    command = build_command(key, body, entry, field_values)
     return {"type": "run", "command": command}
 
 

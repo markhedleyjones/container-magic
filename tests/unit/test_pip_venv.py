@@ -230,6 +230,55 @@ class TestCompileBytecode:
         # Production inherits without adding - no compileall.
         assert content.count("python3 -m compileall") == 2
 
+    def test_compileall_triggered_by_conda(self):
+        """conda install triggers compileall just like pip does."""
+        config = {
+            "names": {"image": "test", "workspace": "workspace", "user": "root"},
+            "stages": {
+                "base": {
+                    "from": "pytorch/pytorch:latest",
+                    "steps": [{"conda": {"install": ["whisperx"]}}],
+                },
+                "development": {"from": "base", "steps": []},
+                "production": {"from": "base", "steps": []},
+            },
+        }
+        content = _generate(config)
+        assert "python3 -m compileall" in content
+        # Also marker removal should be injected for conda
+        assert "# Disable PEP 668" in content
+
+    def test_compileall_triggered_by_mamba(self):
+        config = {
+            "names": {"image": "test", "workspace": "workspace", "user": "root"},
+            "stages": {
+                "base": {
+                    "from": "pytorch/pytorch:latest",
+                    "steps": [{"mamba": {"install": ["whisperx"]}}],
+                },
+                "development": {"from": "base", "steps": []},
+                "production": {"from": "base", "steps": []},
+            },
+        }
+        content = _generate(config)
+        assert "python3 -m compileall" in content
+
+    def test_no_compileall_for_apt_only_stage(self):
+        """apt-get installs don't trigger compileall (not a Python installer)."""
+        config = {
+            "names": {"image": "test", "workspace": "workspace", "user": "root"},
+            "stages": {
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [{"apt-get": {"install": ["curl"]}}],
+                },
+                "development": {"from": "base", "steps": []},
+                "production": {"from": "base", "steps": []},
+            },
+        }
+        content = _generate(config)
+        assert "compileall" not in content
+
     def test_compileall_wraps_user_when_not_root(self):
         """If end-of-stage user context is non-root, wrap with USER root."""
         config = {

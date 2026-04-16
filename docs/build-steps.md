@@ -380,6 +380,9 @@ Container-magic applies container-optimised defaults to each package manager aut
 | `apk add` | -- | `--no-cache` | -- |
 | `dnf install` | -- | `-y` | `dnf clean all` |
 | `pip install` | -- | `--no-cache-dir` | -- |
+| `conda install` | -- | `--yes --quiet --override-channels --channel conda-forge` | -- |
+| `mamba install` | -- | `--yes --quiet --override-channels --channel conda-forge` | -- |
+| `micromamba install` | -- | `--yes --quiet --override-channels --channel conda-forge` | -- |
 
 For example, this step:
 
@@ -404,7 +407,43 @@ src/container_magic/registry/
   apk.yaml
   dnf.yaml
   pip.yaml
+  conda.yaml
+  mamba.yaml
+  micromamba.yaml
 ```
+
+### Conda, Mamba, Micromamba
+
+Conda-style installers use `conda-forge` by default with `--override-channels` so
+any system `.condarc` is ignored. `conda-forge` is a community-maintained channel
+that is free to use; Anaconda Inc.'s `defaults` channel requires a paid commercial
+license in many cases, so container-magic steers clear of it unless you opt in.
+
+To use a different set of channels, list them on the step:
+
+```yaml
+- conda:
+    install:
+      - pytorch-cuda
+      - whisperx
+    channels:
+      - pytorch
+      - nvidia
+      - conda-forge
+```
+
+The channel order is priority order: the first listed is the highest priority.
+The generated command is:
+
+```dockerfile
+RUN conda install --yes --quiet --override-channels \
+    --channel pytorch --channel nvidia --channel conda-forge \
+    pytorch-cuda whisperx
+```
+
+`mamba:` and `micromamba:` accept the same `channels:` field with the same
+defaults. Pick whichever is installed in your base image - `conda` for the
+reference implementation, `mamba` or `micromamba` for faster installs.
 
 ### Per-project Overrides
 
@@ -432,13 +471,45 @@ install:
   cleanup: "pacman -Scc --noconfirm"
 ```
 
-Each entry supports three optional fields:
+Each entry supports the following optional fields:
 
 - `setup` -- command to run before the main command (e.g. updating the package index)
 - `flags` -- flags appended to the command line
 - `cleanup` -- command to run after the main command (e.g. clearing caches to reduce layer size)
+- `fields` -- declare step fields that expand to CLI flags (e.g. conda's `channels`)
 
-All three are combined into a single `RUN` instruction to keep the layer count down.
+All are combined into a single `RUN` instruction to keep the layer count down.
+
+#### Step fields that expand to flags
+
+When a tool accepts a flag that is repeated in priority order (like conda's
+`--channel`), the registry can declare a `fields` block so users list values
+naturally in their step rather than memorising a flag string:
+
+```yaml
+# src/container_magic/registry/conda.yaml
+install:
+  flags: "--yes --quiet --override-channels"
+  fields:
+    channels:
+      flag: "--channel"
+      default:
+        - conda-forge
+```
+
+A user step like `conda: {install: [pkg], channels: [a, b]}` expands to
+`conda install --yes --quiet --override-channels --channel a --channel b pkg`.
+If the user omits `channels:`, the `default` list is used.
+
+Each field spec takes:
+
+- `flag` -- the CLI flag name (e.g. `--channel`)
+- `default` -- a list of values applied when the user doesn't specify the field
+- `type` -- how to expand the values. Currently only `repeated_flag` (default)
+  is supported: one `<flag> <value>` pair per item in order.
+
+Field names on user steps that aren't declared in the registry are rejected
+with a clear error message listing the valid fields.
 
 ## Common Patterns
 
