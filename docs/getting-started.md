@@ -53,25 +53,19 @@ downloaded datasets, caches - goes in a sibling folder and is declared under
 ```yaml
 runtime:
   volumes:
-    - outputs    # shorthand for ./outputs:/data/outputs
-    - cache      # shorthand for ./cache:/data/cache
+    - outputs                  # sibling folder -> /data/outputs
+    - cache                    # sibling folder -> /data/cache
+    - ../shared                # parent dir, shared with other projects
+    - /srv/pipeline/datasets   # absolute path
+    - ~/models                 # path under your home
 ```
 
-Bare names are shorthand: the host folder is a sibling of `run.sh`, the
-container path is `/data/<name>`. The folder is created if missing. This
-works identically in development (`cm run`) and production (`run.sh`).
-
-For data that lives elsewhere - a parent directory shared by several
-containers, an absolute path, or somewhere under `$HOME` - use the full
-`host:container` form:
-
-```yaml
-runtime:
-  volumes:
-    - ../shared-data:/data/shared     # parent dir, shared across projects
-    - /srv/pipeline/outputs:/data/out  # absolute path
-    - ~/datasets:/data/datasets:ro    # read-only mount from home
-```
+Any volume without a colon is shorthand: the container-side path is picked as
+`/data/<basename>` from the host path. Relative paths (bare names, `./`, `../`)
+are created if missing and anchored to the project directory in development or
+to the directory containing `run.sh` in production. Absolute and `~` paths are
+passed through as-is and must already exist. Use the full `host:container` form
+only when you want a different container name or need mount options like `:ro`.
 
 See [Volumes](configuration.md#volumes) for the full syntax.
 

@@ -116,69 +116,60 @@ In the generated `run.sh`, `~` and `$HOME` on your side are rendered as `$HOME` 
 
 #### Shorthand
 
-A bare name (no colon) is shorthand for a data folder that lives as a sibling
-of the project and is mounted under `/data/` inside the container. For example:
+A volume with no colon is shorthand. The container-side path is picked
+automatically as `/data/<basename>`, where `<basename>` is the last path
+segment of the host side. A colon is only needed when you want a different
+container-side name.
 
 ```yaml
 runtime:
   volumes:
-    - outputs
-    - cache
+    - outputs                      # ./outputs           -> /data/outputs
+    - cache                        # ./cache             -> /data/cache
+    - ../shared                    # ../shared           -> /data/shared
+    - /srv/pipeline/outputs        # /srv/pipeline/...   -> /data/outputs
+    - ~/datasets                   # ~/datasets          -> /data/datasets
 ```
 
-expands to:
+Host-side path handling depends on whether the path is relative:
 
-- `./outputs:/data/outputs`
-- `./cache:/data/cache`
+- **Relative paths** (bare names, `./x`, `../x`) are anchored to the project
+  directory in development and to the directory containing `run.sh` in
+  production. The host folder is created if missing.
+- **Absolute paths**, `~/x`, and `$HOME/x` are self-sufficient and are
+  passed through as-is. The host folder must already exist; container-magic
+  will not create folders outside the project root.
 
-The host folder is created if missing - in development relative to the project
-root, in production relative to the directory containing `run.sh`. Names must
-match `[a-zA-Z0-9_-]+`; anything else needs the full `host:container` form.
+The basename must match `[a-zA-Z0-9_-]+`. Paths that don't yield a valid
+basename (`..`, `/`, empty strings, names with dots or spaces) are rejected
+at config-parse time. Two volumes that resolve to the same container path
+are also rejected as a collision - no silent clobbering.
 
 Shorthand exists so bulk data (model outputs, caches, datasets) stays out of
-the workspace and out of the built image. Operators deploying the image
-elsewhere (Kubernetes, AWS Batch, etc.) can override by editing the generated
-mounts - the container-side path is always `/data/<name>`.
+the workspace and out of the built image. Operators deploying elsewhere can
+read the container-side path directly from cm.yaml - it's always
+`/data/<basename>`.
 
-#### Data shared across multiple projects
+#### Multi-container setups
 
-Shorthand assumes the data folder is a sibling of the project. When data lives
-elsewhere - a parent directory shared by several containers, an absolute path,
-or somewhere under `$HOME` - use the full `host:container` form. Any path
-Docker accepts works:
-
-```yaml
-runtime:
-  volumes:
-    # Parent directory shared by multiple container-magic projects
-    - ../shared-data:/data/shared
-
-    # Absolute path (most predictable for production)
-    - /srv/pipeline/outputs:/data/outputs
-
-    # Path under the host user's home (rendered as $HOME in run.sh)
-    - ~/datasets:/data/datasets:ro
-```
-
-For multi-container setups where several projects read and write the same
-folder, the typical pattern is a parent directory:
+When several container-magic projects share the same data folder, put the
+folder in a parent directory and reference it with `../`:
 
 ```
 pipeline/
-  shared-data/          <- written by scraper, read by trainer
+  shared/               <- written by scraper, read by trainer
   scraper/
-    cm.yaml             <- volumes: - ../shared-data:/data/shared
+    cm.yaml             <- volumes: - ../shared
     run.sh
   trainer/
-    cm.yaml             <- volumes: - ../shared-data:/data/shared:ro
-    run.sh
+    cm.yaml             <- volumes: - ../shared:/data/shared:ro
+    run.sh              #  (full form used here for :ro)
 ```
 
-Relative paths in the full form are resolved by Docker relative to the CWD
-where `cm run` or `run.sh` is invoked. `cm run` changes into the project
-directory first, so `../shared-data` is always resolved relative to the
-project. For `run.sh`, invoke it from the project directory or use an
-absolute path to avoid surprises.
+Both projects see the shared folder at `/data/shared` inside their
+respective containers. The scraper can write; the trainer reads only. Use
+the full `host:container[:options]` form whenever you need `:ro` or other
+mount options.
 
 ### Per-Stage Runtime
 
