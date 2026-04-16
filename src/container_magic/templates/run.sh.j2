@@ -10,6 +10,7 @@ TAG="latest"
 WORKDIR="{{ workdir }}"
 WORKSPACE_NAME="{{ workspace_name }}"
 SHELL="{{ shell }}"
+_RUN_SH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Detect runtime backend
 {%- if backend == "auto" %}
@@ -98,6 +99,13 @@ BASE_RUN_ARGS+=("--privileged")
 {%- endif %}
 {%- if network %}
 BASE_RUN_ARGS+=("--net" "{{ network }}")
+{%- endif %}
+{%- if volume_shorthand %}
+
+# Create host folders for shorthand volumes (siblings to run.sh)
+{%- for name in volume_shorthand %}
+mkdir -p "${_RUN_SH_DIR}/{{ name }}"
+{%- endfor %}
 {%- endif %}
 {%- if volumes %}
 

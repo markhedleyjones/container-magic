@@ -31,6 +31,44 @@ cm run bash -c "echo Hello from container"
 cm run           # starts an interactive shell
 ```
 
+## Project Layout
+
+```
+my-project/
+  cm.yaml           <- config you edit
+  Dockerfile        <- generated
+  build.sh          <- generated
+  run.sh            <- generated
+  workspace/        <- your code and assets (baked into the image)
+  outputs/          <- data produced at runtime (mounted, NOT in image)
+  cache/            <- data produced at runtime (mounted, NOT in image)
+```
+
+Anything under `workspace/` is copied into the production image at build time,
+so keep it to code, configuration, and small assets. Anything you want to
+persist across runs but keep out of the image - model outputs, logs,
+downloaded datasets, caches - goes in a sibling folder and is declared under
+`runtime.volumes:`.
+
+```yaml
+runtime:
+  volumes:
+    - outputs                  # sibling folder -> /data/outputs
+    - cache                    # sibling folder -> /data/cache
+    - ../shared                # parent dir, shared with other projects
+    - /srv/pipeline/datasets   # absolute path
+    - ~/models                 # path under your home
+```
+
+Any volume without a colon is shorthand: the container-side path is picked as
+`/data/<basename>` from the host path. Relative paths (bare names, `./`, `../`)
+are created if missing and anchored to the project directory in development or
+to the directory containing `run.sh` in production. Absolute and `~` paths are
+passed through as-is and must already exist. Use the full `host:container` form
+only when you want a different container name or need mount options like `:ro`.
+
+See [Volumes](configuration.md#volumes) for the full syntax.
+
 ## Workflow
 
 ```

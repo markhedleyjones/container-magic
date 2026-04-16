@@ -120,7 +120,78 @@ def test_invalid_volume_format():
     with pytest.raises(ValidationError, match="Invalid volume format"):
         ContainerMagicConfig(
             names={"image": "test", "user": "root"},
-            runtime={"volumes": ["no-colon"]},
+            runtime={"volumes": [":/container"]},
+            stages={
+                "base": {"from": "debian:bookworm-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+
+def test_volume_shorthand_accepted():
+    """Test that shorthand host paths are accepted in all supported forms."""
+    config = ContainerMagicConfig(
+        names={"image": "test", "user": "root"},
+        runtime={
+            "volumes": [
+                "outputs",
+                "my-cache_2",
+                "../shared",
+                "/srv/pipeline/data",
+                "~/datasets",
+            ]
+        },
+        stages={
+            "base": {"from": "debian:bookworm-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+    )
+    assert config.runtime.volumes == [
+        "outputs",
+        "my-cache_2",
+        "../shared",
+        "/srv/pipeline/data",
+        "~/datasets",
+    ]
+
+
+def test_invalid_shorthand_volume_rejected():
+    """Test that shorthand entries with invalid basenames are rejected."""
+    for bad in ["out.puts", "out puts", "..", "../..", "/"]:
+        with pytest.raises(ValidationError):
+            ContainerMagicConfig(
+                names={"image": "test", "user": "root"},
+                runtime={"volumes": [bad]},
+                stages={
+                    "base": {"from": "debian:bookworm-slim"},
+                    "development": {"from": "base"},
+                    "production": {"from": "base"},
+                },
+            )
+
+
+def test_volume_collision_rejected():
+    """Test that two volumes mounting at the same container path are rejected."""
+    with pytest.raises(ValidationError, match="collision"):
+        ContainerMagicConfig(
+            names={"image": "test", "user": "root"},
+            runtime={"volumes": ["outputs", "../outputs"]},
+            stages={
+                "base": {"from": "debian:bookworm-slim"},
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        )
+
+
+def test_volume_collision_between_shorthand_and_full_rejected():
+    """Test collision detection across shorthand and full-form volumes."""
+    with pytest.raises(ValidationError, match="collision"):
+        ContainerMagicConfig(
+            names={"image": "test", "user": "root"},
+            runtime={"volumes": ["outputs", "/elsewhere:/data/outputs"]},
             stages={
                 "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},

@@ -79,6 +79,7 @@ runtime:
     - audio            # PulseAudio/PipeWire
     - aws_credentials  # AWS credential forwarding
   volumes:
+    - outputs                           # shorthand: ./outputs:/data/outputs
     - /host/path:/container/path        # bind mount
     - /host/path:/container/path:ro     # read-only bind mount
     - ~/.config/tool:~/.config/tool     # tilde expands to home directories
@@ -112,6 +113,63 @@ runtime:
 ```
 
 In the generated `run.sh`, `~` and `$HOME` on your side are rendered as `$HOME` for shell expansion at runtime. The container side is expanded to a literal path at generation time. Volumes using `$WORKSPACE` are not included in `run.sh` because the workspace is baked into the production image - a warning is printed during `cm update` if this applies.
+
+#### Shorthand
+
+A volume with no colon is shorthand. The container-side path is picked
+automatically as `/data/<basename>`, where `<basename>` is the last path
+segment of the host side. A colon is only needed when you want a different
+container-side name.
+
+```yaml
+runtime:
+  volumes:
+    - outputs                      # ./outputs           -> /data/outputs
+    - cache                        # ./cache             -> /data/cache
+    - ../shared                    # ../shared           -> /data/shared
+    - /srv/pipeline/outputs        # /srv/pipeline/...   -> /data/outputs
+    - ~/datasets                   # ~/datasets          -> /data/datasets
+```
+
+Host-side path handling depends on whether the path is relative:
+
+- **Relative paths** (bare names, `./x`, `../x`) are anchored to the project
+  directory in development and to the directory containing `run.sh` in
+  production. The host folder is created if missing.
+- **Absolute paths**, `~/x`, and `$HOME/x` are self-sufficient and are
+  passed through as-is. The host folder must already exist; container-magic
+  will not create folders outside the project root.
+
+The basename must match `[a-zA-Z0-9_-]+`. Paths that don't yield a valid
+basename (`..`, `/`, empty strings, names with dots or spaces) are rejected
+at config-parse time. Two volumes that resolve to the same container path
+are also rejected as a collision - no silent clobbering.
+
+Shorthand exists so bulk data (model outputs, caches, datasets) stays out of
+the workspace and out of the built image. Operators deploying elsewhere can
+read the container-side path directly from cm.yaml - it's always
+`/data/<basename>`.
+
+#### Multi-container setups
+
+When several container-magic projects share the same data folder, put the
+folder in a parent directory and reference it with `../`:
+
+```
+pipeline/
+  shared/               <- written by scraper, read by trainer
+  scraper/
+    cm.yaml             <- volumes: - ../shared
+    run.sh
+  trainer/
+    cm.yaml             <- volumes: - ../shared:/data/shared:ro
+    run.sh              #  (full form used here for :ro)
+```
+
+Both projects see the shared folder at `/data/shared` inside their
+respective containers. The scraper can write; the trainer reads only. Use
+the full `host:container[:options]` form whenever you need `:ro` or other
+mount options.
 
 ### Per-Stage Runtime
 
