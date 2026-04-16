@@ -189,3 +189,67 @@ class TestPipPreparation:
         assert "/opt/venv" not in content
         assert "VIRTUAL_ENV" not in content
         assert "python3 -m venv" not in content
+
+
+class TestCompileBytecode:
+    def test_compileall_emitted_after_pip(self):
+        """A stage with pip steps gets a compileall step after them."""
+        config = _base_config(steps=[{"pip": {"install": ["flask"]}}])
+        content = _generate(config)
+        assert "python3 -m compileall" in content
+        # compileall should come after the pip install
+        lines = content.splitlines()
+        pip_idx = next(i for i, ln in enumerate(lines) if "pip install" in ln)
+        compile_idx = next(i for i, ln in enumerate(lines) if "compileall" in ln)
+        assert compile_idx > pip_idx
+
+    def test_no_compileall_without_pip(self):
+        """Stages without pip don't emit compileall."""
+        config = _base_config(steps=[{"run": "echo hello"}])
+        content = _generate(config)
+        assert "compileall" not in content
+
+    def test_compileall_per_stage_that_adds_pip(self):
+        """Each stage that adds pip packages gets its own compileall."""
+        config = {
+            "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
+            "stages": {
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [{"pip": {"install": ["flask"]}}],
+                },
+                "development": {
+                    "from": "base",
+                    "steps": [{"pip": {"install": ["pytest"]}}],
+                },
+                "production": {"from": "base"},
+            },
+        }
+        content = _generate(config)
+        # Base and development both add pip, both get compileall.
+        # Production inherits without adding - no compileall.
+        assert content.count("python3 -m compileall") == 2
+
+    def test_compileall_wraps_user_when_not_root(self):
+        """If end-of-stage user context is non-root, wrap with USER root."""
+        config = {
+            "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
+            "stages": {
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [
+                        {"pip": {"install": ["flask"]}},
+                        {"create": "user"},
+                        {"become": "user"},
+                    ],
+                },
+                "development": {"from": "base"},
+                "production": {"from": "base"},
+            },
+        }
+        content = _generate(config)
+        lines = content.splitlines()
+        compile_idx = next(i for i, ln in enumerate(lines) if "compileall" in ln)
+        preceding = [line.strip() for line in lines[:compile_idx] if line.strip()]
+        user_lines = [line for line in preceding if line.startswith("USER ")]
+        assert user_lines[-1] == "USER root"

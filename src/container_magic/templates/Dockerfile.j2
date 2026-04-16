@@ -120,6 +120,17 @@ RUN rm -f /usr/lib/python*/EXTERNALLY-MANAGED \
 {% if not step.is_root %}
 USER {{ step.restore_user }}
 {% endif %}
+{% elif step.type == "compile_bytecode" %}
+{% if not step.is_root %}
+USER root
+{% endif %}
+# Pre-compile .pyc bytecode so imports don't pay the compile cost on every
+# startup; the runtime user can't write .pyc back to root-owned site-packages.
+# hadolint ignore=SC2046
+RUN python3 -m compileall -q -j 0 $(python3 -c "import site; print(' '.join(site.getsitepackages()))")
+{% if not step.is_root %}
+USER {{ step.restore_user }}
+{% endif %}
 {% elif step.type == "custom" %}
 {% if step.command.startswith('ADD ') or step.command.startswith('ARG ') or step.command.startswith('CMD ') or step.command.startswith('COPY ') or step.command.startswith('ENTRYPOINT ') or step.command.startswith('ENV ') or step.command.startswith('EXPOSE ') or step.command.startswith('FROM ') or step.command.startswith('HEALTHCHECK ') or step.command.startswith('LABEL ') or step.command.startswith('RUN ') or step.command.startswith('SHELL ') or step.command.startswith('STOPSIGNAL ') or step.command.startswith('USER ') or step.command.startswith('VOLUME ') or step.command.startswith('WORKDIR ') %}
 {{ step.command }}
