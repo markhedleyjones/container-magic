@@ -2,6 +2,33 @@
 
 <!-- version list -->
 
+## v5.0.0 (2026-04-16)
+
+### Bug Fixes
+
+- **dockerfile**: Flatten create_user shell structure for shellcheck
+  ([#59](https://github.com/markhedleyjones/container-magic/pull/59),
+  [`7447758`](https://github.com/markhedleyjones/container-magic/commit/74477584d0740bbef4582670908b91ac909f8c2c))
+
+### Documentation
+
+- Remove venv mention from features list
+  ([#59](https://github.com/markhedleyjones/container-magic/pull/59),
+  [`7447758`](https://github.com/markhedleyjones/container-magic/commit/74477584d0740bbef4582670908b91ac909f8c2c))
+
+### Features
+
+- **dockerfile**: Remove venv, install pip packages into base Python
+  ([#59](https://github.com/markhedleyjones/container-magic/pull/59),
+  [`7447758`](https://github.com/markhedleyjones/container-magic/commit/74477584d0740bbef4582670908b91ac909f8c2c))
+
+### Testing
+
+- **dockerfile**: Cover pip marker removal and no-venv behaviour
+  ([#59](https://github.com/markhedleyjones/container-magic/pull/59),
+  [`7447758`](https://github.com/markhedleyjones/container-magic/commit/74477584d0740bbef4582670908b91ac909f8c2c))
+
+
 ## v4.5.0 (2026-04-16)
 
 ### Documentation
