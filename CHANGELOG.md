@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v4.5.0 (2026-04-16)
+
+### Documentation
+
+- Document managed .dockerignore and build context
+  ([#58](https://github.com/markhedleyjones/container-magic/pull/58),
+  [`aa4a350`](https://github.com/markhedleyjones/container-magic/commit/aa4a3505ac6e17592eafc6fcff327baa466cc357))
+
+### Features
+
+- **dockerignore**: Manage deny-by-default build context
+  ([#58](https://github.com/markhedleyjones/container-magic/pull/58),
+  [`aa4a350`](https://github.com/markhedleyjones/container-magic/commit/aa4a3505ac6e17592eafc6fcff327baa466cc357))
+
+### Testing
+
+- **dockerignore**: Cover managed section creation and updates
+  ([#58](https://github.com/markhedleyjones/container-magic/pull/58),
+  [`aa4a350`](https://github.com/markhedleyjones/container-magic/commit/aa4a3505ac6e17592eafc6fcff327baa466cc357))
+
+
 ## v4.4.0 (2026-04-16)
 
 ### Documentation
