@@ -15,7 +15,7 @@ from container_magic.core.templates import (
 from container_magic.core.volumes import (
     expand_volumes_for_script,
     label_volumes,
-    shorthand_names,
+    shorthand_anchored_paths,
 )
 
 
@@ -71,7 +71,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     # Expand volume variables and apply SELinux labels for production context
     expanded_volumes = expand_volumes_for_script(effective_rt.volumes, workdir)
     expanded_volumes = label_volumes(expanded_volumes)
-    volume_shorthand = shorthand_names(effective_rt.volumes)
+    volume_shorthand = shorthand_anchored_paths(effective_rt.volumes)
 
     content = template.render(
         project_name=config.names.image,

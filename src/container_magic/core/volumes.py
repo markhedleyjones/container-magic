@@ -1,31 +1,82 @@
 """Volume string helpers for SELinux labelling and variable expansion."""
 
+import os
 import re
 import sys
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 SHORTHAND_CONTAINER_PREFIX = "/data"
 _SHORTHAND_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 def is_shorthand_volume(volume: str) -> bool:
-    """Return True if the volume string is shorthand (a bare name, no colon)."""
+    """Return True if the volume string has no colon (shorthand form)."""
     return ":" not in volume
 
 
-def validate_shorthand_name(name: str) -> None:
-    """Raise ValueError if a shorthand volume name is malformed."""
+def validate_shorthand_basename(name: str) -> None:
+    """Raise ValueError if a shorthand basename is not a valid identifier."""
     if not _SHORTHAND_NAME_PATTERN.match(name):
         raise ValueError(
-            f"Invalid shorthand volume '{name}': bare names must match "
-            f"[a-zA-Z0-9_-]+. Use 'host:container' for anything else."
+            f"Invalid shorthand volume basename '{name}': must match "
+            f"[a-zA-Z0-9_-]+. Use 'host:container' for custom container paths."
         )
 
 
-def shorthand_names(volumes: List[str]) -> List[str]:
-    """Return the bare names of shorthand entries from a volumes list."""
-    return [v for v in volumes if is_shorthand_volume(v)]
+def parse_shorthand(host_path: str) -> Tuple[str, str]:
+    """Parse a shorthand host path into (cleaned_host, basename).
+
+    Strips trailing slashes. Raises ValueError if the basename is not a valid
+    identifier or the host path is empty.
+    """
+    cleaned = host_path.rstrip("/")
+    if not cleaned:
+        raise ValueError(f"Invalid shorthand volume '{host_path}': host path is empty")
+    basename = cleaned.rsplit("/", 1)[-1]
+    validate_shorthand_basename(basename)
+    return cleaned, basename
+
+
+def _host_needs_anchor(path: str) -> bool:
+    """Return True if a host path needs project / run.sh-dir anchoring.
+
+    Relative paths (bare names, './x', '../x') need anchoring. Absolute paths,
+    '~' and '$' prefixes are self-sufficient and are left alone.
+    """
+    if not path:
+        return False
+    return not (path.startswith(("/", "~", "$")))
+
+
+def shorthand_anchored_paths(volumes: List[str]) -> List[str]:
+    """Return cleaned host paths for shorthand entries that need mkdir.
+
+    Only relative host paths (bare names and './' / '../' prefixes) are
+    returned. Absolute and '~' / '$' prefixed paths are the caller's
+    responsibility.
+    """
+    result = []
+    for v in volumes:
+        if not is_shorthand_volume(v):
+            continue
+        host, _ = parse_shorthand(v)
+        if _host_needs_anchor(host):
+            result.append(host)
+    return result
+
+
+def shorthand_container_path(volume: str) -> str:
+    """Return the container-side path for a shorthand volume."""
+    _, basename = parse_shorthand(volume)
+    return f"{SHORTHAND_CONTAINER_PREFIX}/{basename}"
+
+
+def container_path_of(volume: str) -> str:
+    """Return the container-side path for any volume entry (shorthand or full)."""
+    if is_shorthand_volume(volume):
+        return shorthand_container_path(volume)
+    return volume.split(":")[1]
 
 
 def ensure_selinux_label(volume: str) -> str:
@@ -104,15 +155,21 @@ def _expand_side(path: str, home: str, workspace: Optional[str]) -> str:
 def expand_volume(volume: str, context: VolumeContext) -> str:
     """Expand ~ , $HOME, $WORKSPACE, and shorthand in a volume string.
 
-    Shorthand (a bare name like 'outputs') expands to
-    '{project_dir}/{name}:/data/{name}'. For explicit host:container strings,
-    each side of the colon is expanded independently using the appropriate
-    home and workspace paths.
+    Shorthand (no colon) expands to '<host>:/data/<basename>'. Relative host
+    paths are anchored to project_dir; absolute and '~' / '$' prefixes are
+    self-sufficient and use normal variable expansion.
     """
     if is_shorthand_volume(volume):
-        validate_shorthand_name(volume)
-        host_base = context.project_dir or "."
-        return f"{host_base}/{volume}:{SHORTHAND_CONTAINER_PREFIX}/{volume}"
+        host, basename = parse_shorthand(volume)
+        container = f"{SHORTHAND_CONTAINER_PREFIX}/{basename}"
+        if _host_needs_anchor(host):
+            host_base = context.project_dir or "."
+            resolved = f"{host_base}/{host}"
+            if context.project_dir and os.path.isabs(context.project_dir):
+                resolved = os.path.normpath(resolved)
+            return f"{resolved}:{container}"
+        expanded_host = _expand_side(host, context.user_home, context.workspace_user)
+        return f"{expanded_host}:{container}"
 
     parts = volume.split(":")
     if len(parts) < 2:
@@ -141,10 +198,22 @@ def expand_volumes_for_script(volumes: List[str], container_home: str) -> List[s
     result = []
     for volume in volumes:
         if is_shorthand_volume(volume):
-            validate_shorthand_name(volume)
-            result.append(
-                f"${{_RUN_SH_DIR}}/{volume}:{SHORTHAND_CONTAINER_PREFIX}/{volume}"
-            )
+            host, basename = parse_shorthand(volume)
+            container = f"{SHORTHAND_CONTAINER_PREFIX}/{basename}"
+            if _host_needs_anchor(host):
+                result.append(f"${{_RUN_SH_DIR}}/{host}:{container}")
+                continue
+            if _has_workspace_variable(host):
+                print(
+                    f"Warning: Volume '{volume}' uses $WORKSPACE and will only "
+                    f"apply during development (cm run). The generated run.sh "
+                    f"does not include it because the workspace is expected to "
+                    f"be baked into the production image.",
+                    file=sys.stderr,
+                )
+                continue
+            expanded_host = _expand_side(host, "$HOME", workspace=None)
+            result.append(f"{expanded_host}:{container}")
             continue
 
         if _has_workspace_variable(volume):

@@ -29,7 +29,7 @@ from container_magic.core.volumes import (
     expand_mount_path,
     expand_volumes_for_run,
     label_volumes,
-    shorthand_names,
+    shorthand_anchored_paths,
 )
 
 
@@ -377,9 +377,9 @@ def run_container(
     for env_file in collect_env_files(project_dir):
         run_args.extend(["--env-file", str(env_file)])
 
-    # Create host folders for shorthand volumes before docker mounts them
-    for name in shorthand_names(effective_rt.volumes):
-        (project_dir / name).mkdir(parents=True, exist_ok=True)
+    # Create host folders for relative-path shorthand volumes
+    for host_path in shorthand_anchored_paths(effective_rt.volumes):
+        (project_dir / host_path).mkdir(parents=True, exist_ok=True)
 
     # Additional volumes (with variable expansion)
     volume_context = VolumeContext(
