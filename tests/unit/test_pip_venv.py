@@ -1,4 +1,10 @@
-"""Tests for automatic venv creation on pip steps."""
+"""Tests for pip step handling.
+
+Pip packages install directly into the base image's Python, not into a venv.
+The only setup needed is removing the PEP 668 EXTERNALLY-MANAGED marker when
+present (Debian/Ubuntu with apt-installed Python), which is a host-system
+protection that doesn't apply inside containers.
+"""
 
 from tests.unit.conftest import generate_dockerfile_from_dict as _generate
 
@@ -16,21 +22,20 @@ def _base_config(**overrides):
     return config
 
 
-class TestVenvCreation:
-    def test_pip_as_root_creates_venv(self):
-        """First pip step as root injects venv setup."""
+class TestPipPreparation:
+    def test_pip_as_root_removes_marker(self):
+        """First pip step as root injects marker removal, no USER switch."""
         config = _base_config(steps=[{"pip": {"install": ["numpy"]}}])
         content = _generate(config)
-        assert "python3 -m venv --system-site-packages /opt/venv" in content
-        assert "ENV VIRTUAL_ENV=/opt/venv" in content
-        assert 'ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"' in content
-        # Should NOT have USER switching (already root)
+        assert "EXTERNALLY-MANAGED" in content
+        # No venv anywhere
+        assert "/opt/venv" not in content
+        assert "VIRTUAL_ENV" not in content
+        # No USER root before the marker removal line (already root)
         lines = content.splitlines()
-        venv_idx = next(
-            i for i, line in enumerate(lines) if "venv" in line and "RUN" in line
-        )
-        # No USER root before venv line
-        assert "USER root" not in lines[venv_idx - 1]
+        mm_idx = next(i for i, line in enumerate(lines) if "EXTERNALLY-MANAGED" in line)
+        preceding = [line.strip() for line in lines[:mm_idx] if line.strip()]
+        assert preceding[-1] != "USER root"
 
     def test_pip_after_become_user_switches_to_root(self):
         """Pip step after become: user injects USER root / USER restore."""
@@ -51,25 +56,19 @@ class TestVenvCreation:
         }
         content = _generate(config)
         lines = content.splitlines()
-        # Find venv creation
-        venv_idx = next(
-            i for i, line in enumerate(lines) if "venv" in line and "RUN" in line
-        )
-        # USER root before venv creation
-        preceding = [line.strip() for line in lines[:venv_idx] if line.strip()]
-        assert preceding[-1] == "USER root"
-        # USER restore after ENV PATH
-        path_idx = next(
-            i
-            for i, line in enumerate(lines)
-            if "VIRTUAL_ENV" in line and "PATH" in line
-        )
-        restore_lines = [line.strip() for line in lines[path_idx + 1 :] if line.strip()]
-        assert restore_lines[0].startswith("USER ")
-        assert restore_lines[0] != "USER root"
+        mm_idx = next(i for i, line in enumerate(lines) if "# Disable PEP 668" in line)
+        # USER root should appear in the prelude for the prepare_pip block
+        preceding = [line.strip() for line in lines[:mm_idx] if line.strip()]
+        # Walk back to find the nearest USER directive or other action
+        user_lines = [line for line in preceding if line.startswith("USER ")]
+        assert user_lines[-1] == "USER root"
+        # USER restore should come after the RUN rm line
+        trailing = [line.strip() for line in lines[mm_idx + 1 :] if line.strip()]
+        restore_user = next(line for line in trailing if line.startswith("USER "))
+        assert restore_user != "USER root"
 
-    def test_child_stage_inherits_venv(self):
-        """Pip step in child stage skips venv setup if parent already created one."""
+    def test_child_stage_skips_duplicate_marker_removal(self):
+        """Pip in child stage does not re-emit marker removal if parent did."""
         config = {
             "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
             "stages": {
@@ -91,10 +90,10 @@ class TestVenvCreation:
             },
         }
         content = _generate(config)
-        assert content.count("python3 -m venv") == 1
+        assert content.count("# Disable PEP 668") == 1
 
-    def test_child_stage_without_parent_venv_creates_own(self):
-        """Pip step in child stage creates venv if parent had no pip steps."""
+    def test_child_stage_with_new_base_removes_marker(self):
+        """Pip in child stage without parent pip re-emits marker removal."""
         config = {
             "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
             "stages": {
@@ -113,18 +112,16 @@ class TestVenvCreation:
             },
         }
         content = _generate(config)
-        assert "python3 -m venv" in content
-        assert "USER root" in content
+        assert "EXTERNALLY-MANAGED" in content
 
-    def test_no_pip_steps_no_venv(self):
-        """No venv setup when no pip steps exist."""
+    def test_no_pip_steps_no_marker_removal(self):
+        """No marker removal when no pip steps exist."""
         config = _base_config(steps=[{"run": "echo hello"}])
         content = _generate(config)
-        assert "venv" not in content
-        assert "VIRTUAL_ENV" not in content
+        assert "EXTERNALLY-MANAGED" not in content
 
-    def test_multiple_pip_steps_single_venv(self):
-        """Multiple pip steps in same stage only create venv once."""
+    def test_multiple_pip_steps_single_marker_removal(self):
+        """Multiple pip steps in the same stage only trigger marker removal once."""
         config = _base_config(
             steps=[
                 {"pip": {"install": ["numpy"]}},
@@ -132,37 +129,19 @@ class TestVenvCreation:
             ]
         )
         content = _generate(config)
-        assert content.count("python3 -m venv") == 1
-        assert content.count("ENV VIRTUAL_ENV=") == 1
-
-    def test_venv_env_ordering(self):
-        """VIRTUAL_ENV must be set before PATH references it."""
-        config = _base_config(steps=[{"pip": {"install": ["numpy"]}}])
-        content = _generate(config)
-        lines = content.splitlines()
-        venv_env_idx = next(
-            i for i, line in enumerate(lines) if "VIRTUAL_ENV=/opt/venv" in line
-        )
-        path_env_idx = next(
-            i for i, line in enumerate(lines) if "VIRTUAL_ENV}/bin" in line
-        )
-        assert venv_env_idx < path_env_idx
-
-    def test_venv_guard_prevents_clobbering(self):
-        """Venv creation uses test -f guard for idempotency."""
-        config = _base_config(steps=[{"pip": {"install": ["numpy"]}}])
-        content = _generate(config)
-        assert "test -f /opt/venv/pyvenv.cfg" in content
+        assert content.count("# Disable PEP 668") == 1
+        # Both pip installs should appear
+        assert content.count("pip install --no-cache-dir") == 2
 
     def test_pip_single_package_string(self):
-        """Pip step with single package as string (not list) also creates venv."""
+        """Pip step with single package as string (not list) works."""
         config = _base_config(steps=[{"pip": {"install": "requests"}}])
         content = _generate(config)
-        assert "python3 -m venv --system-site-packages /opt/venv" in content
+        assert "EXTERNALLY-MANAGED" in content
         assert "requests" in content
 
     def test_become_without_create_user(self):
-        """Pip after become to a pre-existing user (no create step) still switches to root."""
+        """Pip after become to a pre-existing user (no create step) wraps with USER root."""
         config = {
             "names": {"image": "test", "workspace": "workspace", "user": "root"},
             "stages": {
@@ -180,91 +159,10 @@ class TestVenvCreation:
         content = _generate(config)
         assert "USER root" in content
         assert "USER www-data" in content
-        assert "python3 -m venv" in content
+        assert "EXTERNALLY-MANAGED" in content
 
-    def test_venv_chowned_to_user_in_leaf_stage(self):
-        """Venv is chowned to the configured user so it's writable at runtime."""
-        config = {
-            "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
-            "stages": {
-                "base": {
-                    "from": "debian:bookworm-slim",
-                    "steps": [
-                        {"pip": {"install": ["flask"]}},
-                    ],
-                },
-                "development": {"from": "base"},
-                "production": {"from": "base"},
-            },
-        }
-        content = _generate(config)
-        assert "chown -R" in content
-        assert "/opt/venv" in content
-
-    def test_venv_chown_not_added_for_root_user(self):
-        """No venv chown when user is root."""
-        config = _base_config(steps=[{"pip": {"install": ["numpy"]}}])
-        content = _generate(config)
-        assert (
-            "chown" not in content
-            or "USER_HOME" in content.split("chown")[0].split("\n")[-1]
-        )
-
-    def test_venv_chown_after_all_pip_steps(self):
-        """Venv chown appears after the last pip install, not between them."""
-        config = {
-            "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
-            "stages": {
-                "base": {
-                    "from": "debian:bookworm-slim",
-                    "steps": [
-                        {"pip": {"install": ["flask"]}},
-                        {"pip": {"install": ["numpy"]}},
-                    ],
-                },
-                "development": {"from": "base"},
-                "production": {"from": "base"},
-            },
-        }
-        content = _generate(config)
-        lines = content.splitlines()
-        pip_lines = [i for i, line in enumerate(lines) if "pip install" in line]
-        chown_lines = [
-            i for i, line in enumerate(lines) if "chown" in line and "/opt/venv" in line
-        ]
-        assert len(chown_lines) >= 1
-        assert chown_lines[0] > pip_lines[-1]
-
-    def test_venv_chown_switches_to_root_when_base_has_become(self):
-        """Venv chown wraps with USER root when inheriting non-root context."""
-        config = {
-            "names": {"image": "test", "workspace": "workspace", "user": "appuser"},
-            "stages": {
-                "base": {
-                    "from": "debian:bookworm-slim",
-                    "steps": [
-                        {"pip": {"install": ["flask"]}},
-                        {"create": "user"},
-                        {"become": "user"},
-                    ],
-                },
-                "development": {"from": "base"},
-                "production": {"from": "base"},
-            },
-        }
-        content = _generate(config)
-        lines = content.splitlines()
-        chown_lines = [
-            i for i, line in enumerate(lines) if "chown" in line and "/opt/venv" in line
-        ]
-        assert len(chown_lines) >= 1
-        # USER root should appear before the chown
-        chown_idx = chown_lines[0]
-        preceding = [line.strip() for line in lines[:chown_idx] if line.strip()]
-        assert preceding[-1] == "USER root"
-
-    def test_stage_from_external_image_resets_venv(self):
-        """Stage from external image (not parent stage) starts fresh."""
+    def test_stage_from_external_image_removes_marker_again(self):
+        """Stage from a separate external image starts fresh and removes marker again."""
         config = {
             "names": {"image": "test", "workspace": "workspace", "user": "root"},
             "stages": {
@@ -281,4 +179,13 @@ class TestVenvCreation:
             },
         }
         content = _generate(config)
-        assert content.count("python3 -m venv") == 2
+        # Two independent FROM chains, each needs its own marker removal.
+        assert content.count("# Disable PEP 668") == 2
+
+    def test_no_opt_venv_anywhere(self):
+        """/opt/venv is no longer part of generated Dockerfiles."""
+        config = _base_config(steps=[{"pip": {"install": ["flask"]}}])
+        content = _generate(config)
+        assert "/opt/venv" not in content
+        assert "VIRTUAL_ENV" not in content
+        assert "python3 -m venv" not in content
