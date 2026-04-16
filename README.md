@@ -70,6 +70,7 @@ Build and run the production image:
 * **Custom commands** - define once, use in both dev and prod with port publishing and environment variables
 * **Multi-stage builds** - share steps between stages, automatic virtual environments for pip
 * **Transparent execution** - run commands from anywhere in your repo with automatic path translation
+* **Data volumes** - shorthand for sibling folders (`outputs`, `cache`) that persist across runs without entering the image
 * **AWS credential forwarding** - mount host AWS config into the container
 * **Cached assets** - download models and datasets once, reuse across builds
 

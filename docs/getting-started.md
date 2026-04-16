@@ -31,6 +31,37 @@ cm run bash -c "echo Hello from container"
 cm run           # starts an interactive shell
 ```
 
+## Project Layout
+
+```
+my-project/
+  cm.yaml           <- config you edit
+  Dockerfile        <- generated
+  build.sh          <- generated
+  run.sh            <- generated
+  workspace/        <- your code and assets (baked into the image)
+  outputs/          <- data produced at runtime (mounted, NOT in image)
+  cache/            <- data produced at runtime (mounted, NOT in image)
+```
+
+Anything under `workspace/` is copied into the production image at build time,
+so keep it to code, configuration, and small assets. Anything you want to
+persist across runs but keep out of the image - model outputs, logs,
+downloaded datasets, caches - goes in a sibling folder and is declared under
+`runtime.volumes:`.
+
+```yaml
+runtime:
+  volumes:
+    - outputs    # shorthand for ./outputs:/data/outputs
+    - cache      # shorthand for ./cache:/data/cache
+```
+
+Bare names are shorthand: the host folder is a sibling of `run.sh`, the
+container path is `/data/<name>`. The folder is created if missing. This
+works identically in development (`cm run`) and production (`run.sh`). See
+[Volumes](configuration.md#volumes) for the full syntax.
+
 ## Workflow
 
 ```
