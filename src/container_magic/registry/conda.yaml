@@ -1,0 +1,7 @@
+install:
+  flags: "--yes --quiet --override-channels"
+  fields:
+    channels:
+      flag: "--channel"
+      default:
+        - conda-forge
