@@ -140,6 +140,46 @@ the workspace and out of the built image. Operators deploying the image
 elsewhere (Kubernetes, AWS Batch, etc.) can override by editing the generated
 mounts - the container-side path is always `/data/<name>`.
 
+#### Data shared across multiple projects
+
+Shorthand assumes the data folder is a sibling of the project. When data lives
+elsewhere - a parent directory shared by several containers, an absolute path,
+or somewhere under `$HOME` - use the full `host:container` form. Any path
+Docker accepts works:
+
+```yaml
+runtime:
+  volumes:
+    # Parent directory shared by multiple container-magic projects
+    - ../shared-data:/data/shared
+
+    # Absolute path (most predictable for production)
+    - /srv/pipeline/outputs:/data/outputs
+
+    # Path under the host user's home (rendered as $HOME in run.sh)
+    - ~/datasets:/data/datasets:ro
+```
+
+For multi-container setups where several projects read and write the same
+folder, the typical pattern is a parent directory:
+
+```
+pipeline/
+  shared-data/          <- written by scraper, read by trainer
+  scraper/
+    cm.yaml             <- volumes: - ../shared-data:/data/shared
+    run.sh
+  trainer/
+    cm.yaml             <- volumes: - ../shared-data:/data/shared:ro
+    run.sh
+```
+
+Relative paths in the full form are resolved by Docker relative to the CWD
+where `cm run` or `run.sh` is invoked. `cm run` changes into the project
+directory first, so `../shared-data` is always resolved relative to the
+project. For `run.sh`, invoke it from the project directory or use an
+absolute path to avoid surprises.
+
 ### Per-Stage Runtime
 
 Stages can override or extend the global runtime configuration by adding a `runtime` block within the stage definition:

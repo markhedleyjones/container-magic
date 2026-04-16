@@ -59,8 +59,21 @@ runtime:
 
 Bare names are shorthand: the host folder is a sibling of `run.sh`, the
 container path is `/data/<name>`. The folder is created if missing. This
-works identically in development (`cm run`) and production (`run.sh`). See
-[Volumes](configuration.md#volumes) for the full syntax.
+works identically in development (`cm run`) and production (`run.sh`).
+
+For data that lives elsewhere - a parent directory shared by several
+containers, an absolute path, or somewhere under `$HOME` - use the full
+`host:container` form:
+
+```yaml
+runtime:
+  volumes:
+    - ../shared-data:/data/shared     # parent dir, shared across projects
+    - /srv/pipeline/outputs:/data/out  # absolute path
+    - ~/datasets:/data/datasets:ro    # read-only mount from home
+```
+
+See [Volumes](configuration.md#volumes) for the full syntax.
 
 ## Workflow
 
