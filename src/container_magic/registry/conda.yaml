@@ -1,5 +1,6 @@
 install:
   flags: "--yes --quiet --override-channels"
+  installs_python_packages: true
   fields:
     channels:
       flag: "--channel"

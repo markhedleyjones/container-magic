@@ -1,2 +1,3 @@
 install:
   flags: "--no-cache-dir"
+  installs_python_packages: true

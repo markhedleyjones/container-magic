@@ -39,7 +39,12 @@ class FieldSpec:
 
 
 class RegistryEntry:
-    """A single registry entry with optional setup, flags, cleanup, and fields."""
+    """A single registry entry with optional setup, flags, cleanup, and fields.
+
+    installs_python_packages signals to the Dockerfile generator that this
+    subcommand puts .py files into site-packages, so bytecode compilation
+    should run afterwards.
+    """
 
     def __init__(
         self,
@@ -47,16 +52,19 @@ class RegistryEntry:
         flags: str = "",
         cleanup: str = "",
         fields: Optional[Dict[str, FieldSpec]] = None,
+        installs_python_packages: bool = False,
     ):
         self.setup = setup
         self.flags = flags
         self.cleanup = cleanup
         self.fields = fields or {}
+        self.installs_python_packages = installs_python_packages
 
     def __repr__(self):
         return (
             f"RegistryEntry(setup={self.setup!r}, flags={self.flags!r}, "
-            f"cleanup={self.cleanup!r}, fields={self.fields!r})"
+            f"cleanup={self.cleanup!r}, fields={self.fields!r}, "
+            f"installs_python_packages={self.installs_python_packages!r})"
         )
 
 
@@ -86,6 +94,9 @@ def _entry_from_data(entry_data: Dict[str, Any]) -> RegistryEntry:
         flags=entry_data.get("flags", ""),
         cleanup=entry_data.get("cleanup", ""),
         fields=_parse_fields(entry_data.get("fields")),
+        installs_python_packages=bool(
+            entry_data.get("installs_python_packages", False)
+        ),
     )
 
 
