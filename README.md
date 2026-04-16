@@ -68,7 +68,7 @@ Build and run the production image:
 * **Automatic user handling** - host user identity in dev, dedicated user in prod, no manual setup
 * **GPU, display, and audio** - NVIDIA GPU passthrough, X11/Wayland forwarding, PulseAudio/PipeWire
 * **Custom commands** - define once, use in both dev and prod with port publishing and environment variables
-* **Multi-stage builds** - share steps between stages, automatic virtual environments for pip
+* **Multi-stage builds** - share steps between stages, pip packages install into the base image's Python (no venv duplication)
 * **Transparent execution** - run commands from anywhere in your repo with automatic path translation
 * **Data volumes** - shorthand for sibling folders (`outputs`, `cache`) that persist across runs without entering the image
 * **AWS credential forwarding** - mount host AWS config into the container
