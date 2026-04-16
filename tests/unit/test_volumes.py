@@ -4,6 +4,7 @@ import pytest
 
 from container_magic.core.volumes import (
     VolumeContext,
+    container_path_of,
     ensure_selinux_label,
     expand_mount_path,
     expand_volume,
@@ -11,8 +12,9 @@ from container_magic.core.volumes import (
     expand_volumes_for_script,
     is_shorthand_volume,
     label_volumes,
-    shorthand_names,
-    validate_shorthand_name,
+    parse_shorthand,
+    shorthand_anchored_paths,
+    validate_shorthand_basename,
 )
 
 
@@ -150,10 +152,10 @@ class TestExpandVolume:
         result = expand_volume("outputs", ctx)
         assert result == "./outputs:/data/outputs"
 
-    def test_shorthand_rejects_slash(self):
+    def test_shorthand_relative_path_basename(self):
         ctx = _make_context()
-        with pytest.raises(ValueError, match="bare names must match"):
-            expand_volume("outputs/sub", ctx)
+        result = expand_volume("outputs/sub", ctx)
+        assert result == "/home/mark/repos/myproject/outputs/sub:/data/sub"
 
     def test_tilde_alone(self):
         ctx = _make_context()
@@ -261,33 +263,69 @@ class TestShorthandHelpers:
     def test_is_shorthand_volume_with_colon(self):
         assert is_shorthand_volume("/host:/container") is False
 
-    def test_validate_shorthand_name_accepts_alnum(self):
-        validate_shorthand_name("outputs")
-        validate_shorthand_name("cache_2")
-        validate_shorthand_name("my-data-1")
+    def test_validate_basename_accepts_alnum(self):
+        validate_shorthand_basename("outputs")
+        validate_shorthand_basename("cache_2")
+        validate_shorthand_basename("my-data-1")
 
-    def test_validate_shorthand_name_rejects_slash(self):
-        with pytest.raises(ValueError, match="bare names must match"):
-            validate_shorthand_name("outputs/sub")
+    def test_validate_basename_rejects_slash(self):
+        with pytest.raises(ValueError, match="must match"):
+            validate_shorthand_basename("outputs/sub")
 
-    def test_validate_shorthand_name_rejects_empty(self):
-        with pytest.raises(ValueError, match="bare names must match"):
-            validate_shorthand_name("")
+    def test_validate_basename_rejects_empty(self):
+        with pytest.raises(ValueError, match="must match"):
+            validate_shorthand_basename("")
 
-    def test_validate_shorthand_name_rejects_dotted(self):
-        with pytest.raises(ValueError, match="bare names must match"):
-            validate_shorthand_name("..")
+    def test_validate_basename_rejects_dotted(self):
+        with pytest.raises(ValueError, match="must match"):
+            validate_shorthand_basename("..")
 
-    def test_shorthand_names_filters_mixed(self):
-        result = shorthand_names(
+    def test_parse_shorthand_bare(self):
+        assert parse_shorthand("outputs") == ("outputs", "outputs")
+
+    def test_parse_shorthand_relative(self):
+        assert parse_shorthand("../shared") == ("../shared", "shared")
+
+    def test_parse_shorthand_absolute(self):
+        assert parse_shorthand("/srv/pipeline/outputs") == (
+            "/srv/pipeline/outputs",
+            "outputs",
+        )
+
+    def test_parse_shorthand_home_prefixed(self):
+        assert parse_shorthand("~/datasets") == ("~/datasets", "datasets")
+
+    def test_parse_shorthand_strips_trailing_slash(self):
+        assert parse_shorthand("../shared/") == ("../shared", "shared")
+
+    def test_parse_shorthand_rejects_empty(self):
+        with pytest.raises(ValueError, match="empty"):
+            parse_shorthand("")
+
+    def test_parse_shorthand_rejects_dotdot_basename(self):
+        with pytest.raises(ValueError, match="must match"):
+            parse_shorthand("../..")
+
+    def test_anchored_paths_filters_to_relative(self):
+        result = shorthand_anchored_paths(
             [
                 "outputs",
+                "../shared",
+                "/srv/data",
+                "~/datasets",
+                "$HOME/cache",
                 "/tmp/x:/x",
-                "cache",
-                "~/a:~/a",
             ]
         )
-        assert result == ["outputs", "cache"]
+        assert result == ["outputs", "../shared"]
+
+    def test_container_path_of_shorthand(self):
+        assert container_path_of("outputs") == "/data/outputs"
+        assert container_path_of("../shared") == "/data/shared"
+        assert container_path_of("/srv/out") == "/data/out"
+
+    def test_container_path_of_full_form(self):
+        assert container_path_of("/host:/mnt/data:ro") == "/mnt/data"
 
 
 class TestExpandShorthandForRun:
@@ -303,6 +341,26 @@ class TestExpandShorthandForRun:
             "/home/mark/repos/myproject/outputs:/data/outputs",
             "/tmp/data:/data:ro",
         ]
+
+    def test_shorthand_parent_dir_normalized(self):
+        ctx = _make_context()
+        result = expand_volumes_for_run(["../shared"], ctx)
+        assert result == ["/home/mark/repos/shared:/data/shared"]
+
+    def test_shorthand_absolute_host(self):
+        ctx = _make_context()
+        result = expand_volumes_for_run(["/srv/pipeline/outputs"], ctx)
+        assert result == ["/srv/pipeline/outputs:/data/outputs"]
+
+    def test_shorthand_home_expanded(self):
+        ctx = _make_context()
+        result = expand_volumes_for_run(["~/datasets"], ctx)
+        assert result == ["/home/mark/datasets:/data/datasets"]
+
+    def test_shorthand_trailing_slash_stripped(self):
+        ctx = _make_context()
+        result = expand_volumes_for_run(["../shared/"], ctx)
+        assert result == ["/home/mark/repos/shared:/data/shared"]
 
 
 class TestExpandShorthandForScript:
@@ -320,9 +378,27 @@ class TestExpandShorthandForScript:
             "$HOME/.config:/home/appuser/.config",
         ]
 
-    def test_shorthand_invalid_name_raises(self):
-        with pytest.raises(ValueError, match="bare names must match"):
-            expand_volumes_for_script(["bad/name"], container_home="/home/appuser")
+    def test_shorthand_parent_dir_relative_to_run_sh(self):
+        result = expand_volumes_for_script(
+            ["../shared"], container_home="/home/appuser"
+        )
+        assert result == ["${_RUN_SH_DIR}/../shared:/data/shared"]
+
+    def test_shorthand_absolute_host_passthrough(self):
+        result = expand_volumes_for_script(
+            ["/srv/pipeline/outputs"], container_home="/home/appuser"
+        )
+        assert result == ["/srv/pipeline/outputs:/data/outputs"]
+
+    def test_shorthand_home_rendered_as_dollar_home(self):
+        result = expand_volumes_for_script(
+            ["~/datasets"], container_home="/home/appuser"
+        )
+        assert result == ["$HOME/datasets:/data/datasets"]
+
+    def test_shorthand_invalid_basename_raises(self):
+        with pytest.raises(ValueError, match="must match"):
+            expand_volumes_for_script(["../.."], container_home="/home/appuser")
 
 
 class TestExpandMountPath:
