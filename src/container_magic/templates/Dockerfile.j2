@@ -122,21 +122,16 @@ ENV {% for key, value in step.vars.items() %}{% if not loop.first %}    {% endif
 {% endif %}{% endfor %}
 
 {% endif %}
-{% elif step.type == "venv_setup" %}
+{% elif step.type == "prepare_pip" %}
 {% if not step.is_root %}
 USER root
 {% endif %}
-RUN test -f /opt/venv/pyvenv.cfg || python3 -m venv --system-site-packages /opt/venv
-ENV VIRTUAL_ENV=/opt/venv
-ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
-{% if not step.is_root %}
-USER {{ step.restore_user }}
-{% endif %}
-{% elif step.type == "venv_chown" %}
-{% if not step.is_root %}
-USER root
-{% endif %}
-RUN chown -R "${USER_UID}:${USER_GID}" /opt/venv
+# Disable PEP 668 (externally-managed-environment): host-system protection
+# against apt/pip conflicts, not applicable inside containers where the whole
+# environment is disposable.
+RUN rm -f /usr/lib/python*/EXTERNALLY-MANAGED \
+          /usr/local/lib/python*/EXTERNALLY-MANAGED \
+          /opt/conda/lib/python*/EXTERNALLY-MANAGED
 {% if not step.is_root %}
 USER {{ step.restore_user }}
 {% endif %}

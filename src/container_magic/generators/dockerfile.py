@@ -178,7 +178,7 @@ def process_stage_steps(
     registry: Dict = None,
     asset_map: Dict[str, str] = None,
     workspace_symlinks: List[tuple] = None,
-    venv_active: bool = False,
+    pip_prepared: bool = False,
     implicit_user: bool = False,
 ) -> tuple:
     """Process build steps for a stage.
@@ -190,7 +190,7 @@ def process_stage_steps(
     symlink overlay data for the Dockerfile template.
 
     Returns:
-        (ordered_steps, venv_active) tuple
+        (ordered_steps, pip_prepared) tuple
     """
     if registry is None:
         registry = load_registry()
@@ -202,7 +202,7 @@ def process_stage_steps(
     # Default build order if not specified
     if stage.steps is None:
         if ":" in stage.frm or "/" in stage.frm:
-            return [], venv_active
+            return [], pip_prepared
         else:
             steps: List[Union[str, Dict[str, Any]]] = []
             if stage_name == "production":
@@ -235,13 +235,13 @@ def process_stage_steps(
     ordered_steps = []
 
     for step in steps:
-        if _step_is_pip(step) and not venv_active:
+        if _step_is_pip(step) and not pip_prepared:
             is_root = current_user is None
-            venv_step = {"type": "venv_setup", "is_root": is_root}
+            prepare_step = {"type": "prepare_pip", "is_root": is_root}
             if not is_root:
-                venv_step["restore_user"] = current_user
-            ordered_steps.append(venv_step)
-            venv_active = True
+                prepare_step["restore_user"] = current_user
+            ordered_steps.append(prepare_step)
+            pip_prepared = True
 
         parsed = parse_step(step, registry)
 
@@ -307,7 +307,7 @@ def process_stage_steps(
         elif step_type == "passthrough":
             ordered_steps.append({"type": "custom", "command": parsed["command"]})
 
-    return ordered_steps, venv_active
+    return ordered_steps, pip_prepared
 
 
 def generate_dockerfile(
@@ -369,7 +369,7 @@ def generate_dockerfile(
     leaf_stages = set(stages.keys()) - inherited_stages
 
     stages_data = []
-    venv_state: Dict[str, bool] = {}
+    pip_prepared_state: Dict[str, bool] = {}
     user_created_state: Dict[str, bool] = {}
     for stage_name, stage_config in stages.items():
         base_image = stage_config.frm
@@ -392,13 +392,13 @@ def generate_dockerfile(
         user_creation_style = distro_ucs or detect_user_creation_style(resolved_image)
 
         if from_is_image:
-            inherited_venv = False
+            inherited_pip_prepared = False
             inherited_user_created = False
         else:
-            inherited_venv = venv_state.get(base_image, False)
+            inherited_pip_prepared = pip_prepared_state.get(base_image, False)
             inherited_user_created = user_created_state.get(base_image, False)
 
-        ordered_steps, venv_active = process_stage_steps(
+        ordered_steps, pip_prepared = process_stage_steps(
             stage_config,
             stage_name,
             project_dir,
@@ -408,10 +408,10 @@ def generate_dockerfile(
             registry,
             asset_map,
             workspace_symlinks,
-            venv_active=inherited_venv,
+            pip_prepared=inherited_pip_prepared,
             implicit_user=implicit_user,
         )
-        venv_state[stage_name] = venv_active
+        pip_prepared_state[stage_name] = pip_prepared
 
         # Inject implicit create_user for from-image stages
         has_explicit_create_in_steps = any(
@@ -424,21 +424,6 @@ def generate_dockerfile(
             user_created_state[stage_name] = True
         else:
             user_created_state[stage_name] = inherited_user_created
-
-        # Chown venv to runtime user in leaf stages so it's writable in development
-        if has_user and stage_name in leaf_stages and venv_active:
-            # Determine if we're in a non-root context (inherited from parent)
-            last_become_user = None
-            for s in reversed(ordered_steps):
-                if s.get("type") == "become":
-                    last_become_user = s.get("name")
-                    break
-            inherited_context = _get_parent_user_context(stage_name, stages, user_name)
-            is_root = last_become_user is None and inherited_context is None
-            chown_step = {"type": "venv_chown", "is_root": is_root}
-            if not is_root:
-                chown_step["restore_user"] = last_become_user or inherited_context
-            ordered_steps.append(chown_step)
 
         # Inject implicit become at end of leaf stages only
         # Intermediate stages stay as root so child stages inherit root context
