@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v5.3.0 (2026-04-16)
+
+### Documentation
+
+- Add managed-block markers around registry defaults table
+  ([#62](https://github.com/markhedleyjones/container-magic/pull/62),
+  [`321b0f6`](https://github.com/markhedleyjones/container-magic/commit/321b0f6c3a16888fa350df9b96ae6bf9b90177f1))
+
+### Features
+
+- **registry**: Auto-generate registry defaults table from YAML
+  ([#62](https://github.com/markhedleyjones/container-magic/pull/62),
+  [`321b0f6`](https://github.com/markhedleyjones/container-magic/commit/321b0f6c3a16888fa350df9b96ae6bf9b90177f1))
+
+### Testing
+
+- **registry**: Drift-check docs table against registry YAML
+  ([#62](https://github.com/markhedleyjones/container-magic/pull/62),
+  [`321b0f6`](https://github.com/markhedleyjones/container-magic/commit/321b0f6c3a16888fa350df9b96ae6bf9b90177f1))
+
+
 ## v5.2.0 (2026-04-16)
 
 ### Documentation
