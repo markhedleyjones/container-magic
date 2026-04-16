@@ -372,17 +372,21 @@ steps:
 
 ### Registry Defaults
 
-Container-magic applies container-optimised defaults to each package manager automatically. You don't need to add these flags yourself -- they're handled for you:
+Container-magic applies container-optimised defaults to each package manager automatically. You don't need to add these flags yourself -- they're handled for you. The table below is auto-generated from the registry YAML files.
 
-| Command | Setup | Flags | Cleanup |
-|---------|-------|-------|---------|
-| `apt-get install` | `apt-get update` | `-y --no-install-recommends` | `rm -rf /var/lib/apt/lists/*` |
-| `apk add` | -- | `--no-cache` | -- |
-| `dnf install` | -- | `-y` | `dnf clean all` |
-| `pip install` | -- | `--no-cache-dir` | -- |
-| `conda install` | -- | `--yes --quiet --override-channels --channel conda-forge` | -- |
-| `mamba install` | -- | `--yes --quiet --override-channels --channel conda-forge` | -- |
-| `micromamba install` | -- | `--yes --quiet --override-channels --channel conda-forge` | -- |
+<!-- BEGIN container-magic:registry-defaults -->
+| Command | Setup | Flags | Cleanup | Fields |
+|---------|-------|-------|---------|--------|
+| `apk add` | -- | `--no-cache` | -- | -- |
+| `apt-get install` | `apt-get update` | `-y --no-install-recommends` | `rm -rf /var/lib/apt/lists/*` | -- |
+| `conda install` | -- | `--yes --quiet --override-channels --channel conda-forge` | -- | `channels (--channel)` |
+| `dnf install` | -- | `-y` | `dnf clean all` | -- |
+| `mamba install` | -- | `--yes --quiet --override-channels --channel conda-forge` | -- | `channels (--channel)` |
+| `micromamba install` | -- | `--yes --quiet --override-channels --channel conda-forge` | -- | `channels (--channel)` |
+| `pip install` | -- | `--no-cache-dir` | -- | -- |
+<!-- END container-magic:registry-defaults -->
+
+To regenerate this table after editing registry files, run `python -m container_magic.core.registry_docs --update`.
 
 For example, this step:
 
