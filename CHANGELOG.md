@@ -2,6 +2,21 @@
 
 <!-- version list -->
 
+## v5.1.0 (2026-04-16)
+
+### Features
+
+- **dockerfile**: Precompile .pyc bytecode after pip installs
+  ([#60](https://github.com/markhedleyjones/container-magic/pull/60),
+  [`3f39ce0`](https://github.com/markhedleyjones/container-magic/commit/3f39ce027309edc55ea1d9defb85fc201f00eb02))
+
+### Testing
+
+- **dockerfile**: Cover pyc precompilation per stage
+  ([#60](https://github.com/markhedleyjones/container-magic/pull/60),
+  [`3f39ce0`](https://github.com/markhedleyjones/container-magic/commit/3f39ce027309edc55ea1d9defb85fc201f00eb02))
+
+
 ## v5.0.0 (2026-04-16)
 
 ### Bug Fixes
