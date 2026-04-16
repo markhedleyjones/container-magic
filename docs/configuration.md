@@ -79,6 +79,7 @@ runtime:
     - audio            # PulseAudio/PipeWire
     - aws_credentials  # AWS credential forwarding
   volumes:
+    - outputs                           # shorthand: ./outputs:/data/outputs
     - /host/path:/container/path        # bind mount
     - /host/path:/container/path:ro     # read-only bind mount
     - ~/.config/tool:~/.config/tool     # tilde expands to home directories
@@ -112,6 +113,32 @@ runtime:
 ```
 
 In the generated `run.sh`, `~` and `$HOME` on your side are rendered as `$HOME` for shell expansion at runtime. The container side is expanded to a literal path at generation time. Volumes using `$WORKSPACE` are not included in `run.sh` because the workspace is baked into the production image - a warning is printed during `cm update` if this applies.
+
+#### Shorthand
+
+A bare name (no colon) is shorthand for a data folder that lives as a sibling
+of the project and is mounted under `/data/` inside the container. For example:
+
+```yaml
+runtime:
+  volumes:
+    - outputs
+    - cache
+```
+
+expands to:
+
+- `./outputs:/data/outputs`
+- `./cache:/data/cache`
+
+The host folder is created if missing - in development relative to the project
+root, in production relative to the directory containing `run.sh`. Names must
+match `[a-zA-Z0-9_-]+`; anything else needs the full `host:container` form.
+
+Shorthand exists so bulk data (model outputs, caches, datasets) stays out of
+the workspace and out of the built image. Operators deploying the image
+elsewhere (Kubernetes, AWS Batch, etc.) can override by editing the generated
+mounts - the container-side path is always `/data/<name>`.
 
 ### Per-Stage Runtime
 
