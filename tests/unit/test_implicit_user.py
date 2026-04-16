@@ -308,7 +308,7 @@ class TestDistroInheritance:
         assert "useradd" in other
 
 
-class TestImplicitUserWithVenv:
+class TestImplicitUserWithPip:
     def test_implicit_user_with_pip_step(self):
         """Pip step with implicit user creation should work correctly."""
         config = {
@@ -324,8 +324,8 @@ class TestImplicitUserWithVenv:
         }
         content = _generate(config)
         assert "useradd" in content
-        assert "python3 -m venv" in content
+        assert "# Disable PEP 668" in content
         lines = content.splitlines()
         create_idx = next(i for i, ln in enumerate(lines) if "useradd" in ln)
-        venv_idx = next(i for i, ln in enumerate(lines) if "venv" in ln and "RUN" in ln)
-        assert create_idx < venv_idx
+        marker_idx = next(i for i, ln in enumerate(lines) if "# Disable PEP 668" in ln)
+        assert create_idx < marker_idx
