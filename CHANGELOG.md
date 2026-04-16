@@ -2,6 +2,47 @@
 
 <!-- version list -->
 
+## v4.4.0 (2026-04-16)
+
+### Documentation
+
+- Document volumes shorthand and data folder pattern
+  ([#57](https://github.com/markhedleyjones/container-magic/pull/57),
+  [`29b07c6`](https://github.com/markhedleyjones/container-magic/commit/29b07c6998d1a618067e06f5a7714b3147b0ae4b))
+
+- Show multi-project and shared-data volume patterns
+  ([#57](https://github.com/markhedleyjones/container-magic/pull/57),
+  [`29b07c6`](https://github.com/markhedleyjones/container-magic/commit/29b07c6998d1a618067e06f5a7714b3147b0ae4b))
+
+- Surface volumes shorthand in README and getting started
+  ([#57](https://github.com/markhedleyjones/container-magic/pull/57),
+  [`29b07c6`](https://github.com/markhedleyjones/container-magic/commit/29b07c6998d1a618067e06f5a7714b3147b0ae4b))
+
+- Update shorthand rules for extended host paths
+  ([#57](https://github.com/markhedleyjones/container-magic/pull/57),
+  [`29b07c6`](https://github.com/markhedleyjones/container-magic/commit/29b07c6998d1a618067e06f5a7714b3147b0ae4b))
+
+### Features
+
+- **volumes**: Add shorthand for named data mounts
+  ([#57](https://github.com/markhedleyjones/container-magic/pull/57),
+  [`29b07c6`](https://github.com/markhedleyjones/container-magic/commit/29b07c6998d1a618067e06f5a7714b3147b0ae4b))
+
+- **volumes**: Extend shorthand to any host path
+  ([#57](https://github.com/markhedleyjones/container-magic/pull/57),
+  [`29b07c6`](https://github.com/markhedleyjones/container-magic/commit/29b07c6998d1a618067e06f5a7714b3147b0ae4b))
+
+### Testing
+
+- **volumes**: Cover extended shorthand forms and collisions
+  ([#57](https://github.com/markhedleyjones/container-magic/pull/57),
+  [`29b07c6`](https://github.com/markhedleyjones/container-magic/commit/29b07c6998d1a618067e06f5a7714b3147b0ae4b))
+
+- **volumes**: Cover shorthand expansion and validation
+  ([#57](https://github.com/markhedleyjones/container-magic/pull/57),
+  [`29b07c6`](https://github.com/markhedleyjones/container-magic/commit/29b07c6998d1a618067e06f5a7714b3147b0ae4b))
+
+
 ## v4.3.0 (2026-03-26)
 
 ### Bug Fixes
