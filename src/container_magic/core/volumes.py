@@ -5,6 +5,28 @@ import sys
 from dataclasses import dataclass
 from typing import List, Optional
 
+SHORTHAND_CONTAINER_PREFIX = "/data"
+_SHORTHAND_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+def is_shorthand_volume(volume: str) -> bool:
+    """Return True if the volume string is shorthand (a bare name, no colon)."""
+    return ":" not in volume
+
+
+def validate_shorthand_name(name: str) -> None:
+    """Raise ValueError if a shorthand volume name is malformed."""
+    if not _SHORTHAND_NAME_PATTERN.match(name):
+        raise ValueError(
+            f"Invalid shorthand volume '{name}': bare names must match "
+            f"[a-zA-Z0-9_-]+. Use 'host:container' for anything else."
+        )
+
+
+def shorthand_names(volumes: List[str]) -> List[str]:
+    """Return the bare names of shorthand entries from a volumes list."""
+    return [v for v in volumes if is_shorthand_volume(v)]
+
 
 def ensure_selinux_label(volume: str) -> str:
     """Append an SELinux :z label to a volume string if not already present.
@@ -44,12 +66,15 @@ class VolumeContext:
     container_home: home directory inside the container.
     workspace_user: absolute workspace path on the user side (only for cm run).
     workspace_container: absolute workspace path inside the container.
+    project_dir: absolute project root on the user side, used to resolve
+        shorthand volumes to an absolute host path.
     """
 
     user_home: str
     container_home: str
     workspace_user: Optional[str] = None
     workspace_container: Optional[str] = None
+    project_dir: Optional[str] = None
 
 
 _VARIABLE_PATTERN = re.compile(r"^(?:~(?=/|$)|\$HOME(?=/|$)|\$WORKSPACE(?=/|$))")
@@ -77,11 +102,18 @@ def _expand_side(path: str, home: str, workspace: Optional[str]) -> str:
 
 
 def expand_volume(volume: str, context: VolumeContext) -> str:
-    """Expand ~ , $HOME, and $WORKSPACE in a volume string.
+    """Expand ~ , $HOME, $WORKSPACE, and shorthand in a volume string.
 
-    Each side of the colon is expanded independently using the appropriate
+    Shorthand (a bare name like 'outputs') expands to
+    '{project_dir}/{name}:/data/{name}'. For explicit host:container strings,
+    each side of the colon is expanded independently using the appropriate
     home and workspace paths.
     """
+    if is_shorthand_volume(volume):
+        validate_shorthand_name(volume)
+        host_base = context.project_dir or "."
+        return f"{host_base}/{volume}:{SHORTHAND_CONTAINER_PREFIX}/{volume}"
+
     parts = volume.split(":")
     if len(parts) < 2:
         return volume
@@ -95,16 +127,12 @@ def expand_volume(volume: str, context: VolumeContext) -> str:
     return ":".join(expanded_parts)
 
 
-def expand_volumes_for_run(
-    volumes: List[str], context: VolumeContext
-) -> List[str]:
+def expand_volumes_for_run(volumes: List[str], context: VolumeContext) -> List[str]:
     """Expand variables in volumes for cm run (development)."""
     return [expand_volume(v, context) for v in volumes]
 
 
-def expand_volumes_for_script(
-    volumes: List[str], container_home: str
-) -> List[str]:
+def expand_volumes_for_script(volumes: List[str], container_home: str) -> List[str]:
     """Expand variables in volumes for run.sh generation (production).
 
     User-side ~ and $HOME are rendered as $HOME for shell expansion at runtime.
@@ -112,6 +140,13 @@ def expand_volumes_for_script(
     """
     result = []
     for volume in volumes:
+        if is_shorthand_volume(volume):
+            validate_shorthand_name(volume)
+            result.append(
+                f"${{_RUN_SH_DIR}}/{volume}:{SHORTHAND_CONTAINER_PREFIX}/{volume}"
+            )
+            continue
+
         if _has_workspace_variable(volume):
             print(
                 f"Warning: Volume '{volume}' uses $WORKSPACE and will only "

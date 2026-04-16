@@ -12,7 +12,11 @@ from container_magic.core.templates import (
     resolve_base_image,
     resolve_distro_shell,
 )
-from container_magic.core.volumes import expand_volumes_for_script, label_volumes
+from container_magic.core.volumes import (
+    expand_volumes_for_script,
+    label_volumes,
+    shorthand_names,
+)
 
 
 def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None:
@@ -67,6 +71,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
     # Expand volume variables and apply SELinux labels for production context
     expanded_volumes = expand_volumes_for_script(effective_rt.volumes, workdir)
     expanded_volumes = label_volumes(expanded_volumes)
+    volume_shorthand = shorthand_names(effective_rt.volumes)
 
     content = template.render(
         project_name=config.names.image,
@@ -78,6 +83,7 @@ def generate_run_script(config: ContainerMagicConfig, project_dir: Path) -> None
         network=effective_rt.network_mode,
         features=features,
         volumes=expanded_volumes,
+        volume_shorthand=volume_shorthand,
         devices=effective_rt.devices,
         commands=commands_escaped,
         ipc=effective_rt.ipc,

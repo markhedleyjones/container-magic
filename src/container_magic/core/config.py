@@ -190,12 +190,22 @@ class RuntimeConfig(BaseModel):
     @field_validator("volumes")
     @classmethod
     def validate_volume_format(cls, v):
-        """Validate volume strings have at least host:container."""
+        """Validate volume strings: either shorthand names or host:container."""
+        from container_magic.core.volumes import (
+            is_shorthand_volume,
+            validate_shorthand_name,
+        )
+
         for volume in v:
+            if is_shorthand_volume(volume):
+                validate_shorthand_name(volume)
+                continue
             parts = volume.split(":")
             if len(parts) < 2 or not parts[0] or not parts[1]:
                 raise ValueError(
-                    f"Invalid volume format '{volume}': must be host:container[:options]"
+                    f"Invalid volume format '{volume}': must be "
+                    f"host:container[:options] or a bare name "
+                    f"(e.g. 'outputs' for ./outputs:/data/outputs)"
                 )
         return v
 
