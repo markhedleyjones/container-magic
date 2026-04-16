@@ -190,7 +190,7 @@ def process_stage_steps(
     symlink overlay data for the Dockerfile template.
 
     Returns:
-        (ordered_steps, pip_prepared) tuple
+        (ordered_steps, pip_prepared, pip_used_in_stage) tuple
     """
     if registry is None:
         registry = load_registry()
@@ -199,10 +199,12 @@ def process_stage_steps(
     if workspace_symlinks is None:
         workspace_symlinks = []
 
+    pip_used_in_stage = False
+
     # Default build order if not specified
     if stage.steps is None:
         if ":" in stage.frm or "/" in stage.frm:
-            return [], pip_prepared
+            return [], pip_prepared, pip_used_in_stage
         else:
             steps: List[Union[str, Dict[str, Any]]] = []
             if stage_name == "production":
@@ -235,13 +237,15 @@ def process_stage_steps(
     ordered_steps = []
 
     for step in steps:
-        if _step_is_pip(step) and not pip_prepared:
-            is_root = current_user is None
-            prepare_step = {"type": "prepare_pip", "is_root": is_root}
-            if not is_root:
-                prepare_step["restore_user"] = current_user
-            ordered_steps.append(prepare_step)
-            pip_prepared = True
+        if _step_is_pip(step):
+            pip_used_in_stage = True
+            if not pip_prepared:
+                is_root = current_user is None
+                prepare_step = {"type": "prepare_pip", "is_root": is_root}
+                if not is_root:
+                    prepare_step["restore_user"] = current_user
+                ordered_steps.append(prepare_step)
+                pip_prepared = True
 
         parsed = parse_step(step, registry)
 
@@ -307,7 +311,7 @@ def process_stage_steps(
         elif step_type == "passthrough":
             ordered_steps.append({"type": "custom", "command": parsed["command"]})
 
-    return ordered_steps, pip_prepared
+    return ordered_steps, pip_prepared, pip_used_in_stage
 
 
 def generate_dockerfile(
@@ -398,7 +402,7 @@ def generate_dockerfile(
             inherited_pip_prepared = pip_prepared_state.get(base_image, False)
             inherited_user_created = user_created_state.get(base_image, False)
 
-        ordered_steps, pip_prepared = process_stage_steps(
+        ordered_steps, pip_prepared, pip_used_in_stage = process_stage_steps(
             stage_config,
             stage_name,
             project_dir,
@@ -424,6 +428,23 @@ def generate_dockerfile(
             user_created_state[stage_name] = True
         else:
             user_created_state[stage_name] = inherited_user_created
+
+        # Pre-compile .pyc bytecode for any packages added in this stage.
+        # Without this, the non-root runtime user can't write .pyc files to
+        # root-owned site-packages and every process pays the import-time
+        # compilation cost on startup. Build once, skip on every run.
+        if pip_used_in_stage:
+            last_become_user = None
+            for s in reversed(ordered_steps):
+                if s.get("type") == "become":
+                    last_become_user = s.get("name")
+                    break
+            inherited_context = _get_parent_user_context(stage_name, stages, user_name)
+            is_root = last_become_user is None and inherited_context is None
+            compile_step = {"type": "compile_bytecode", "is_root": is_root}
+            if not is_root:
+                compile_step["restore_user"] = last_become_user or inherited_context
+            ordered_steps.append(compile_step)
 
         # Inject implicit become at end of leaf stages only
         # Intermediate stages stay as root so child stages inherit root context
