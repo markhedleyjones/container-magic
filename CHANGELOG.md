@@ -2,6 +2,31 @@
 
 <!-- version list -->
 
+## v5.2.0 (2026-04-16)
+
+### Documentation
+
+- Document conda support and registry field declarations
+  ([#61](https://github.com/markhedleyjones/container-magic/pull/61),
+  [`40854a2`](https://github.com/markhedleyjones/container-magic/commit/40854a2b1cd3dffeac34008436aacf09be54f1b9))
+
+### Features
+
+- **registry**: Add conda/mamba/micromamba with channel field support
+  ([#61](https://github.com/markhedleyjones/container-magic/pull/61),
+  [`40854a2`](https://github.com/markhedleyjones/container-magic/commit/40854a2b1cd3dffeac34008436aacf09be54f1b9))
+
+- **registry**: Trigger bytecode compilation for any python-package installer
+  ([#61](https://github.com/markhedleyjones/container-magic/pull/61),
+  [`40854a2`](https://github.com/markhedleyjones/container-magic/commit/40854a2b1cd3dffeac34008436aacf09be54f1b9))
+
+### Testing
+
+- **registry**: Cover conda/mamba/micromamba and field expansion
+  ([#61](https://github.com/markhedleyjones/container-magic/pull/61),
+  [`40854a2`](https://github.com/markhedleyjones/container-magic/commit/40854a2b1cd3dffeac34008436aacf09be54f1b9))
+
+
 ## v5.1.0 (2026-04-16)
 
 ### Features
