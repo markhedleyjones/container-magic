@@ -120,13 +120,42 @@ def test_invalid_volume_format():
     with pytest.raises(ValidationError, match="Invalid volume format"):
         ContainerMagicConfig(
             names={"image": "test", "user": "root"},
-            runtime={"volumes": ["no-colon"]},
+            runtime={"volumes": [":/container"]},
             stages={
                 "base": {"from": "debian:bookworm-slim"},
                 "development": {"from": "base"},
                 "production": {"from": "base"},
             },
         )
+
+
+def test_volume_shorthand_accepted():
+    """Test that bare names are accepted as shorthand volumes."""
+    config = ContainerMagicConfig(
+        names={"image": "test", "user": "root"},
+        runtime={"volumes": ["outputs", "my-cache_2"]},
+        stages={
+            "base": {"from": "debian:bookworm-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base"},
+        },
+    )
+    assert config.runtime.volumes == ["outputs", "my-cache_2"]
+
+
+def test_invalid_shorthand_volume_rejected():
+    """Test that malformed shorthand names are rejected."""
+    for bad in ["out/puts", "out.puts", "out puts", ".."]:
+        with pytest.raises(ValidationError, match="bare names must match"):
+            ContainerMagicConfig(
+                names={"image": "test", "user": "root"},
+                runtime={"volumes": [bad]},
+                stages={
+                    "base": {"from": "debian:bookworm-slim"},
+                    "development": {"from": "base"},
+                    "production": {"from": "base"},
+                },
+            )
 
 
 def test_invalid_volume_empty_parts():

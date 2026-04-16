@@ -1,5 +1,7 @@
 """Unit tests for volume SELinux labelling and variable expansion."""
 
+import pytest
+
 from container_magic.core.volumes import (
     VolumeContext,
     ensure_selinux_label,
@@ -7,7 +9,10 @@ from container_magic.core.volumes import (
     expand_volume,
     expand_volumes_for_run,
     expand_volumes_for_script,
+    is_shorthand_volume,
     label_volumes,
+    shorthand_names,
+    validate_shorthand_name,
 )
 
 
@@ -44,10 +49,16 @@ class TestEnsureSelinuxLabel:
         assert result == "/host/path:/container/path:ro,z"
 
     def test_named_volume(self):
-        assert ensure_selinux_label("myvolume:/container/path") == "myvolume:/container/path:z"
+        assert (
+            ensure_selinux_label("myvolume:/container/path")
+            == "myvolume:/container/path:z"
+        )
 
     def test_compound_options_with_nocopy(self):
-        assert ensure_selinux_label("/host:/container:ro,nocopy") == "/host:/container:ro,nocopy,z"
+        assert (
+            ensure_selinux_label("/host:/container:ro,nocopy")
+            == "/host:/container:ro,nocopy,z"
+        )
 
 
 class TestLabelVolumes:
@@ -55,11 +66,13 @@ class TestLabelVolumes:
         assert label_volumes([]) == []
 
     def test_mixed_volumes(self):
-        result = label_volumes([
-            "/tmp/data:/data:ro",
-            "/var/log:/logs",
-            "/host:/container:z",
-        ])
+        result = label_volumes(
+            [
+                "/tmp/data:/data:ro",
+                "/var/log:/logs",
+                "/host:/container:z",
+            ]
+        )
         assert result == [
             "/tmp/data:/data:ro,z",
             "/var/log:/logs:z",
@@ -73,6 +86,7 @@ def _make_context(**overrides):
         container_home="/home/appuser",
         workspace_user="/home/mark/repos/myproject/workspace",
         workspace_container="/home/appuser/workspace",
+        project_dir="/home/mark/repos/myproject",
     )
     defaults.update(overrides)
     return VolumeContext(**defaults)
@@ -98,8 +112,7 @@ class TestExpandVolume:
         ctx = _make_context()
         result = expand_volume("$WORKSPACE/output:$WORKSPACE/output", ctx)
         assert result == (
-            "/home/mark/repos/myproject/workspace/output:"
-            "/home/appuser/workspace/output"
+            "/home/mark/repos/myproject/workspace/output:/home/appuser/workspace/output"
         )
 
     def test_no_variables_unchanged(self):
@@ -127,10 +140,20 @@ class TestExpandVolume:
         result = expand_volume("~/.config:~/.config", ctx)
         assert result == "/home/mark/.config:/root/.config"
 
-    def test_single_part_unchanged(self):
+    def test_shorthand_expands_with_project_dir(self):
         ctx = _make_context()
-        result = expand_volume("named-volume", ctx)
-        assert result == "named-volume"
+        result = expand_volume("outputs", ctx)
+        assert result == "/home/mark/repos/myproject/outputs:/data/outputs"
+
+    def test_shorthand_expands_without_project_dir(self):
+        ctx = _make_context(project_dir=None)
+        result = expand_volume("outputs", ctx)
+        assert result == "./outputs:/data/outputs"
+
+    def test_shorthand_rejects_slash(self):
+        ctx = _make_context()
+        with pytest.raises(ValueError, match="bare names must match"):
+            expand_volume("outputs/sub", ctx)
 
     def test_tilde_alone(self):
         ctx = _make_context()
@@ -168,7 +191,7 @@ class TestExpandVolumesForScript:
         result = expand_volumes_for_script(
             ["~/.config/tool:~/.config/tool"],
             container_home="/home/appuser",
-            )
+        )
         assert result == ["$HOME/.config/tool:/home/appuser/.config/tool"]
 
     def test_dollar_home_rendered_as_shell_variable(self):
@@ -227,10 +250,79 @@ class TestExpandVolumesForScript:
         assert result == ["$HOME/.config:/root/.config"]
 
     def test_empty_list(self):
-        result = expand_volumes_for_script(
-            [], container_home="/home/appuser"
-        )
+        result = expand_volumes_for_script([], container_home="/home/appuser")
         assert result == []
+
+
+class TestShorthandHelpers:
+    def test_is_shorthand_volume_bare_name(self):
+        assert is_shorthand_volume("outputs") is True
+
+    def test_is_shorthand_volume_with_colon(self):
+        assert is_shorthand_volume("/host:/container") is False
+
+    def test_validate_shorthand_name_accepts_alnum(self):
+        validate_shorthand_name("outputs")
+        validate_shorthand_name("cache_2")
+        validate_shorthand_name("my-data-1")
+
+    def test_validate_shorthand_name_rejects_slash(self):
+        with pytest.raises(ValueError, match="bare names must match"):
+            validate_shorthand_name("outputs/sub")
+
+    def test_validate_shorthand_name_rejects_empty(self):
+        with pytest.raises(ValueError, match="bare names must match"):
+            validate_shorthand_name("")
+
+    def test_validate_shorthand_name_rejects_dotted(self):
+        with pytest.raises(ValueError, match="bare names must match"):
+            validate_shorthand_name("..")
+
+    def test_shorthand_names_filters_mixed(self):
+        result = shorthand_names(
+            [
+                "outputs",
+                "/tmp/x:/x",
+                "cache",
+                "~/a:~/a",
+            ]
+        )
+        assert result == ["outputs", "cache"]
+
+
+class TestExpandShorthandForRun:
+    def test_shorthand_expansion_absolute(self):
+        ctx = _make_context()
+        result = expand_volumes_for_run(["outputs"], ctx)
+        assert result == ["/home/mark/repos/myproject/outputs:/data/outputs"]
+
+    def test_mixed_shorthand_and_full(self):
+        ctx = _make_context()
+        result = expand_volumes_for_run(["outputs", "/tmp/data:/data:ro"], ctx)
+        assert result == [
+            "/home/mark/repos/myproject/outputs:/data/outputs",
+            "/tmp/data:/data:ro",
+        ]
+
+
+class TestExpandShorthandForScript:
+    def test_shorthand_uses_run_sh_dir(self):
+        result = expand_volumes_for_script(["outputs"], container_home="/home/appuser")
+        assert result == ["${_RUN_SH_DIR}/outputs:/data/outputs"]
+
+    def test_mixed_shorthand_and_full(self):
+        result = expand_volumes_for_script(
+            ["outputs", "~/.config:~/.config"],
+            container_home="/home/appuser",
+        )
+        assert result == [
+            "${_RUN_SH_DIR}/outputs:/data/outputs",
+            "$HOME/.config:/home/appuser/.config",
+        ]
+
+    def test_shorthand_invalid_name_raises(self):
+        with pytest.raises(ValueError, match="bare names must match"):
+            expand_volumes_for_script(["bad/name"], container_home="/home/appuser")
 
 
 class TestExpandMountPath:
