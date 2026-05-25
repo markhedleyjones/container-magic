@@ -1,0 +1,25 @@
+# Scenario: custom command containing a pipeline whose first element fails
+# Tests: pipefail wrapper so the inner failure propagates instead of being
+# masked by the last pipe element
+names:
+  image: cm-scenario-pipefail
+  workspace: workspace
+  user: appuser
+
+stages:
+  base:
+    from: cm-test:debian
+
+  development:
+    from: base
+
+  production:
+    from: base
+
+commands:
+  pipefail:
+    command: sh -c 'exit 7' | cat
+    description: Failing pipeline (exit 7 piped to cat)
+  plain:
+    command: sh -c 'exit 0'
+    description: Succeeding command
