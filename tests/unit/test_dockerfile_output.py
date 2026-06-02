@@ -142,6 +142,92 @@ class TestEmptyCopyArgs:
 
 
 # ---------------------------------------------------------------------------
+# 1.5 Workspace keyword resolution (copy: workspace) with a renamed workspace
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceKeywordResolution:
+    """`copy: workspace` must resolve to names.workspace whatever its value.
+
+    build-steps.md documents `workspace` as a keyword that resolves to the
+    directory named by names.workspace. The bug: the resolution matched the
+    literal token against the configured *value*, so it only worked when
+    names.workspace == "workspace" and produced a malformed destination-less
+    COPY otherwise.
+    """
+
+    def _assert_no_bare_copy(self, content):
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("COPY"):
+                non_flag = [p for p in stripped.split() if not p.startswith("--")]
+                assert len(non_flag) >= 3, (
+                    f"COPY with insufficient arguments: {stripped}"
+                )
+
+    def _renamed_config(self, production_steps):
+        return {
+            "names": {"image": "test", "workspace": "docs", "user": "user"},
+            "stages": {
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [{"create": "user"}],
+                },
+                "development": {"from": "base", "steps": []},
+                "production": {"from": "base", "steps": production_steps},
+            },
+        }
+
+    def test_keyword_resolves_to_renamed_workspace(self):
+        config = self._renamed_config([{"become": "user"}, {"copy": "workspace"}])
+        content = _generate(config)
+        prod = _get_stage_block(content, "production")
+        assert "COPY --chown=${USER_NAME}:${USER_NAME} docs ${WORKSPACE}" in prod
+        self._assert_no_bare_copy(content)
+
+    def test_literal_workspace_name_still_resolves(self):
+        """Back-compat: the literal configured name keeps working."""
+        config = self._renamed_config([{"become": "user"}, {"copy": "docs"}])
+        content = _generate(config)
+        prod = _get_stage_block(content, "production")
+        assert "COPY --chown=${USER_NAME}:${USER_NAME} docs ${WORKSPACE}" in prod
+        self._assert_no_bare_copy(content)
+
+    def test_keyword_and_literal_produce_identical_output(self):
+        keyword = _generate(
+            self._renamed_config([{"become": "user"}, {"copy": "workspace"}])
+        )
+        literal = _generate(
+            self._renamed_config([{"become": "user"}, {"copy": "docs"}])
+        )
+        assert keyword == literal
+
+    def test_production_auto_default_resolves_to_renamed_workspace(self):
+        """Production with no steps injects copy: workspace, which must resolve."""
+        config = {
+            "names": {"image": "test", "workspace": "docs", "user": "user"},
+            "stages": {
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [{"create": "user"}],
+                },
+                "development": {"from": "base", "steps": []},
+                "production": {"from": "base"},
+            },
+        }
+        content = _generate(config)
+        prod = _get_stage_block(content, "production")
+        assert "docs ${WORKSPACE}" in prod
+        self._assert_no_bare_copy(content)
+
+    def test_keyword_does_not_trigger_spurious_workspace_warning(self, capsys):
+        config = self._renamed_config([{"become": "user"}, {"copy": "workspace"}])
+        _generate(config)
+        captured = capsys.readouterr()
+        assert "is not the defined workspace" not in captured.err
+
+
+# ---------------------------------------------------------------------------
 # 2.1 Stage preamble variants
 # ---------------------------------------------------------------------------
 
