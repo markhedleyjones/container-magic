@@ -306,8 +306,9 @@ def process_stage_steps(
         elif step_type == "copy_v2":
             for args in parsed["args_list"]:
                 resolved_args = _resolve_copy_source(args, asset_map)
-                # Single token matching workspace name becomes copy_workspace
-                if args.strip() == workspace_name:
+                # The 'workspace' keyword (and the literal configured name)
+                # become copy_workspace; both resolve to names.workspace.
+                if args.strip() in ("workspace", workspace_name):
                     symlink_data = [{"rel_path": rel} for rel in workspace_symlinks]
                     ordered_steps.append(
                         {
