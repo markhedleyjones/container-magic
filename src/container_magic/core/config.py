@@ -651,7 +651,9 @@ class ContainerMagicConfig(BaseModel):
                 if key == "copy" and isinstance(value, str):
                     # Single-token copies are workspace-style (copied into home)
                     if " " not in value.strip():
-                        if value.strip() == self.names.workspace:
+                        # The 'workspace' keyword and the literal configured
+                        # name both resolve to names.workspace.
+                        if value.strip() in ("workspace", self.names.workspace):
                             has_workspace_copy = True
                         else:
                             literal_copies.append(value.strip())
