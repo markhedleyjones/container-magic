@@ -2,6 +2,21 @@
 
 <!-- version list -->
 
+## v5.3.1 (2026-06-02)
+
+### Bug Fixes
+
+- **dockerfile**: Resolve 'copy: workspace' keyword for renamed workspaces
+  ([#63](https://github.com/markhedleyjones/container-magic/pull/63),
+  [`3327012`](https://github.com/markhedleyjones/container-magic/commit/33270126d72226dd7b454289a905343ac3e2fbd9))
+
+### Testing
+
+- Cover 'copy: workspace' keyword with a renamed workspace
+  ([#63](https://github.com/markhedleyjones/container-magic/pull/63),
+  [`3327012`](https://github.com/markhedleyjones/container-magic/commit/33270126d72226dd7b454289a905343ac3e2fbd9))
+
+
 ## v5.3.0 (2026-04-16)
 
 ### Documentation
