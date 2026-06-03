@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v5.6.0 (2026-06-03)
+
+### Documentation
+
+- Document devcontainer.json generation
+  ([#71](https://github.com/markhedleyjones/container-magic/pull/71),
+  [`25697a2`](https://github.com/markhedleyjones/container-magic/commit/25697a2df9b0a8832c396d1b224218fa92a04d52))
+
+### Features
+
+- **devcontainer**: Generate .devcontainer/devcontainer.json
+  ([#71](https://github.com/markhedleyjones/container-magic/pull/71),
+  [`25697a2`](https://github.com/markhedleyjones/container-magic/commit/25697a2df9b0a8832c396d1b224218fa92a04d52))
+
+### Testing
+
+- Cover devcontainer.json generation
+  ([#71](https://github.com/markhedleyjones/container-magic/pull/71),
+  [`25697a2`](https://github.com/markhedleyjones/container-magic/commit/25697a2df9b0a8832c396d1b224218fa92a04d52))
+
+
 ## v5.5.0 (2026-06-03)
 
 ### Build System
