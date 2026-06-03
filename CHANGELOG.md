@@ -2,6 +2,21 @@
 
 <!-- version list -->
 
+## v5.4.0 (2026-06-03)
+
+### Features
+
+- **runner**: Wrap custom commands with set -o pipefail
+  ([#65](https://github.com/markhedleyjones/container-magic/pull/65),
+  [`39d80b6`](https://github.com/markhedleyjones/container-magic/commit/39d80b61657543f7917a017621678787d37604ba))
+
+### Testing
+
+- Assert piped custom command exit code propagates
+  ([#65](https://github.com/markhedleyjones/container-magic/pull/65),
+  [`39d80b6`](https://github.com/markhedleyjones/container-magic/commit/39d80b61657543f7917a017621678787d37604ba))
+
+
 ## v5.3.1 (2026-06-02)
 
 ### Bug Fixes
