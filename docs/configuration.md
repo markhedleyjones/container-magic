@@ -362,6 +362,12 @@ commands:
 | `ipc` | IPC namespace mode override for this command (e.g. `host`, `shareable`) |
 | `mounts` | Named bind mounts (see [Mounts](mounts.md)) |
 
+Commands run through a shell with `set -o pipefail` enabled, so a failing
+element of a pipeline (e.g. `pytest | tee test.log`) propagates its non-zero
+exit code instead of being masked by the last command - useful when a command's
+exit status gates something (CI, `&&` chains). On shells without the option
+(POSIX `dash`) this degrades to standard last-command behaviour.
+
 **Development:**
 
 - `cm run train` - from anywhere in your repository
@@ -419,6 +425,17 @@ The standalone `build.sh` script builds the production target by default:
 ./build.sh --tag v1.0   # Builds production stage, tagged as 'v1.0'
 ./build.sh --help       # Shows available options
 ```
+
+The default stage is `production`. To make `build.sh` build a different stage,
+set `build_script.default_target` (it must name a stage in your config):
+
+```yaml
+build_script:
+  default_target: release
+```
+
+This only affects the standalone `build.sh`; `cm build [target]` takes the
+stage as an argument and ignores it.
 
 **Options:**
 

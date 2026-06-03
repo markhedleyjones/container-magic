@@ -83,7 +83,7 @@ three.
 ### Container paths
 
 - `ro` mounts: `/mnt/<name>/<basename>` - preserves the original filename
-- `rw` mounts: `/mnt/<name>/` - the directory itself
+- `rw` mounts: `/mnt/<name>` - the directory itself
 
 A manifest file at `/run/cm/mounts` records the host-to-container path mappings
 for any active mounts.
@@ -137,7 +137,8 @@ commands:
 
 ```bash
 cm run latest recordings=/data/recordings
-# The script finds the newest file in /mnt/recordings/ itself
+# --dir resolves to /mnt/recordings/recordings (ro mount = /mnt/<name>/<basename>);
+# the script searches there for the newest file
 ```
 
 The mount doesn't have to point to a specific file - it can be any level of the

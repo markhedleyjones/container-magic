@@ -129,3 +129,30 @@ steps:
 ```
 
 See [User Handling](user-handling.md) for more on copy ownership.
+
+## Rootless Podman: build fails on the first `RUN` (cgroup / sd-bus)
+
+When container-magic runs as a **session-less user** - a CI runner, a systemd
+service, or a non-login system account - a rootless Podman build can die on the
+first `RUN` layer with an error like:
+
+```
+crun: ... sd-bus call: Permission denied
+```
+
+Podman often prints a warning first (`no systemd user session available,
+falling back to --cgroup-manager=cgroupfs`), but that fallback only covers
+Podman's own driver - the OCI runtime (`crun`) still attempts the systemd
+sd-bus call on the `RUN` layer unless told otherwise.
+
+**Fix** - select a session-free cgroup manager and event logger in
+`containers.conf` (e.g. `~/.config/containers/containers.conf`):
+
+```toml
+[engine]
+cgroup_manager = "cgroupfs"
+events_logger = "file"
+```
+
+A login user with a running systemd session doesn't hit this; it's specific to
+headless / non-login execution.

@@ -6,6 +6,21 @@
 pip install container-magic
 ```
 
+### Nix
+
+container-magic ships a flake, so Nix users can run it without installing,
+install it into a profile, or consume it declaratively:
+
+```bash
+nix run github:markhedleyjones/container-magic -- init python:3.11 my-project
+nix profile install github:markhedleyjones/container-magic   # installs `cm`
+```
+
+As a flake input, `packages.default` / `apps.default` provide the `cm` CLI and
+`overlays.default` adds `container-magic` to your package set (e.g. on NixOS).
+A container runtime (Docker or Podman) is still resolved from `PATH` at run
+time - the flake deliberately doesn't bundle one.
+
 ## Create a Project
 
 ```bash
