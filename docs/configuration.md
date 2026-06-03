@@ -443,6 +443,42 @@ stage as an argument and ignores it.
 - `--uid UID` - override the user UID
 - `--gid GID` - override the user GID
 
+## Build Secrets
+
+Credentials a build step needs - a private package-index token, an SSH key, an
+`~/.aws/credentials` file - must not be baked into the image. Build args and
+environment variables are the wrong tool: they persist in the image layers and
+history. BuildKit secret mounts expose the value only for the duration of one
+`RUN` and leave nothing behind.
+
+Declare secrets under `build_secrets`, each with an `id` and exactly one source
+- a host file (`src`) or a host environment variable (`env`):
+
+```yaml
+build_secrets:
+  - id: pip_token        # from an environment variable
+    env: PIP_TOKEN
+  - id: aws              # from a host file (~ is expanded at build time)
+    src: ~/.aws/credentials
+```
+
+Mount a secret in the step that needs it with an uppercase `RUN` passthrough,
+reading it from `/run/secrets/<id>`:
+
+```yaml
+stages:
+  base:
+    from: python:3.11-slim
+    steps:
+      - RUN --mount=type=secret,id=pip_token \
+          pip install --index-url "https://$(cat /run/secrets/pip_token)@pypi.example.com/simple" mypkg
+```
+
+`cm build` and the generated `build.sh` both pass the matching `--secret`
+flags automatically. Secret mounts require BuildKit (the default builder in
+current Docker; supported by Podman). The secret value never appears in the
+final image.
+
 ## Build Context
 
 Container-magic manages `.dockerignore` with a deny-by-default policy. Only
