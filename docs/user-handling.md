@@ -103,7 +103,7 @@ stages:
       - copy: app.conf /home/nonroot/.config/      # User-owned (become active)
 ```
 
-See [Build Steps](build-steps.md#4-copy) for full details on the copy step.
+See [Build Steps](build-steps.md#2-copy) for full details on the copy step.
 
 ## Explicit User Steps
 

@@ -198,7 +198,7 @@ Any string that doesn't match a built-in keyword is treated as a custom Dockerfi
 
 ### Implicit RUN Wrapping
 
-If a step starts with an **uppercase Dockerfile instruction** (`RUN`, `ENV`, `COPY`, `WORKDIR`, `ADD`, `EXPOSE`, `LABEL`, `USER`, `VOLUME`), it passes through to the Dockerfile as-is. Otherwise, container-magic automatically wraps the step with `RUN`:
+If a step starts with an **uppercase Dockerfile instruction** (`ADD`, `ARG`, `CMD`, `COPY`, `ENTRYPOINT`, `ENV`, `EXPOSE`, `FROM`, `HEALTHCHECK`, `LABEL`, `RUN`, `SHELL`, `STOPSIGNAL`, `USER`, `VOLUME`, `WORKDIR`), it passes through to the Dockerfile as-is. Otherwise, container-magic automatically wraps the step with `RUN`:
 
 ```yaml
 steps:

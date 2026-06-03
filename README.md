@@ -27,6 +27,15 @@ cm build
 cm run python --version
 ```
 
+On Nix, run it without installing - or add it as a flake input:
+
+```bash
+nix run github:markhedleyjones/container-magic -- init python:3.11 my-project
+nix profile install github:markhedleyjones/container-magic   # install cm
+```
+
+The flake exposes `packages.default` / `apps.default` (the `cm` CLI) and an `overlays.default` for declarative setups.
+
 A minimal `cm.yaml`:
 
 ```yaml
