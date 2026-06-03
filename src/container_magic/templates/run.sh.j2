@@ -234,7 +234,9 @@ run_{{ command_name }}() {
 	# {{ command_spec.description }}
 	{%- endif %}
 	local RUN_ARGS=("${BASE_RUN_ARGS[@]}")
-	local CMD="{{ command_spec.command }}"
+	# pipefail so a failing element of a pipeline propagates its exit
+	# code; suppressed on shells without the option (degrades to no-op).
+	local CMD="set -o pipefail 2>/dev/null; {{ command_spec.command }}"
 	local EXTRA_ARGS=()
 
 	{%- if command_spec.env %}

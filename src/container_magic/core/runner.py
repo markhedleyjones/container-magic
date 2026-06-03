@@ -473,6 +473,12 @@ def run_container(
         else:
             command_str = command_spec.command
 
+        # Enable pipefail so a failing element of a pipeline (e.g.
+        # `pytest | tee log`) propagates its non-zero exit instead of
+        # being masked by the last element. Suppressed on shells that
+        # lack the option (POSIX dash) so it degrades to a no-op.
+        command_str = f"set -o pipefail 2>/dev/null; {command_str}"
+
     else:
         # No custom command - pass args directly (exec form, no shell wrapping).
         # This matches docker run behaviour. Users who need shell features

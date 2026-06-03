@@ -325,3 +325,38 @@ commands:
     assert '--publish" "8443:443"' in run_sh_content, (
         "run.sh missing --publish for port 8443"
     )
+
+
+def test_custom_commands_wrapped_with_pipefail(temp_project_dir):
+    """Custom command strings are prefixed with `set -o pipefail` in run.sh."""
+    result = subprocess.run(
+        ["cm", "init", "--here", "python"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm init failed: {result.stderr}"
+
+    config_file = temp_project_dir / "cm.yaml"
+    config_file.write_text(
+        config_file.read_text()
+        + """
+commands:
+  test:
+    command: "pytest workspace/tests | tee /tmp/log"
+"""
+    )
+
+    result = subprocess.run(
+        ["cm", "update"],
+        cwd=temp_project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"cm update failed: {result.stderr}"
+
+    run_sh_content = (temp_project_dir / "run.sh").read_text()
+    assert (
+        'local CMD="set -o pipefail 2>/dev/null; pytest workspace/tests | tee /tmp/log"'
+        in run_sh_content
+    ), "custom command not wrapped with pipefail in run.sh"

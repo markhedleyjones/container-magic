@@ -85,9 +85,7 @@ def _build_and_run(project, command=None, timeout=300):
 
 def test_python_app(debian_base_image, tmp_path):
     """Basic Python app: pip install, workspace script imports package."""
-    project = _setup_project(
-        tmp_path, "scenario_python_app.yaml", ["check_import.py"]
-    )
+    project = _setup_project(tmp_path, "scenario_python_app.yaml", ["check_import.py"])
     result = _build_and_run(project, ["python3", "check_import.py"])
     assert result.returncode == 0, f"Script failed:\n{result.stderr}"
     assert "import_ok" in result.stdout
@@ -95,9 +93,7 @@ def test_python_app(debian_base_image, tmp_path):
 
 def test_multistage(debian_base_image, tmp_path):
     """Multi-stage: builder is intermediate, production is leaf with root-owned workspace."""
-    project = _setup_project(
-        tmp_path, "scenario_multistage.yaml", ["check_import.py"]
-    )
+    project = _setup_project(tmp_path, "scenario_multistage.yaml", ["check_import.py"])
     result = _build_and_run(project, ["python3", "check_import.py"])
     assert result.returncode == 0, f"Script failed:\n{result.stderr}"
     assert "import_ok" in result.stdout
@@ -123,9 +119,7 @@ def test_multistage(debian_base_image, tmp_path):
 
 def test_alpine(alpine_base_image, tmp_path):
     """Alpine with explicit overrides: pip install, workspace script runs."""
-    project = _setup_project(
-        tmp_path, "scenario_alpine.yaml", ["check_import.py"]
-    )
+    project = _setup_project(tmp_path, "scenario_alpine.yaml", ["check_import.py"])
     result = _build_and_run(project, ["python3", "check_import.py"])
     assert result.returncode == 0, f"Script failed:\n{result.stderr}"
     assert "import_ok" in result.stdout
@@ -133,9 +127,7 @@ def test_alpine(alpine_base_image, tmp_path):
 
 def test_custom_commands(debian_base_image, tmp_path):
     """Custom commands: env var is passed through and script reads it."""
-    project = _setup_project(
-        tmp_path, "scenario_commands.yaml", ["check_env.py"]
-    )
+    project = _setup_project(tmp_path, "scenario_commands.yaml", ["check_env.py"])
     _build_and_run(project)  # build only
 
     result = subprocess.run(
@@ -152,9 +144,7 @@ def test_custom_commands(debian_base_image, tmp_path):
 
 def test_root_user(debian_base_image, tmp_path):
     """Root user: no USER directives, script runs as root."""
-    project = _setup_project(
-        tmp_path, "scenario_root_user.yaml", ["check_user.py"]
-    )
+    project = _setup_project(tmp_path, "scenario_root_user.yaml", ["check_user.py"])
     result = _build_and_run(project, ["python3", "check_user.py"])
     assert result.returncode == 0, f"Script failed:\n{result.stderr}"
     assert "uid=0" in result.stdout
@@ -163,3 +153,39 @@ def test_root_user(debian_base_image, tmp_path):
     # Verify no USER directives in generated Dockerfile
     dockerfile = (project / "Dockerfile").read_text()
     assert "USER " not in dockerfile
+
+
+def test_custom_command_pipefail_propagates(debian_base_image, tmp_path):
+    """A failing element of a piped custom command propagates its exit code.
+
+    Without the pipefail wrapper, `sh -c 'exit 7' | cat` would exit 0 (cat's
+    status), masking the inner failure. With it, the run.sh invocation must
+    exit non-zero so scripted gates and CI catch the failure.
+    """
+    project = _setup_project(tmp_path, "scenario_pipefail.yaml")
+    _build_and_run(project)  # build only
+
+    failing = subprocess.run(
+        ["./run.sh", "pipefail"],
+        cwd=project,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert failing.returncode == 7, (
+        "piped custom command should propagate the inner non-zero exit, "
+        f"got {failing.returncode}\nstdout: {failing.stdout}\n"
+        f"stderr: {failing.stderr}"
+    )
+
+    passing = subprocess.run(
+        ["./run.sh", "plain"],
+        cwd=project,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert passing.returncode == 0, (
+        f"succeeding command should still exit 0, got {passing.returncode}\n"
+        f"stderr: {passing.stderr}"
+    )
