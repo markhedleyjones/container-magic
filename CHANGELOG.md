@@ -2,6 +2,36 @@
 
 <!-- version list -->
 
+## v5.5.0 (2026-06-03)
+
+### Build System
+
+- **nix**: Add flake for nix run and declarative installs
+  ([#68](https://github.com/markhedleyjones/container-magic/pull/68),
+  [`00ad4e9`](https://github.com/markhedleyjones/container-magic/commit/00ad4e914557556b437cd75292a36e04c1b4e57d))
+
+### Documentation
+
+- Document build secrets ([#70](https://github.com/markhedleyjones/container-magic/pull/70),
+  [`cb3b0b6`](https://github.com/markhedleyjones/container-magic/commit/cb3b0b62ed21b1b3bc38dac6bd3c1f078451a616))
+
+- Fix audit findings across docs and README
+  ([#69](https://github.com/markhedleyjones/container-magic/pull/69),
+  [`b5b5054`](https://github.com/markhedleyjones/container-magic/commit/b5b5054e09cc3c40550e7a133c2c2d1bd4c28036))
+
+### Features
+
+- **build**: Support build-time secrets via BuildKit secret mounts
+  ([#70](https://github.com/markhedleyjones/container-magic/pull/70),
+  [`cb3b0b6`](https://github.com/markhedleyjones/container-magic/commit/cb3b0b62ed21b1b3bc38dac6bd3c1f078451a616))
+
+### Testing
+
+- Cover build-secret generation and validation
+  ([#70](https://github.com/markhedleyjones/container-magic/pull/70),
+  [`cb3b0b6`](https://github.com/markhedleyjones/container-magic/commit/cb3b0b62ed21b1b3bc38dac6bd3c1f078451a616))
+
+
 ## v5.4.2 (2026-06-03)
 
 ### Bug Fixes
