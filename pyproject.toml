@@ -53,7 +53,7 @@ Issues = "https://github.com/markhedleyjones/container-magic/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-container_magic = ["templates/**/*"]
+container_magic = ["templates/**/*", "registry/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
