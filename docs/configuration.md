@@ -479,6 +479,35 @@ flags automatically. Secret mounts require BuildKit (the default builder in
 current Docker; supported by Podman). The secret value never appears in the
 final image.
 
+## Dev Containers
+
+Set `devcontainer: true` to also generate `.devcontainer/devcontainer.json`, so
+the same image cm builds can be opened in VS Code, GitHub Codespaces, or any
+[Dev Container](https://containers.dev)-aware tool - the editor runs inside the
+container, complementing the terminal-based `cm run` workflow.
+
+```yaml
+devcontainer: true
+
+names:
+  image: my-project
+  user: nonroot
+```
+
+`cm update` (and `cm init`) then writes a `.devcontainer/devcontainer.json` that:
+
+- builds the `development` stage from the generated `Dockerfile`
+  (`build.dockerfile: ../Dockerfile`, `build.context: ..`)
+- bind-mounts the workspace directory to its in-container path, matching cm's
+  development mount (`workspaceMount` / `workspaceFolder`)
+- sets `remoteUser` to `names.user` with `updateRemoteUserUID: true`, so the
+  container user's UID/GID is remapped to your host user - the same
+  file-ownership fix cm applies for `cm run`
+- forwards any ports declared on custom `commands`
+
+The file is a generated, committed artefact like the Dockerfile and scripts;
+commit it and regenerate with `cm update`.
+
 ## Build Context
 
 Container-magic manages `.dockerignore` with a deny-by-default policy. Only

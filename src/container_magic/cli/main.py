@@ -10,6 +10,7 @@ import click
 from container_magic import __version__
 from container_magic.core.config import ContainerMagicConfig, find_config_file
 from container_magic.generators.build_script import generate_build_script
+from container_magic.generators.devcontainer import generate_devcontainer
 from container_magic.generators.dockerfile import generate_dockerfile
 from container_magic.generators.run_script import generate_run_script
 
@@ -210,6 +211,7 @@ def init(
     )
     generate_build_script(config, path, workspace_symlinks=workspace_symlinks)
     generate_run_script(config, path)
+    generate_devcontainer(config, path)
 
     # Update ignore files
     update_gitignore(path)
@@ -259,6 +261,7 @@ def update(path: Path):
     )
     generate_build_script(config, path, workspace_symlinks=workspace_symlinks)
     generate_run_script(config, path)
+    generate_devcontainer(config, path)
 
     # Update ignore files
     update_gitignore(path)
