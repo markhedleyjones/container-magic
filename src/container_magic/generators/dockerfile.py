@@ -219,6 +219,7 @@ def process_stage_steps(
     workspace_symlinks: List[tuple] = None,
     pip_prepared: bool = False,
     implicit_user: bool = False,
+    cache_mounts: bool = False,
 ) -> tuple:
     """Process build steps for a stage.
 
@@ -286,7 +287,7 @@ def process_stage_steps(
                 ordered_steps.append(prepare_step)
                 pip_prepared = True
 
-        parsed = parse_step(step, registry)
+        parsed = parse_step(step, registry, cache_mounts=cache_mounts)
 
         step_type = parsed["type"]
 
@@ -473,6 +474,7 @@ def generate_dockerfile(
             workspace_symlinks,
             pip_prepared=inherited_pip_prepared,
             implicit_user=implicit_user,
+            cache_mounts=config.cache_mounts,
         )
         pip_prepared_state[stage_name] = pip_prepared
 

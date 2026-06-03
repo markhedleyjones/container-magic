@@ -122,12 +122,18 @@ def build_command(
     body: Any,
     registry_entry: Optional[RegistryEntry] = None,
     field_values: Optional[Dict[str, Any]] = None,
+    cache_mounts: bool = False,
 ) -> str:
     """Build a complete RUN command from a tool name and its body.
 
     Flattens the dict structure into a command, injects registry flags
     after the subcommand, expands any field values declared by the registry
     entry, and appends cleanup if present.
+
+    When *cache_mounts* is set and the registry entry declares a ``cache``
+    block, the command is prefixed with BuildKit cache mounts, an extra setup
+    step is prepended (e.g. removing apt's docker-clean so debs persist), and
+    the cleanup is dropped if the cache block sets ``drop_cleanup``.
     """
     segments = [tool]
 
@@ -170,10 +176,21 @@ def build_command(
             command = " ".join(segments)
         else:
             command = " ".join(segments)
-        if registry_entry.setup:
-            command = f"{registry_entry.setup} && \\\n    {command}"
-        if registry_entry.cleanup:
+        cache = registry_entry.cache if cache_mounts else {}
+
+        setup = registry_entry.setup
+        if cache.get("setup"):
+            setup = f"{cache['setup']} && {setup}" if setup else cache["setup"]
+        if setup:
+            command = f"{setup} && \\\n    {command}"
+        if registry_entry.cleanup and not cache.get("drop_cleanup"):
             command = f"{command} && \\\n    {registry_entry.cleanup}"
+        if cache.get("targets"):
+            mounts = " ".join(
+                f"--mount=type=cache,target={target},sharing=locked"
+                for target in cache["targets"]
+            )
+            command = f"{mounts} {command}"
         return command
 
     # No registry entry or complex body - just flatten
@@ -236,6 +253,7 @@ def classify_bare_string(step: str) -> Dict[str, Any]:
 def parse_dict_step(
     step: Dict[str, Any],
     registry: Dict,
+    cache_mounts: bool = False,
 ) -> Dict[str, Any]:
     """Parse a dict step into a processed step dict.
 
@@ -342,19 +360,20 @@ def parse_dict_step(
             # No registry entry for the subcommand - pass through as-is
             body = value
 
-    command = build_command(key, body, entry, field_values)
+    command = build_command(key, body, entry, field_values, cache_mounts=cache_mounts)
     return {"type": "run", "command": command}
 
 
 def parse_step(
     step: Union[str, Dict[str, Any]],
     registry: Dict,
+    cache_mounts: bool = False,
 ) -> Dict[str, Any]:
     """Parse a single step (string or dict) into a processed step dict."""
     if isinstance(step, str):
         return classify_bare_string(step)
     elif isinstance(step, dict):
-        return parse_dict_step(step, registry)
+        return parse_dict_step(step, registry, cache_mounts=cache_mounts)
     else:
         raise ValueError(f"Step must be a string or dict, got {type(step).__name__}")
 

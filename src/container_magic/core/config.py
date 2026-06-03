@@ -440,6 +440,10 @@ class ContainerMagicConfig(BaseModel):
         default=False,
         description="Resolve external base images to their digest (FROM image@sha256:...) for reproducible builds",
     )
+    cache_mounts: bool = Field(
+        default=False,
+        description="Add BuildKit cache mounts to supported package-manager steps to speed rebuilds",
+    )
 
     def effective_runtime(self, stage_name: str) -> RuntimeConfig:
         """Resolve the effective runtime for a stage.
@@ -579,6 +583,8 @@ class ContainerMagicConfig(BaseModel):
             data.pop("devcontainer", None)
         if not data.get("pin_base_images"):
             data.pop("pin_base_images", None)
+        if not data.get("cache_mounts"):
+            data.pop("cache_mounts", None)
 
         # Custom YAML dumper that adds blank lines between top-level sections
         class BlankLineDumper(yaml.SafeDumper):
