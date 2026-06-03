@@ -77,12 +77,16 @@ mkdir -p "${STAGING_DIR}/$(dirname "{{ rel_path }}")"
 cp -rL "{{ workspace_name }}/{{ rel_path }}" "${STAGING_DIR}/{{ rel_path }}"
 {% endfor %}
 {%- endif %}
+# Build-time secrets (BuildKit). Empty unless build_secrets is configured.
+SECRET_ARGS=({{ secret_flags }})
+
 ${RUNTIME} build \
 	--target "${TARGET}" \
 	--build-arg USER_NAME="${USER_NAME}" \
 	--build-arg USER_UID="${USER_UID}" \
 	--build-arg USER_GID="${USER_GID}" \
 	--build-arg WORKSPACE_NAME="${WORKSPACE_NAME}" \
+	${SECRET_ARGS[@]+"${SECRET_ARGS[@]}"} \
 	--tag "${IMAGE_NAME}:${TAG}" \
 	.
 

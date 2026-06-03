@@ -375,6 +375,36 @@ class BuildScriptConfig(BaseModel):
     )
 
 
+class BuildSecretConfig(BaseModel):
+    """A build-time secret exposed to RUN steps via BuildKit secret mounts.
+
+    Steps consume it with ``RUN --mount=type=secret,id=<id> ...``; the build
+    invocation supplies the value with ``--secret``. Secrets are not persisted
+    in image layers, unlike build args or env vars.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(
+        description="Secret id, referenced as 'RUN --mount=type=secret,id=<id>'"
+    )
+    src: Optional[str] = Field(
+        default=None, description="Host file path providing the secret value"
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="Host environment variable name providing the secret value",
+    )
+
+    @model_validator(mode="after")
+    def require_single_source(self) -> "BuildSecretConfig":
+        if bool(self.src) == bool(self.env):
+            raise ValueError(
+                f"build secret '{self.id}' needs exactly one of 'src' or 'env'"
+            )
+        return self
+
+
 class ContainerMagicConfig(BaseModel):
     """Complete container-magic configuration."""
 
@@ -398,6 +428,10 @@ class ContainerMagicConfig(BaseModel):
         description="Per-project command registry overrides for structured step syntax",
     )
     build_script: BuildScriptConfig = Field(default_factory=BuildScriptConfig)
+    build_secrets: List[BuildSecretConfig] = Field(
+        default_factory=list,
+        description="Build-time secrets exposed to RUN steps via --mount=type=secret",
+    )
 
     def effective_runtime(self, stage_name: str) -> RuntimeConfig:
         """Resolve the effective runtime for a stage.
@@ -531,6 +565,8 @@ class ContainerMagicConfig(BaseModel):
         default_runtime = RuntimeConfig().model_dump(exclude_none=True)
         if runtime == {} or runtime == default_runtime:
             data.pop("runtime", None)
+        if not data.get("build_secrets"):
+            data.pop("build_secrets", None)
 
         # Custom YAML dumper that adds blank lines between top-level sections
         class BlankLineDumper(yaml.SafeDumper):
