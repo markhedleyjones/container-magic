@@ -2,6 +2,26 @@
 
 <!-- version list -->
 
+## v5.7.0 (2026-06-03)
+
+### Documentation
+
+- Document pin_base_images ([#72](https://github.com/markhedleyjones/container-magic/pull/72),
+  [`a694825`](https://github.com/markhedleyjones/container-magic/commit/a6948254c0fd63f8e2cf75cb36a1fbd5b54e8a6d))
+
+### Features
+
+- **dockerfile**: Optionally pin base images to their digest
+  ([#72](https://github.com/markhedleyjones/container-magic/pull/72),
+  [`a694825`](https://github.com/markhedleyjones/container-magic/commit/a6948254c0fd63f8e2cf75cb36a1fbd5b54e8a6d))
+
+### Testing
+
+- Cover base-image digest pinning and the resolver
+  ([#72](https://github.com/markhedleyjones/container-magic/pull/72),
+  [`a694825`](https://github.com/markhedleyjones/container-magic/commit/a6948254c0fd63f8e2cf75cb36a1fbd5b54e8a6d))
+
+
 ## v5.6.0 (2026-06-03)
 
 ### Documentation
