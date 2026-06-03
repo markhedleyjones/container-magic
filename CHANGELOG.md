@@ -2,6 +2,21 @@
 
 <!-- version list -->
 
+## v5.4.1 (2026-06-03)
+
+### Bug Fixes
+
+- **packaging**: Ship registry YAML files in the wheel
+  ([#66](https://github.com/markhedleyjones/container-magic/pull/66),
+  [`84782a2`](https://github.com/markhedleyjones/container-magic/commit/84782a2f52306e37f5a56f4b97d8e98f4ad274c0))
+
+### Testing
+
+- Guard registry data files stay in package-data
+  ([#66](https://github.com/markhedleyjones/container-magic/pull/66),
+  [`84782a2`](https://github.com/markhedleyjones/container-magic/commit/84782a2f52306e37f5a56f4b97d8e98f4ad274c0))
+
+
 ## v5.4.0 (2026-06-03)
 
 ### Features
