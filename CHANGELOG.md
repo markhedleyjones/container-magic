@@ -2,6 +2,26 @@
 
 <!-- version list -->
 
+## v5.8.0 (2026-06-03)
+
+### Documentation
+
+- Document cache_mounts ([#73](https://github.com/markhedleyjones/container-magic/pull/73),
+  [`7502477`](https://github.com/markhedleyjones/container-magic/commit/7502477808616c8c7269af94804e9ea1603ae867))
+
+### Features
+
+- **build**: Opt-in BuildKit cache mounts for package-manager steps
+  ([#73](https://github.com/markhedleyjones/container-magic/pull/73),
+  [`7502477`](https://github.com/markhedleyjones/container-magic/commit/7502477808616c8c7269af94804e9ea1603ae867))
+
+### Testing
+
+- Cover apt cache mounts and the opt-in default
+  ([#73](https://github.com/markhedleyjones/container-magic/pull/73),
+  [`7502477`](https://github.com/markhedleyjones/container-magic/commit/7502477808616c8c7269af94804e9ea1603ae867))
+
+
 ## v5.7.0 (2026-06-03)
 
 ### Documentation
