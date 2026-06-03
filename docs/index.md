@@ -24,7 +24,7 @@ For development, `cm build` and `cm run` read the YAML config directly and handl
 ## Quick Start
 
 ```bash
-# Install
+# Install (or, on Nix: nix profile install github:markhedleyjones/container-magic)
 pip install container-magic
 
 # Create a new project
@@ -51,3 +51,6 @@ See [Getting Started](getting-started.md) for a full walkthrough.
 * **Multi-stage builds** - Separate base, development, and production stages
 * **Live workspace mounting** - Edit code on host, run in container (development)
 * **Standalone scripts** - Production needs only docker/podman (no dependencies)
+* **Dev Container support** - Generate `.devcontainer/devcontainer.json` for VS Code / Codespaces
+* **Reproducible, cacheable builds** - Opt-in base-image digest pinning and BuildKit cache mounts
+* **Build secrets** - Pass credentials at build time, never baked into image layers
