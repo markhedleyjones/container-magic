@@ -93,6 +93,14 @@ def build_container(
     build_args.extend(["--build-arg", f"USER_GID={user_gid}"])
     build_args.extend(["--build-arg", f"WORKSPACE_NAME={config.names.workspace}"])
 
+    # Build-time secrets (BuildKit). ~ is expanded for the local build.
+    for secret in config.build_secrets:
+        if secret.src:
+            src = os.path.expanduser(secret.src)
+            build_args.extend(["--secret", f"id={secret.id},src={src}"])
+        else:
+            build_args.extend(["--secret", f"id={secret.id},env={secret.env}"])
+
     if target == "development":
         # Development: also pass USER_HOME
         user_home = os.path.expanduser("~")

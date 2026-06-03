@@ -40,6 +40,19 @@ def generate_build_script(
         workspace_path = project_dir / config.names.workspace
         workspace_symlinks = scan_workspace_symlinks(workspace_path)
 
+    # Build secret --secret arguments as a single bash array literal. A leading
+    # ~ becomes ${HOME} so the committed script stays portable across machines.
+    secret_specs = []
+    for secret in config.build_secrets:
+        if secret.src:
+            src = secret.src
+            if src == "~" or src.startswith("~/"):
+                src = "${HOME}" + src[1:]
+            secret_specs.append(f"id={secret.id},src={src}")
+        else:
+            secret_specs.append(f"id={secret.id},env={secret.env}")
+    secret_flags = " ".join(f"--secret {spec}" for spec in secret_specs)
+
     content = template.render(
         project_name=config.names.image,
         workspace_name=config.names.workspace,
@@ -50,6 +63,7 @@ def generate_build_script(
         production_user_home=production_user_home,
         backend=config.backend,
         workspace_symlinks=workspace_symlinks,
+        secret_flags=secret_flags,
     )
 
     build_script = project_dir / "build.sh"
