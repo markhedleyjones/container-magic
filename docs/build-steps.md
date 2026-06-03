@@ -357,6 +357,10 @@ If no steps are specified, `copy: workspace` is added automatically.
 
 Package managers can be used as structured steps. The command name determines which package manager is used:
 
+!!! tip
+    Enable [`cache_mounts`](configuration.md#cache-mounts) to persist downloaded
+    packages between builds for faster rebuilds (currently `apt-get`).
+
 ```yaml
 # Debian / Ubuntu
 steps:
