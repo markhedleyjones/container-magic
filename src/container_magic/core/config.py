@@ -436,6 +436,10 @@ class ContainerMagicConfig(BaseModel):
         default=False,
         description="Generate .devcontainer/devcontainer.json for IDE / Codespaces use",
     )
+    pin_base_images: bool = Field(
+        default=False,
+        description="Resolve external base images to their digest (FROM image@sha256:...) for reproducible builds",
+    )
 
     def effective_runtime(self, stage_name: str) -> RuntimeConfig:
         """Resolve the effective runtime for a stage.
@@ -573,6 +577,8 @@ class ContainerMagicConfig(BaseModel):
             data.pop("build_secrets", None)
         if not data.get("devcontainer"):
             data.pop("devcontainer", None)
+        if not data.get("pin_base_images"):
+            data.pop("pin_base_images", None)
 
         # Custom YAML dumper that adds blank lines between top-level sections
         class BlankLineDumper(yaml.SafeDumper):

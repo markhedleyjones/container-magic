@@ -1,11 +1,13 @@
 """Dockerfile generation from configuration."""
 
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from container_magic.core.cache import build_asset_map
+from container_magic.core.digest import resolve_image_digest
 from container_magic.core.config import (
     ContainerMagicConfig,
     StageConfig,
@@ -415,10 +417,27 @@ def generate_dockerfile(
     stages_data = []
     pip_prepared_state: Dict[str, bool] = {}
     user_created_state: Dict[str, bool] = {}
+    digest_cache: Dict[str, Optional[str]] = {}
     for stage_name, stage_config in stages.items():
         base_image = stage_config.frm
         resolved_image = resolve_base_image(base_image, stages)
         from_is_image = ":" in base_image or "/" in base_image
+
+        # Optionally pin external base images to their digest for reproducible
+        # builds. Best-effort: fall back to the tag if it can't be resolved.
+        from_value = base_image
+        if config.pin_base_images and from_is_image:
+            if base_image not in digest_cache:
+                digest_cache[base_image] = resolve_image_digest(base_image)
+            digest = digest_cache[base_image]
+            if digest:
+                from_value = f"{base_image}@{digest}"
+            else:
+                print(
+                    f"Warning: could not resolve a digest for '{base_image}'; "
+                    "leaving it unpinned.",
+                    file=sys.stderr,
+                )
 
         # Resolve distro: explicit on this stage, or inherited from parent chain
         effective_distro = resolve_inherited_distro(stage_name, stages)
@@ -520,7 +539,7 @@ def generate_dockerfile(
         stages_data.append(
             {
                 "name": stage_name,
-                "from": base_image,
+                "from": from_value,
                 "from_is_image": from_is_image,
                 "package_manager": package_manager,
                 "user_creation_style": user_creation_style,
