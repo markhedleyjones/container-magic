@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v5.4.2 (2026-06-03)
+
+### Bug Fixes
+
+- **dockerfile**: Give single-token non-workspace copy a destination
+  ([#67](https://github.com/markhedleyjones/container-magic/pull/67),
+  [`930329f`](https://github.com/markhedleyjones/container-magic/commit/930329f37b4ba4c911f498e0608c55822a9914e4))
+
+### Documentation
+
+- Document single-token copy destination
+  ([#67](https://github.com/markhedleyjones/container-magic/pull/67),
+  [`930329f`](https://github.com/markhedleyjones/container-magic/commit/930329f37b4ba4c911f498e0608c55822a9914e4))
+
+### Testing
+
+- Cover single-token non-workspace copy into home
+  ([#67](https://github.com/markhedleyjones/container-magic/pull/67),
+  [`930329f`](https://github.com/markhedleyjones/container-magic/commit/930329f37b4ba4c911f498e0608c55822a9914e4))
+
+
 ## v5.4.1 (2026-06-03)
 
 ### Bug Fixes
