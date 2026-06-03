@@ -432,6 +432,10 @@ class ContainerMagicConfig(BaseModel):
         default_factory=list,
         description="Build-time secrets exposed to RUN steps via --mount=type=secret",
     )
+    devcontainer: bool = Field(
+        default=False,
+        description="Generate .devcontainer/devcontainer.json for IDE / Codespaces use",
+    )
 
     def effective_runtime(self, stage_name: str) -> RuntimeConfig:
         """Resolve the effective runtime for a stage.
@@ -567,6 +571,8 @@ class ContainerMagicConfig(BaseModel):
             data.pop("runtime", None)
         if not data.get("build_secrets"):
             data.pop("build_secrets", None)
+        if not data.get("devcontainer"):
+            data.pop("devcontainer", None)
 
         # Custom YAML dumper that adds blank lines between top-level sections
         class BlankLineDumper(yaml.SafeDumper):
