@@ -24,7 +24,24 @@ stages:
 !!! note
     This is the automatic default step for the production stage if no steps are specified.
 
-A single-token `copy:` that does not match `names.workspace` is treated as a directory copy into the user's home, but container-magic will flag it:
+A single-token `copy:` that does not match `names.workspace` copies that directory into the user's home, beside the workspace. The destination defaults to the same name under the user's home directory (the build `WORKDIR`), so a top-level repo directory keeps its position as a sibling of the workspace inside the image:
+
+```yaml
+names:
+  workspace: docs
+  user: app
+
+stages:
+  production:
+    from: base
+    steps:
+      - copy: workspace   # COPY docs ${WORKSPACE}      -> ${USER_HOME}/docs
+      - copy: assets      # COPY assets ./assets         -> ${USER_HOME}/assets
+```
+
+For a nested source the basename is preserved (`copy: src/lib` -> `COPY src/lib ./lib`). To place a directory somewhere else, give an explicit destination (`copy: assets /opt/assets`).
+
+container-magic also flags single-token non-workspace copies, since they are often a mistake:
 
 - **Warning** if the workspace is never copied -- you probably meant `copy: workspace` or need to update `names.workspace`
 - **Info** if the workspace is also copied -- you're copying an extra directory alongside the workspace, which is fine

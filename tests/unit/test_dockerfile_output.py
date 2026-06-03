@@ -228,6 +228,75 @@ class TestWorkspaceKeywordResolution:
 
 
 # ---------------------------------------------------------------------------
+# 1.6 Single-token non-workspace copy resolves into the user's home
+# ---------------------------------------------------------------------------
+
+
+class TestNonWorkspaceSingleTokenCopy:
+    """A single-token `copy: <dir>` that is not the workspace copies the
+    directory into the user's home as a sibling of the workspace, never a
+    destination-less COPY (docs/build-steps.md).
+    """
+
+    def _assert_no_bare_copy(self, content):
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("COPY"):
+                non_flag = [p for p in stripped.split() if not p.startswith("--")]
+                assert len(non_flag) >= 3, (
+                    f"COPY with insufficient arguments: {stripped}"
+                )
+
+    def _config(self, production_steps):
+        return {
+            "names": {"image": "test", "workspace": "docs", "user": "user"},
+            "stages": {
+                "base": {
+                    "from": "debian:bookworm-slim",
+                    "steps": [{"create": "user"}],
+                },
+                "development": {"from": "base", "steps": []},
+                "production": {"from": "base", "steps": production_steps},
+            },
+        }
+
+    def test_dict_single_token_copies_into_home(self):
+        content = _generate(self._config([{"become": "user"}, {"copy": "assets"}]))
+        prod = _get_stage_block(content, "production")
+        assert "COPY --chown=${USER_NAME}:${USER_NAME} assets ./assets" in prod
+        self._assert_no_bare_copy(content)
+
+    def test_bare_string_single_token_copies_into_home(self):
+        content = _generate(self._config([{"become": "user"}, "copy assets"]))
+        prod = _get_stage_block(content, "production")
+        assert "COPY --chown=${USER_NAME}:${USER_NAME} assets ./assets" in prod
+        self._assert_no_bare_copy(content)
+
+    def test_workspace_keyword_unaffected(self):
+        content = _generate(self._config([{"become": "user"}, {"copy": "workspace"}]))
+        prod = _get_stage_block(content, "production")
+        assert "COPY --chown=${USER_NAME}:${USER_NAME} docs ${WORKSPACE}" in prod
+        self._assert_no_bare_copy(content)
+
+    def test_multi_token_copy_unchanged(self):
+        content = _generate(
+            self._config([{"become": "user"}, {"copy": "config.yaml /etc/config.yaml"}])
+        )
+        prod = _get_stage_block(content, "production")
+        assert (
+            "COPY --chown=${USER_NAME}:${USER_NAME} config.yaml /etc/config.yaml"
+            in prod
+        )
+        self._assert_no_bare_copy(content)
+
+    def test_subpath_single_token_preserves_basename(self):
+        content = _generate(self._config([{"become": "user"}, {"copy": "src/lib"}]))
+        prod = _get_stage_block(content, "production")
+        assert "COPY --chown=${USER_NAME}:${USER_NAME} src/lib ./lib" in prod
+        self._assert_no_bare_copy(content)
+
+
+# ---------------------------------------------------------------------------
 # 2.1 Stage preamble variants
 # ---------------------------------------------------------------------------
 
