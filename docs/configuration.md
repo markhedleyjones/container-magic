@@ -508,6 +508,28 @@ names:
 The file is a generated, committed artefact like the Dockerfile and scripts;
 commit it and regenerate with `cm update`.
 
+## Pinning Base Images
+
+Set `pin_base_images: true` to resolve each external base image to its digest
+at generation time, so the Dockerfile pins `FROM image:tag@sha256:...`. A tag
+like `python:3.11-slim` can change underneath you; pinning the digest makes
+rebuilds reproducible.
+
+```yaml
+pin_base_images: true
+
+stages:
+  base:
+    from: python:3.11-slim   # becomes FROM python:3.11-slim@sha256:... AS base
+```
+
+Only external images are pinned; `from:` references to other stages are left
+alone. Resolution is best-effort and runs `cm update`/`cm build` against the
+registry (via `skopeo` or `docker buildx imagetools`); if a digest can't be
+resolved - offline, missing tooling, private registry - cm prints a warning and
+leaves that image on its tag rather than failing. Re-run `cm update` to refresh
+the pins when you want to move to a newer base image.
+
 ## Build Context
 
 Container-magic manages `.dockerignore` with a deny-by-default policy. Only
