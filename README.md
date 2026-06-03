@@ -82,6 +82,9 @@ Build and run the production image:
 * **Data volumes** - shorthand for sibling folders (`outputs`, `cache`) that persist across runs without entering the image
 * **AWS credential forwarding** - mount host AWS config into the container
 * **Cached assets** - download models and datasets once, reuse across builds
+* **Dev Container support** - generate `.devcontainer/devcontainer.json` to open the same image in VS Code or Codespaces
+* **Reproducible, cacheable builds** - opt-in base-image digest pinning and BuildKit cache mounts for faster, repeatable rebuilds
+* **Build secrets** - pass credentials at build time via BuildKit secret mounts, never baked into image layers
 
 ## Documentation
 
@@ -90,7 +93,7 @@ Full documentation is available at **[markhedleyjones.com/container-magic](https
 | Page | Contents |
 |------|----------|
 | [Getting Started](https://markhedleyjones.com/container-magic/getting-started/) | Installation, first project, workflow |
-| [Configuration](https://markhedleyjones.com/container-magic/configuration/) | Full YAML reference - names, runtime, stages, commands |
+| [Configuration](https://markhedleyjones.com/container-magic/configuration/) | Full YAML reference - names, runtime, stages, commands, build secrets, dev containers, digest pinning, cache mounts |
 | [Build Steps](https://markhedleyjones.com/container-magic/build-steps/) | Package managers, custom commands, layer caching |
 | [Cached Assets](https://markhedleyjones.com/container-magic/cached-assets/) | Asset downloading, caching, and cache management |
 | [User Handling](https://markhedleyjones.com/container-magic/user-handling/) | Dev vs prod users, copy ownership, permissions |
