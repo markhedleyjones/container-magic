@@ -2,3 +2,9 @@ install:
   setup: "apt-get update"
   flags: "-y --no-install-recommends"
   cleanup: "rm -rf /var/lib/apt/lists/*"
+  cache:
+    targets:
+      - /var/cache/apt
+      - /var/lib/apt
+    setup: "rm -f /etc/apt/apt.conf.d/docker-clean"
+    drop_cleanup: true

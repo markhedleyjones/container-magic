@@ -53,12 +53,16 @@ class RegistryEntry:
         cleanup: str = "",
         fields: Optional[Dict[str, FieldSpec]] = None,
         installs_python_packages: bool = False,
+        cache: Optional[Dict[str, Any]] = None,
     ):
         self.setup = setup
         self.flags = flags
         self.cleanup = cleanup
         self.fields = fields or {}
         self.installs_python_packages = installs_python_packages
+        # Optional BuildKit cache-mount config, applied only when the user
+        # opts in. Shape: {targets: [str], setup: str, drop_cleanup: bool}.
+        self.cache = cache or {}
 
     def __repr__(self):
         return (
@@ -97,6 +101,7 @@ def _entry_from_data(entry_data: Dict[str, Any]) -> RegistryEntry:
         installs_python_packages=bool(
             entry_data.get("installs_python_packages", False)
         ),
+        cache=entry_data.get("cache"),
     )
 
 

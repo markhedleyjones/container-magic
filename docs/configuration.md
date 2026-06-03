@@ -530,6 +530,35 @@ resolved - offline, missing tooling, private registry - cm prints a warning and
 leaves that image on its tag rather than failing. Re-run `cm update` to refresh
 the pins when you want to move to a newer base image.
 
+## Cache Mounts
+
+Set `cache_mounts: true` to add [BuildKit cache mounts](https://docs.docker.com/build/cache/optimize/#use-cache-mounts)
+to supported package-manager steps, so the package cache persists between
+builds without bloating the image - rebuilds after a small change re-use the
+downloaded packages instead of fetching them again.
+
+```yaml
+cache_mounts: true
+
+stages:
+  base:
+    from: debian:bookworm-slim
+    steps:
+      - apt-get:
+          install:
+            - build-essential
+```
+
+For `apt-get` this mounts caches at `/var/cache/apt` and `/var/lib/apt`,
+removes the base image's `docker-clean` (so downloaded `.deb` files are kept),
+and skips the apt-list cleanup (the lists now live in the cache mount, not the
+image layer). The cache lives in the BuildKit cache, not the final image, so
+image size is unaffected.
+
+Currently applies to `apt-get`; other package managers (pip, apk, dnf) are not
+yet cached. Requires BuildKit (the default builder in current Docker; supported
+by Podman) and is opt-in - off by default.
+
 ## Build Context
 
 Container-magic manages `.dockerignore` with a deny-by-default policy. Only
