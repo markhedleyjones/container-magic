@@ -163,6 +163,20 @@ def _resolve_copy_source(args: str, asset_map: Dict[str, str]) -> str:
     return args
 
 
+def _ensure_copy_destination(resolved_args: str, original_args: str) -> str:
+    """Give a destination-less single-token copy a sensible one.
+
+    A bare ``copy: <dir>`` (one token, no destination) copies the directory
+    into the user's home (WORKDIR) under the same name, mirroring the host
+    layout where it sits beside the workspace. Multi-token args (explicit
+    ``source dest``, ``--from=`` clauses, etc.) are returned unchanged.
+    """
+    if " " in resolved_args.strip():
+        return resolved_args
+    name = Path(original_args.strip()).name
+    return f"{resolved_args.strip()} ./{name}"
+
+
 def _step_is_pip(step: Union[str, Dict[str, Any]]) -> bool:
     """Check if a raw step is a pip step."""
     return isinstance(step, dict) and len(step) == 1 and next(iter(step)) == "pip"
@@ -301,6 +315,7 @@ def process_stage_steps(
             if chown == "context":
                 chown = current_user
             args = _resolve_copy_source(parsed["args"], asset_map)
+            args = _ensure_copy_destination(args, parsed["args"])
             ordered_steps.append({"type": "copy", "args": args, "chown": chown})
 
         elif step_type == "copy_v2":
@@ -318,8 +333,9 @@ def process_stage_steps(
                         }
                     )
                 else:
+                    final_args = _ensure_copy_destination(resolved_args, args)
                     ordered_steps.append(
-                        {"type": "copy", "args": resolved_args, "chown": current_user}
+                        {"type": "copy", "args": final_args, "chown": current_user}
                     )
 
         elif step_type == "env":
