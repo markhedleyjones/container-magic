@@ -189,3 +189,52 @@ def test_custom_command_pipefail_propagates(debian_base_image, tmp_path):
         f"succeeding command should still exit 0, got {passing.returncode}\n"
         f"stderr: {passing.stderr}"
     )
+
+
+def test_entrypoint_and_cmd(debian_base_image, tmp_path):
+    """Production image runs its configured entrypoint with cmd as default args.
+
+    Verifies the entrypoint resolves the workspace-relative path, the cmd
+    supplies default arguments, and a runtime argument overrides the cmd.
+    """
+    image = "cm-scenario-entrypoint:latest"
+    project = _setup_project(
+        tmp_path, "scenario_entrypoint.yaml", ["entrypoint_app.py"]
+    )
+    _build_and_run(project)  # build only
+
+    dockerfile = (project / "Dockerfile").read_text()
+    assert 'ENTRYPOINT ["python3", "workspace/entrypoint_app.py"]' in dockerfile
+    assert 'CMD ["default-arg"]' in dockerfile
+
+    try:
+        default_run = subprocess.run(
+            [_runtime(), "run", "--rm", image],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert default_run.returncode == 0, (
+            f"entrypoint run failed:\nstdout: {default_run.stdout}\n"
+            f"stderr: {default_run.stderr}"
+        )
+        assert "entrypoint_ran" in default_run.stdout
+        assert "args: default-arg" in default_run.stdout
+
+        override_run = subprocess.run(
+            [_runtime(), "run", "--rm", image, "override-arg"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert override_run.returncode == 0, (
+            f"entrypoint run with override failed:\nstderr: {override_run.stderr}"
+        )
+        assert "args: override-arg" in override_run.stdout
+    finally:
+        subprocess.run(
+            [_runtime(), "rmi", "-f", image],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )

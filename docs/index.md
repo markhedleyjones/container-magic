@@ -47,6 +47,7 @@ See [Getting Started](getting-started.md) for a full walkthrough.
 * **YAML configuration** - Single source of truth for your container setup
 * **Transparent execution** - Run commands in container from anywhere in your repo
 * **Custom commands** - Define commands once, use in both dev and prod
+* **Production entrypoint** - Set a stage's `entrypoint` and `cmd` from a string or list, emitted as signal-safe exec form
 * **Smart features** - GPU, display (X11/Wayland), audio, and AWS credential support
 * **Multi-stage builds** - Separate base, development, and production stages
 * **Live workspace mounting** - Edit code on host, run in container (development)

@@ -278,6 +278,17 @@ class StageConfig(BaseModel):
         description="Stage-specific runtime overrides. Scalars override the global runtime; "
         "lists (volumes, devices, features) are appended to the global values.",
     )
+    entrypoint: Optional[Union[str, List[str]]] = Field(
+        default=None,
+        description="Container entrypoint. A string is split with shell-style quoting; "
+        "a list is used verbatim. Always emitted as ENTRYPOINT in exec form so the "
+        "process runs as PID 1 and receives signals.",
+    )
+    cmd: Optional[Union[str, List[str]]] = Field(
+        default=None,
+        description="Default command/arguments, overridable at `docker run`. A string is "
+        "split with shell-style quoting; a list is used verbatim. Emitted as CMD in exec form.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -292,6 +303,17 @@ class StageConfig(BaseModel):
                 "The shell field sets the interactive shell for cm run and run.sh."
             )
         return data
+
+    @field_validator("entrypoint", "cmd")
+    @classmethod
+    def validate_exec_form(cls, v, info):
+        """Reject empty or malformed entrypoint/cmd values at load time."""
+        if v is None:
+            return v
+        from container_magic.core.steps import render_exec_form
+
+        render_exec_form(v, info.field_name)
+        return v
 
 
 class MountSpec(BaseModel):
