@@ -17,7 +17,9 @@ Three step categories determined by YAML structure:
 """
 
 import difflib
+import json
 import re
+import shlex
 from typing import Any, Dict, List, Optional, Union
 
 from container_magic.core.registry import RegistryEntry
@@ -71,6 +73,28 @@ _DOCKERFILE_INSTRUCTIONS = {
     "VOLUME",
     "WORKDIR",
 }
+
+
+def render_exec_form(value: Union[str, List[Any]], field_name: str = "value") -> str:
+    """Render an entrypoint/cmd value as a Dockerfile exec-form JSON array.
+
+    A string is split into tokens with shell-style quoting (``shlex``); a list
+    is used verbatim. The result is always exec form (a JSON array) so the
+    process runs as the container's PID 1 and receives Unix signals directly,
+    unlike shell form which wraps the command in ``/bin/sh -c``.
+    """
+    if isinstance(value, str):
+        tokens = shlex.split(value)
+    elif isinstance(value, list):
+        tokens = [str(item) for item in value]
+    else:
+        raise ValueError(
+            f"{field_name} must be a string or list of strings, "
+            f"got {type(value).__name__}"
+        )
+    if not tokens:
+        raise ValueError(f"{field_name} must not be empty")
+    return json.dumps(tokens)
 
 
 def quote_arg(arg: str) -> str:

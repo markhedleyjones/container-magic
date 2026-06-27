@@ -139,4 +139,13 @@ RUN {{ step.command }}
 {% endif %}
 {% endif %}
 {% endfor %}
+{% if stage.entrypoint or stage.cmd %}
+
+{% endif %}
+{% if stage.entrypoint %}
+ENTRYPOINT {{ stage.entrypoint }}
+{% endif %}
+{% if stage.cmd %}
+CMD {{ stage.cmd }}
+{% endif %}
 {% endfor %}

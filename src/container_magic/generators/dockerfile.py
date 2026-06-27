@@ -13,7 +13,11 @@ from container_magic.core.config import (
     StageConfig,
 )
 from container_magic.core.registry import load_registry
-from container_magic.core.steps import has_create_user_in_stages, parse_step
+from container_magic.core.steps import (
+    has_create_user_in_stages,
+    parse_step,
+    render_exec_form,
+)
 from container_magic.core.symlinks import scan_workspace_symlinks
 from container_magic.core.templates import (
     detect_package_manager,
@@ -538,6 +542,13 @@ def generate_dockerfile(
 
         needs_user_args = _stage_needs_user_args(ordered_steps)
 
+        entrypoint = (
+            render_exec_form(stage_config.entrypoint, "entrypoint")
+            if stage_config.entrypoint
+            else None
+        )
+        cmd = render_exec_form(stage_config.cmd, "cmd") if stage_config.cmd else None
+
         stages_data.append(
             {
                 "name": stage_name,
@@ -551,6 +562,8 @@ def generate_dockerfile(
                 "user_home": user_home,
                 "ordered_steps": ordered_steps,
                 "needs_user_args": needs_user_args,
+                "entrypoint": entrypoint,
+                "cmd": cmd,
             }
         )
 
