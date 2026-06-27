@@ -216,6 +216,8 @@ steps:
 
 This means you can write steps concisely -- just write the command and container-magic adds the `RUN` for you.
 
+To set the container's entrypoint or default command, prefer the structured [`entrypoint` / `cmd` stage fields](configuration.md#entrypoint-and-command) over a raw `ENTRYPOINT` / `CMD` passthrough step: they accept a plain string or list, always emit exec form, and live on the stage rather than in the step order.
+
 ### Multi-command Steps
 
 Use `run:` with a list to combine multiple commands into a **single `RUN` instruction** (and therefore a single Docker layer). Commands are automatically joined with `&& \`:

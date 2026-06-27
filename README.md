@@ -77,6 +77,7 @@ Build and run the production image:
 * **Automatic user handling** - host user identity in dev, dedicated user in prod, no manual setup
 * **GPU, display, and audio** - NVIDIA GPU passthrough, X11/Wayland forwarding, PulseAudio/PipeWire
 * **Custom commands** - define once, use in both dev and prod with port publishing and environment variables
+* **Production entrypoint** - set a stage's `entrypoint` and `cmd` from a plain string or list, emitted as signal-safe exec form
 * **Multi-stage builds** - share steps between stages, pip packages install into the base image's Python (no venv duplication)
 * **Transparent execution** - run commands from anywhere in your repo with automatic path translation
 * **Data volumes** - shorthand for sibling folders (`outputs`, `cache`) that persist across runs without entering the image
@@ -93,7 +94,7 @@ Full documentation is available at **[markhedleyjones.com/container-magic](https
 | Page | Contents |
 |------|----------|
 | [Getting Started](https://markhedleyjones.com/container-magic/getting-started/) | Installation, first project, workflow |
-| [Configuration](https://markhedleyjones.com/container-magic/configuration/) | Full YAML reference - names, runtime, stages, commands, build secrets, dev containers, digest pinning, cache mounts |
+| [Configuration](https://markhedleyjones.com/container-magic/configuration/) | Full YAML reference - names, runtime, stages, entrypoint/cmd, commands, build secrets, dev containers, digest pinning, cache mounts |
 | [Build Steps](https://markhedleyjones.com/container-magic/build-steps/) | Package managers, custom commands, layer caching |
 | [Cached Assets](https://markhedleyjones.com/container-magic/cached-assets/) | Asset downloading, caching, and cache management |
 | [User Handling](https://markhedleyjones.com/container-magic/user-handling/) | Dev vs prod users, copy ownership, permissions |

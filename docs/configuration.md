@@ -297,6 +297,7 @@ Each stage also supports:
 
 - `distro` - Override the auto-detected distribution family. Sets package manager, user creation style, and interactive shell in one field. Inherited by child stages. Useful when using a custom or locally-built base image whose name doesn't match a known distribution. Supported values: `alpine`, `debian`, `ubuntu`, `fedora`, `centos`, `rhel`, `rocky`, `alma`. Unrecognised values warn and default to Debian settings.
 - `package_manager` - Override the package manager (`apt`, `apk`, or `dnf`). Takes precedence over `distro` if both are set.
+- `entrypoint` / `cmd` - The container's entrypoint and default command. See [Entrypoint and command](#entrypoint-and-command).
 
 Package installation uses the command builder step syntax. The command name determines which package manager is used. Container-optimised defaults (flags, cleanup) are applied automatically - see [Package Installation](build-steps.md#package-installation) for details.
 
@@ -331,6 +332,39 @@ steps:
 ```
 
 You can use any image from Docker Hub as your base (e.g., `python:3.11`, `ubuntu:22.04`, `pytorch/pytorch`, `nvidia/cuda:12.4.0-runtime-ubuntu22.04`).
+
+### Entrypoint and command
+
+Set what a production image runs when started. Both fields live on the stage, so the production stage can define an entrypoint while development stays an interactive shell.
+
+```yaml
+stages:
+  production:
+    from: base
+    steps:
+      - copy: workspace
+    entrypoint: python workspace/app.py
+    cmd: ["--port", "8080"]
+```
+
+Generates:
+
+```dockerfile
+ENTRYPOINT ["python", "workspace/app.py"]
+CMD ["--port", "8080"]
+```
+
+- `entrypoint` - the executable the container always runs.
+- `cmd` - default arguments appended to the entrypoint; overridable at `docker run myimage <args>`. Used on its own (without an entrypoint), `cmd` is the default command.
+
+Each accepts either form:
+
+- A **string** is split with shell-style quoting: `entrypoint: sh -c "echo hi"` becomes `["sh", "-c", "echo hi"]`.
+- A **list** is used verbatim: `cmd: ["--port", "8080"]`.
+
+Both are always emitted in **exec form** (the JSON-array form). The process runs as the container's PID 1 and receives Unix signals directly, so `docker stop` reaches it for a graceful shutdown. Shell form (`/bin/sh -c ...`, which does not forward signals) is deliberately not generated; if you need shell features such as environment-variable expansion at runtime, wrap the command yourself: `entrypoint: ["sh", "-c", "exec myapp --port $PORT"]`.
+
+Paths are relative to the working directory, which is the user's home (`$WORKSPACE` points at the copied workspace, e.g. `/home/<user>/workspace`). Reference the workspace explicitly (`python workspace/app.py`) or add a `WORKDIR ${WORKSPACE}` step before setting the entrypoint.
 
 ## Commands
 
