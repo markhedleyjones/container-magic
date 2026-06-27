@@ -1,0 +1,20 @@
+# Scenario: production image with a configured entrypoint and cmd
+# Tests: entrypoint/cmd emitted as exec form, workspace-relative path runs
+names:
+  image: cm-scenario-entrypoint
+  workspace: workspace
+  user: appuser
+
+stages:
+  base:
+    from: cm-test:debian
+
+  development:
+    from: base
+
+  production:
+    from: base
+    steps:
+      - copy: workspace
+    entrypoint: python3 workspace/entrypoint_app.py
+    cmd: ["default-arg"]

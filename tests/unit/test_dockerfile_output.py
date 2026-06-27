@@ -471,3 +471,81 @@ class TestEnvMerging:
         for line in content.splitlines():
             if "MY_VAR" in line:
                 assert "\\" not in line
+
+
+# ---------------------------------------------------------------------------
+# Entrypoint / Cmd
+# ---------------------------------------------------------------------------
+
+
+def _stage_config(stage, **fields):
+    """Minimal valid config with extra fields applied to a named stage."""
+    config = {
+        "names": {"image": "test", "workspace": "workspace", "user": "root"},
+        "stages": {
+            "base": {"from": "debian:bookworm-slim"},
+            "development": {"from": "base", "steps": []},
+            "production": {"from": "base", "steps": []},
+        },
+    }
+    config["stages"][stage].update(fields)
+    return config
+
+
+class TestEntrypointCmd:
+    def test_string_entrypoint_renders_exec_form(self):
+        config = _stage_config("production", entrypoint="python app.py")
+        content = _generate(config)
+        prod = _get_stage_block(content, "production")
+        assert 'ENTRYPOINT ["python", "app.py"]' in prod
+
+    def test_list_entrypoint_renders_exec_form(self):
+        config = _stage_config("production", entrypoint=["python", "app.py"])
+        content = _generate(config)
+        prod = _get_stage_block(content, "production")
+        assert 'ENTRYPOINT ["python", "app.py"]' in prod
+
+    def test_string_with_quotes_split_respecting_shell_quoting(self):
+        config = _stage_config("production", entrypoint='sh -c "echo hi there"')
+        content = _generate(config)
+        prod = _get_stage_block(content, "production")
+        assert 'ENTRYPOINT ["sh", "-c", "echo hi there"]' in prod
+
+    def test_cmd_list_renders_exec_form(self):
+        config = _stage_config("production", cmd=["--port", "8080"])
+        content = _generate(config)
+        prod = _get_stage_block(content, "production")
+        assert 'CMD ["--port", "8080"]' in prod
+
+    def test_entrypoint_and_cmd_together(self):
+        config = _stage_config("production", entrypoint="/start.sh", cmd=["--verbose"])
+        content = _generate(config)
+        prod = _get_stage_block(content, "production")
+        assert 'ENTRYPOINT ["/start.sh"]' in prod
+        assert 'CMD ["--verbose"]' in prod
+
+    def test_entrypoint_emitted_after_final_user(self):
+        """ENTRYPOINT comes after the build steps / USER switch, at stage end."""
+        config = {
+            "names": {"image": "test", "workspace": "workspace", "user": "nonroot"},
+            "stages": {
+                "base": {"from": "debian:bookworm-slim"},
+                "development": {"from": "base", "steps": []},
+                "production": {
+                    "from": "base",
+                    "steps": [{"copy": "workspace"}],
+                    "entrypoint": ["python", "workspace/app.py"],
+                },
+            },
+        }
+        content = _generate(config)
+        prod = _get_stage_block(content, "production")
+        user_idx = prod.rindex("USER ")
+        entry_idx = prod.index("ENTRYPOINT")
+        assert entry_idx > user_idx
+
+    def test_no_entrypoint_emits_nothing(self):
+        config = _stage_config("production", steps=[])
+        content = _generate(config)
+        assert "ENTRYPOINT" not in content
+        assert "\nCMD " not in content

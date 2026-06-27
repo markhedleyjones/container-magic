@@ -550,3 +550,50 @@ class TestEffectiveRuntime:
         assert dev_rt.network_mode == "host"
         prod_rt = config.effective_runtime("production")
         assert prod_rt.network_mode == "bridge"
+
+
+def _config_with_stage_fields(**production_fields):
+    return ContainerMagicConfig(
+        names={"image": "test", "workspace": "workspace", "user": "root"},
+        stages={
+            "base": {"from": "debian:bookworm-slim"},
+            "development": {"from": "base"},
+            "production": {"from": "base", **production_fields},
+        },
+    )
+
+
+def test_entrypoint_string_accepted():
+    config = _config_with_stage_fields(entrypoint="python app.py")
+    assert config.stages["production"].entrypoint == "python app.py"
+
+
+def test_entrypoint_list_accepted():
+    config = _config_with_stage_fields(entrypoint=["python", "app.py"])
+    assert config.stages["production"].entrypoint == ["python", "app.py"]
+
+
+def test_cmd_accepted():
+    config = _config_with_stage_fields(cmd=["--port", "8080"])
+    assert config.stages["production"].cmd == ["--port", "8080"]
+
+
+def test_empty_string_entrypoint_rejected():
+    with pytest.raises(ValidationError, match="entrypoint must not be empty"):
+        _config_with_stage_fields(entrypoint="   ")
+
+
+def test_empty_list_entrypoint_rejected():
+    with pytest.raises(ValidationError, match="entrypoint must not be empty"):
+        _config_with_stage_fields(entrypoint=[])
+
+
+def test_empty_list_cmd_rejected():
+    with pytest.raises(ValidationError, match="cmd must not be empty"):
+        _config_with_stage_fields(cmd=[])
+
+
+def test_entrypoint_omitted_by_default():
+    config = _config_with_stage_fields()
+    assert config.stages["production"].entrypoint is None
+    assert config.stages["production"].cmd is None
